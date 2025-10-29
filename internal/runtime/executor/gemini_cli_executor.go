@@ -70,6 +70,7 @@ func (e *GeminiCLIExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth
 		}
 		basePayload = util.ApplyGeminiCLIThinkingConfig(basePayload, budgetOverride, includeOverride)
 	}
+	basePayload = util.StripThinkingConfigIfUnsupported(req.Model, basePayload)
 	basePayload = fixGeminiCLIImageAspectRatio(req.Model, basePayload)
 
 	action := "generateContent"
@@ -105,7 +106,6 @@ func (e *GeminiCLIExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth
 			payload = setJSONField(payload, "project", projectID)
 			payload = setJSONField(payload, "model", attemptModel)
 		}
-		payload = util.StripThinkingConfigIfUnsupported(attemptModel, payload)
 
 		tok, errTok := tokenSource.Token()
 		if errTok != nil {
@@ -207,6 +207,7 @@ func (e *GeminiCLIExecutor) ExecuteStream(ctx context.Context, auth *cliproxyaut
 		}
 		basePayload = util.ApplyGeminiCLIThinkingConfig(basePayload, budgetOverride, includeOverride)
 	}
+	basePayload = util.StripThinkingConfigIfUnsupported(req.Model, basePayload)
 	basePayload = fixGeminiCLIImageAspectRatio(req.Model, basePayload)
 
 	projectID := strings.TrimSpace(stringValue(auth.Metadata, "project_id"))
@@ -231,7 +232,6 @@ func (e *GeminiCLIExecutor) ExecuteStream(ctx context.Context, auth *cliproxyaut
 		payload := append([]byte(nil), basePayload...)
 		payload = setJSONField(payload, "project", projectID)
 		payload = setJSONField(payload, "model", attemptModel)
-		payload = util.StripThinkingConfigIfUnsupported(attemptModel, payload)
 
 		tok, errTok := tokenSource.Token()
 		if errTok != nil {
@@ -401,16 +401,16 @@ func (e *GeminiCLIExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.
 	budgetOverride, includeOverride, hasOverride := util.GeminiThinkingFromMetadata(req.Metadata)
 	for _, attemptModel := range models {
 		payload := sdktranslator.TranslateRequest(from, to, attemptModel, bytes.Clone(req.Payload), false)
-		if hasOverride && util.ModelSupportsThinking(attemptModel) {
+		if hasOverride && util.ModelSupportsThinking(req.Model) {
 			if budgetOverride != nil {
-				norm := util.NormalizeThinkingBudget(attemptModel, *budgetOverride)
+				norm := util.NormalizeThinkingBudget(req.Model, *budgetOverride)
 				budgetOverride = &norm
 			}
 			payload = util.ApplyGeminiCLIThinkingConfig(payload, budgetOverride, includeOverride)
 		}
 		payload = deleteJSONField(payload, "project")
 		payload = deleteJSONField(payload, "model")
-		payload = util.StripThinkingConfigIfUnsupported(attemptModel, payload)
+		payload = util.StripThinkingConfigIfUnsupported(req.Model, payload)
 		payload = fixGeminiCLIImageAspectRatio(attemptModel, payload)
 
 		tok, errTok := tokenSource.Token()
