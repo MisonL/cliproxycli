@@ -84,6 +84,7 @@ func GeminiModels() []*ModelInfo {
 			InputTokenLimit:            1048576,
 			OutputTokenLimit:           65536,
 			SupportedGenerationMethods: []string{"generateContent", "countTokens", "createCachedContent", "batchGenerateContent"},
+			Thinking:                   &ThinkingSupport{Min: 0, Max: 24576, ZeroAllowed: true, DynamicAllowed: true},
 		},
 		{
 			ID:                         "gemini-2.5-pro",
@@ -98,6 +99,7 @@ func GeminiModels() []*ModelInfo {
 			InputTokenLimit:            1048576,
 			OutputTokenLimit:           65536,
 			SupportedGenerationMethods: []string{"generateContent", "countTokens", "createCachedContent", "batchGenerateContent"},
+			Thinking:                   &ThinkingSupport{Min: 128, Max: 32768, ZeroAllowed: false, DynamicAllowed: true},
 		},
 		{
 			ID:                         "gemini-2.5-flash-lite",
@@ -112,6 +114,7 @@ func GeminiModels() []*ModelInfo {
 			InputTokenLimit:            1048576,
 			OutputTokenLimit:           65536,
 			SupportedGenerationMethods: []string{"generateContent", "countTokens", "createCachedContent", "batchGenerateContent"},
+			Thinking:                   &ThinkingSupport{Min: 512, Max: 24576, ZeroAllowed: true, DynamicAllowed: true},
 		},
 		{
 			ID:                         "gemini-2.5-flash-image-preview",
@@ -126,6 +129,7 @@ func GeminiModels() []*ModelInfo {
 			InputTokenLimit:            1048576,
 			OutputTokenLimit:           8192,
 			SupportedGenerationMethods: []string{"generateContent", "countTokens", "createCachedContent", "batchGenerateContent"},
+			// image models don't support thinkingConfig; leave Thinking nil
 		},
 		{
 			ID:                         "gemini-2.5-flash-image",
@@ -140,6 +144,7 @@ func GeminiModels() []*ModelInfo {
 			InputTokenLimit:            1048576,
 			OutputTokenLimit:           8192,
 			SupportedGenerationMethods: []string{"generateContent", "countTokens", "createCachedContent", "batchGenerateContent"},
+			// image models don't support thinkingConfig; leave Thinking nil
 		},
 	}
 }
@@ -152,9 +157,8 @@ func GetGeminiCLIModels() []*ModelInfo { return GeminiModels() }
 
 // GetAIStudioModels returns the Gemini model definitions for AI Studio integrations
 func GetAIStudioModels() []*ModelInfo {
-	models := make([]*ModelInfo, 0, 8)
-	models = append(models, GeminiModels()...)
-	models = append(models,
+	base := GeminiModels()
+	return append(base,
 		&ModelInfo{
 			ID:                         "gemini-pro-latest",
 			Object:                     "model",
@@ -168,6 +172,7 @@ func GetAIStudioModels() []*ModelInfo {
 			InputTokenLimit:            1048576,
 			OutputTokenLimit:           65536,
 			SupportedGenerationMethods: []string{"generateContent", "countTokens", "createCachedContent", "batchGenerateContent"},
+			Thinking:                   &ThinkingSupport{Min: 128, Max: 32768, ZeroAllowed: false, DynamicAllowed: true},
 		},
 		&ModelInfo{
 			ID:                         "gemini-flash-latest",
@@ -182,6 +187,7 @@ func GetAIStudioModels() []*ModelInfo {
 			InputTokenLimit:            1048576,
 			OutputTokenLimit:           65536,
 			SupportedGenerationMethods: []string{"generateContent", "countTokens", "createCachedContent", "batchGenerateContent"},
+			Thinking:                   &ThinkingSupport{Min: 0, Max: 24576, ZeroAllowed: true, DynamicAllowed: true},
 		},
 		&ModelInfo{
 			ID:                         "gemini-flash-lite-latest",
@@ -196,9 +202,9 @@ func GetAIStudioModels() []*ModelInfo {
 			InputTokenLimit:            1048576,
 			OutputTokenLimit:           65536,
 			SupportedGenerationMethods: []string{"generateContent", "countTokens", "createCachedContent", "batchGenerateContent"},
+			Thinking:                   &ThinkingSupport{Min: 512, Max: 24576, ZeroAllowed: true, DynamicAllowed: true},
 		},
 	)
-	return models
 }
 
 // GetOpenAIModels returns the standard OpenAI model definitions
