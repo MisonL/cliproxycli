@@ -253,28 +253,41 @@ func ConvertOpenAIResponsesRequestToGemini(modelName string, inputRawJSON []byte
 			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", 0)
 		case "auto":
 			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", -1)
+			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.include_thoughts", true)
 		case "minimal":
 			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", util.NormalizeThinkingBudget(modelName, 1024))
+			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.include_thoughts", true)
 		case "low":
 			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", util.NormalizeThinkingBudget(modelName, 4096))
+			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.include_thoughts", true)
 		case "medium":
 			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", util.NormalizeThinkingBudget(modelName, 8192))
+			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.include_thoughts", true)
 		case "high":
 			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", util.NormalizeThinkingBudget(modelName, 32768))
+			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.include_thoughts", true)
 		default:
 			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", -1)
+			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.include_thoughts", true)
 		}
 	}
 
 	// Cherry Studio extension (applies only when official fields are missing)
 	if !hasOfficialThinking && util.ModelSupportsThinking(modelName) {
 		if tc := root.Get("extra_body.google.thinking_config"); tc.Exists() && tc.IsObject() {
+			var setBudget bool
+			var normalized int
 			if v := tc.Get("thinking_budget"); v.Exists() {
-				budget := util.NormalizeThinkingBudget(modelName, int(v.Int()))
-				out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", budget)
+				normalized = util.NormalizeThinkingBudget(modelName, int(v.Int()))
+				out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", normalized)
+				setBudget = true
 			}
 			if v := tc.Get("include_thoughts"); v.Exists() {
 				out, _ = sjson.Set(out, "generationConfig.thinkingConfig.include_thoughts", v.Bool())
+			} else if setBudget {
+				if normalized != 0 {
+					out, _ = sjson.Set(out, "generationConfig.thinkingConfig.include_thoughts", true)
+				}
 			}
 		}
 	}

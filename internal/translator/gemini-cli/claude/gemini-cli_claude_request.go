@@ -152,13 +152,14 @@ func ConvertClaudeRequestToCLI(modelName string, inputRawJSON []byte, _ bool) []
 		out, _ = sjson.SetRaw(out, "request.tools", string(b))
 	}
 
-	// Map Anthropic thinking -> Gemini thinkingBudget when type==enabled
+	// Map Anthropic thinking -> Gemini thinkingBudget/include_thoughts when type==enabled
 	if t := gjson.GetBytes(rawJSON, "thinking"); t.Exists() && t.IsObject() && util.ModelSupportsThinking(modelName) {
 		if t.Get("type").String() == "enabled" {
 			if b := t.Get("budget_tokens"); b.Exists() && b.Type == gjson.Number {
 				budget := int(b.Int())
 				budget = util.NormalizeThinkingBudget(modelName, budget)
 				out, _ = sjson.Set(out, "request.generationConfig.thinkingConfig.thinkingBudget", budget)
+				out, _ = sjson.Set(out, "request.generationConfig.thinkingConfig.include_thoughts", true)
 			}
 		}
 	}
