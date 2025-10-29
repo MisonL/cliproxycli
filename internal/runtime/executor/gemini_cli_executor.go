@@ -63,7 +63,11 @@ func (e *GeminiCLIExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth
 	to := sdktranslator.FromString("gemini-cli")
 	budgetOverride, includeOverride, hasOverride := util.GeminiThinkingFromMetadata(req.Metadata)
 	basePayload := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), false)
-	if hasOverride {
+	if hasOverride && util.ModelSupportsThinking(req.Model) {
+		if budgetOverride != nil {
+			norm := util.NormalizeThinkingBudget(req.Model, *budgetOverride)
+			budgetOverride = &norm
+		}
 		basePayload = util.ApplyGeminiCLIThinkingConfig(basePayload, budgetOverride, includeOverride)
 	}
 	basePayload = fixGeminiCLIImageAspectRatio(req.Model, basePayload)
@@ -101,7 +105,7 @@ func (e *GeminiCLIExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth
 			payload = setJSONField(payload, "project", projectID)
 			payload = setJSONField(payload, "model", attemptModel)
 		}
-		payload = disableGeminiThinkingConfig(payload, attemptModel)
+		payload = util.StripThinkingConfigIfUnsupported(attemptModel, payload)
 
 		tok, errTok := tokenSource.Token()
 		if errTok != nil {
@@ -196,7 +200,11 @@ func (e *GeminiCLIExecutor) ExecuteStream(ctx context.Context, auth *cliproxyaut
 	to := sdktranslator.FromString("gemini-cli")
 	budgetOverride, includeOverride, hasOverride := util.GeminiThinkingFromMetadata(req.Metadata)
 	basePayload := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), true)
-	if hasOverride {
+	if hasOverride && util.ModelSupportsThinking(req.Model) {
+		if budgetOverride != nil {
+			norm := util.NormalizeThinkingBudget(req.Model, *budgetOverride)
+			budgetOverride = &norm
+		}
 		basePayload = util.ApplyGeminiCLIThinkingConfig(basePayload, budgetOverride, includeOverride)
 	}
 	basePayload = fixGeminiCLIImageAspectRatio(req.Model, basePayload)
@@ -223,7 +231,7 @@ func (e *GeminiCLIExecutor) ExecuteStream(ctx context.Context, auth *cliproxyaut
 		payload := append([]byte(nil), basePayload...)
 		payload = setJSONField(payload, "project", projectID)
 		payload = setJSONField(payload, "model", attemptModel)
-		payload = disableGeminiThinkingConfig(payload, attemptModel)
+		payload = util.StripThinkingConfigIfUnsupported(attemptModel, payload)
 
 		tok, errTok := tokenSource.Token()
 		if errTok != nil {
@@ -393,12 +401,16 @@ func (e *GeminiCLIExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.
 	budgetOverride, includeOverride, hasOverride := util.GeminiThinkingFromMetadata(req.Metadata)
 	for _, attemptModel := range models {
 		payload := sdktranslator.TranslateRequest(from, to, attemptModel, bytes.Clone(req.Payload), false)
-		if hasOverride {
+		if hasOverride && util.ModelSupportsThinking(attemptModel) {
+			if budgetOverride != nil {
+				norm := util.NormalizeThinkingBudget(attemptModel, *budgetOverride)
+				budgetOverride = &norm
+			}
 			payload = util.ApplyGeminiCLIThinkingConfig(payload, budgetOverride, includeOverride)
 		}
 		payload = deleteJSONField(payload, "project")
 		payload = deleteJSONField(payload, "model")
-		payload = disableGeminiThinkingConfig(payload, attemptModel)
+		payload = util.StripThinkingConfigIfUnsupported(attemptModel, payload)
 		payload = fixGeminiCLIImageAspectRatio(attemptModel, payload)
 
 		tok, errTok := tokenSource.Token()
@@ -621,29 +633,6 @@ func cliPreviewFallbackOrder(model string) []string {
 	default:
 		return nil
 	}
-}
-
-func disableGeminiThinkingConfig(body []byte, model string) []byte {
-	if !geminiModelDisallowsThinking(model) {
-		return body
-	}
-
-	updated := deleteJSONField(body, "request.generationConfig.thinkingConfig")
-	updated = deleteJSONField(updated, "generationConfig.thinkingConfig")
-	return updated
-}
-
-func geminiModelDisallowsThinking(model string) bool {
-	if model == "" {
-		return false
-	}
-	lower := strings.ToLower(model)
-	for _, marker := range []string{"gemini-2.5-flash-image-preview", "gemini-2.5-flash-image"} {
-		if strings.Contains(lower, marker) {
-			return true
-		}
-	}
-	return false
 }
 
 // setJSONField sets a top-level JSON field on a byte slice payload via sjson.
