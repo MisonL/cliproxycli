@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"strings"
 
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -242,7 +243,7 @@ func ConvertOpenAIResponsesRequestToGemini(modelName string, inputRawJSON []byte
 		out, _ = sjson.Set(out, "generationConfig.stopSequences", sequences)
 	}
 
-	if reasoningEffort := root.Get("reasoning.effort"); reasoningEffort.Exists() {
+	if reasoningEffort := root.Get("reasoning.effort"); reasoningEffort.Exists() && util.ModelSupportsThinking(modelName) {
 		switch reasoningEffort.String() {
 		case "none":
 			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.include_thoughts", false)
@@ -250,13 +251,13 @@ func ConvertOpenAIResponsesRequestToGemini(modelName string, inputRawJSON []byte
 		case "auto":
 			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", -1)
 		case "minimal":
-			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", 1024)
+			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", util.NormalizeThinkingBudget(modelName, 1024))
 		case "low":
-			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", 4096)
+			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", util.NormalizeThinkingBudget(modelName, 4096))
 		case "medium":
-			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", 8192)
+			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", util.NormalizeThinkingBudget(modelName, 8192))
 		case "high":
-			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", 24576)
+			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", util.NormalizeThinkingBudget(modelName, 32768))
 		default:
 			out, _ = sjson.Set(out, "generationConfig.thinkingConfig.thinkingBudget", -1)
 		}
