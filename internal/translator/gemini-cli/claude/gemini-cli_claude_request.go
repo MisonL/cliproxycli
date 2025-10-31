@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	client "github.com/router-for-me/CLIProxyAPI/v6/internal/interfaces"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/translator/gemini/common"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -173,5 +174,8 @@ func ConvertClaudeRequestToCLI(modelName string, inputRawJSON []byte, _ bool) []
 		out, _ = sjson.Set(out, "request.generationConfig.topK", v.Num)
 	}
 
-	return []byte(out)
+	outBytes := []byte(out)
+	outBytes = common.AttachDefaultSafetySettings(outBytes, "request.safetySettings")
+
+	return outBytes
 }

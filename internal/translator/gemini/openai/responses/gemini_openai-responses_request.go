@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"strings"
 
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/translator/gemini/common"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -291,5 +292,7 @@ func ConvertOpenAIResponsesRequestToGemini(modelName string, inputRawJSON []byte
 			}
 		}
 	}
-	return []byte(out)
+	result := []byte(out)
+	result = common.AttachDefaultSafetySettings(result, "safetySettings")
+	return result
 }
