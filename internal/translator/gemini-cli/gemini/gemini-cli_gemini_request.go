@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/translator/gemini/common"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
@@ -97,7 +98,7 @@ func ConvertGeminiRequestToGeminiCLI(_ string, inputRawJSON []byte, _ bool) []by
 		}
 	}
 
-	return rawJSON
+	return common.AttachDefaultSafetySettings(rawJSON, "request.safetySettings")
 }
 
 // FunctionCallGroup represents a group of function calls and their responses
