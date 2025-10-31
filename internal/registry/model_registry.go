@@ -523,6 +523,31 @@ func (r *ModelRegistry) ResumeClientModel(clientID, modelID string) {
 	log.Debugf("Resumed client %s for model %s", clientID, modelID)
 }
 
+// ClientSupportsModel reports whether the client registered support for modelID.
+func (r *ModelRegistry) ClientSupportsModel(clientID, modelID string) bool {
+	clientID = strings.TrimSpace(clientID)
+	modelID = strings.TrimSpace(modelID)
+	if clientID == "" || modelID == "" {
+		return false
+	}
+
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	models, exists := r.clientModels[clientID]
+	if !exists || len(models) == 0 {
+		return false
+	}
+
+	for _, id := range models {
+		if strings.EqualFold(strings.TrimSpace(id), modelID) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // GetAvailableModels returns all models that have at least one available client
 // Parameters:
 //   - handlerType: The handler type to filter models for (e.g., "openai", "claude", "gemini")
