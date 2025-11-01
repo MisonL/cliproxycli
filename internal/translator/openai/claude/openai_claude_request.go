@@ -34,10 +34,7 @@ func ConvertClaudeRequestToOpenAI(modelName string, inputRawJSON []byte, stream 
 	// Temperature
 	if temp := root.Get("temperature"); temp.Exists() {
 		out, _ = sjson.Set(out, "temperature", temp.Float())
-	}
-
-	// Top P
-	if topP := root.Get("top_p"); topP.Exists() {
+	} else if topP := root.Get("top_p"); topP.Exists() { // Top P
 		out, _ = sjson.Set(out, "top_p", topP.Float())
 	}
 
