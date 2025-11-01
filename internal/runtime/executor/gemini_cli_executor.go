@@ -418,6 +418,7 @@ func (e *GeminiCLIExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.
 		}
 		payload = deleteJSONField(payload, "project")
 		payload = deleteJSONField(payload, "model")
+		payload = deleteJSONField(payload, "request.safetySettings")
 		payload = util.StripThinkingConfigIfUnsupported(req.Model, payload)
 		payload = fixGeminiCLIImageAspectRatio(attemptModel, payload)
 
