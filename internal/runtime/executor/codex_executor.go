@@ -508,6 +508,11 @@ func (e *CodexExecutor) cacheHelper(ctx context.Context, from sdktranslator.Form
 				codexCacheMap[key] = cache
 			}
 		}
+	} else if from == "openai-response" {
+		promptCacheKey := gjson.GetBytes(req.Payload, "prompt_cache_key")
+		if promptCacheKey.Exists() {
+			cache.ID = promptCacheKey.String()
+		}
 	}
 
 	rawJSON, _ = sjson.SetBytes(rawJSON, "prompt_cache_key", cache.ID)
