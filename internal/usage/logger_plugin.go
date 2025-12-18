@@ -73,6 +73,7 @@ type RequestStatistics struct {
 	requestsByHour map[int]int64
 	tokensByDay    map[string]int64
 	tokensByHour   map[int]int64
+	dirty          bool
 }
 
 // apiStats holds aggregated metrics for a single API key.
@@ -210,6 +211,7 @@ func (s *RequestStatistics) Record(ctx context.Context, record coreusage.Record)
 	s.requestsByHour[hourKey]++
 	s.tokensByDay[dayKey] += totalTokens
 	s.tokensByHour[hourKey] += totalTokens
+	s.dirty = true
 }
 
 func (s *RequestStatistics) updateAPIStats(stats *apiStats, model string, detail RequestDetail) {
@@ -226,33 +228,43 @@ func (s *RequestStatistics) updateAPIStats(stats *apiStats, model string, detail
 }
 
 // Save persists the current statistics snapshot to a JSON file.
-func (s *RequestStatistics) Save(path string) error {
+// It returns true if the statistics were saved, false if skipped because not dirty.
+func (s *RequestStatistics) Save(path string) (bool, error) {
 	if s == nil {
-		return nil
+		return false, nil
 	}
+
+	s.mu.Lock()
+	if !s.dirty {
+		s.mu.Unlock()
+		return false, nil
+	}
+	s.dirty = false // Reset dirty flag before snapshot if we want to be strict, but Snapshot() also locks.
+	s.mu.Unlock()
+
 	snapshot := s.Snapshot()
 	data, err := json.MarshalIndent(snapshot, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal usage stats: %w", err)
+		return false, fmt.Errorf("failed to marshal usage stats: %w", err)
 	}
 
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create usage stats directory: %w", err)
+		return false, fmt.Errorf("failed to create usage stats directory: %w", err)
 	}
 
 	// Atomic write: write to temp file then rename
 	tmpPath := path + ".tmp"
 	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
-		return fmt.Errorf("failed to write usage stats to temp file: %w", err)
+		return false, fmt.Errorf("failed to write usage stats to temp file: %w", err)
 	}
 
 	if err := os.Rename(tmpPath, path); err != nil {
 		_ = os.Remove(tmpPath)
-		return fmt.Errorf("failed to rename usage stats file: %w", err)
+		return false, fmt.Errorf("failed to rename usage stats file: %w", err)
 	}
 
-	return nil
+	return true, nil
 }
 
 // Load restores statistics from a JSON file.

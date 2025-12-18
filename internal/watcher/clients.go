@@ -123,8 +123,11 @@ func (w *Watcher) addOrUpdateClient(path string) {
 		return
 	}
 
-	sum := sha256.Sum256(data)
-	curHash := hex.EncodeToString(sum[:])
+	curHash, errHash := semanticAuthHash(data)
+	if errHash != nil {
+		log.Errorf("failed to compute semantic hash for %s: %v", filepath.Base(path), errHash)
+		return
+	}
 	normalized := w.normalizeAuthPath(path)
 
 	w.clientsMutex.Lock()
@@ -136,7 +139,7 @@ func (w *Watcher) addOrUpdateClient(path string) {
 		return
 	}
 	if prev, ok := w.lastAuthHashes[normalized]; ok && prev == curHash {
-		log.Debugf("auth file unchanged (hash match), skipping reload: %s", filepath.Base(path))
+		log.Debugf("auth file unchanged (semantic hash match), skipping reload: %s", filepath.Base(path))
 		w.clientsMutex.Unlock()
 		return
 	}

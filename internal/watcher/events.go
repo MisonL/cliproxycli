@@ -4,8 +4,6 @@ package watcher
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -132,8 +130,10 @@ func (w *Watcher) authFileUnchanged(path string) (bool, error) {
 	if len(data) == 0 {
 		return false, nil
 	}
-	sum := sha256.Sum256(data)
-	curHash := hex.EncodeToString(sum[:])
+	curHash, errHash := semanticAuthHash(data)
+	if errHash != nil {
+		return false, errHash
+	}
 
 	normalized := w.normalizeAuthPath(path)
 	w.clientsMutex.RLock()

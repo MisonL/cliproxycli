@@ -314,8 +314,10 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 			ticker := time.NewTicker(1 * time.Minute)
 			defer ticker.Stop()
 			for range ticker.C {
-				if err := reqStats.Save(usageStatsPath); err != nil {
+				if saved, err := reqStats.Save(usageStatsPath); err != nil {
 					log.Warnf("failed to save usage statistics: %v", err)
+				} else if saved {
+					log.Debug("usage statistics persisted to disk")
 				}
 			}
 		}()
@@ -801,10 +803,12 @@ func (s *Server) Stop(ctx context.Context) error {
 			logDir = filepath.Join(base, "logs")
 		}
 		usageStatsPath := filepath.Join(logDir, "usage_stats.json")
-		if err := usage.GetRequestStatistics().Save(usageStatsPath); err != nil {
+		if saved, err := usage.GetRequestStatistics().Save(usageStatsPath); err != nil {
 			log.Errorf("failed to save final usage statistics: %v", err)
-		} else {
+		} else if saved {
 			log.Info("usage statistics saved")
+		} else {
+			log.Debug("usage statistics unchanged, skipping final save")
 		}
 	}
 
