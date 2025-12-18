@@ -37,4 +37,8 @@ _bmad/*
 
 # macOS
 .DS_Store
-._*
+
+# Local Development
+start.sh
+server.log
+bin/

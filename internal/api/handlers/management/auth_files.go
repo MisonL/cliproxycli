@@ -1411,7 +1411,7 @@ func (h *Handler) RequestAntigravityToken(c *gin.Context) {
 		}
 
 		waitFile := filepath.Join(h.cfg.AuthDir, fmt.Sprintf(".oauth-antigravity-%s.oauth", state))
-		deadline := time.Now().Add(5 * time.Minute)
+		deadline := time.Now().Add(10 * time.Minute)
 		var authCode string
 		for {
 			if time.Now().After(deadline) {
