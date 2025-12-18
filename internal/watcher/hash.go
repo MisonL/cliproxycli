@@ -31,9 +31,3 @@ func semanticAuthHash(data []byte) (string, error) {
 	sum := sha256.Sum256(cleaned)
 	return hex.EncodeToString(sum[:]), nil
 }
-
-// stableJSON produces a deterministic byte slice for a map to use as a hash source.
-// Not strictly needed as json.Marshal is already stable for maps, but good to be explicit.
-func stableJSON(m map[string]any) ([]byte, error) {
-	return json.Marshal(m)
-}

@@ -49,7 +49,7 @@ func TestUsagePersistence(t *testing.T) {
 	s1.Record(context.Background(), record)
 
 	// 2. Save
-	if err := s1.Save(path); err != nil {
+	if _, err := s1.Save(path); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
 
