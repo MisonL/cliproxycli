@@ -225,6 +225,13 @@ func (h *Handler) Middleware() gin.HandlerFunc {
 func (h *Handler) persist(c *gin.Context) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
+	// If global persistence is disabled, do not write to disk.
+	if !h.cfg.PersistenceEnabled {
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "config updated in memory only (persistence disabled)"})
+		return true
+	}
+
 	// Preserve comments when writing
 	if err := config.SaveConfigPreserveComments(h.configFilePath, h.cfg); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to save config: %v", err)})

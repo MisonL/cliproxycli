@@ -5,7 +5,10 @@ package usage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -220,6 +223,114 @@ func (s *RequestStatistics) updateAPIStats(stats *apiStats, model string, detail
 	modelStatsValue.TotalRequests++
 	modelStatsValue.TotalTokens += detail.Tokens.TotalTokens
 	modelStatsValue.Details = append(modelStatsValue.Details, detail)
+}
+
+// Save persists the current statistics snapshot to a JSON file.
+func (s *RequestStatistics) Save(path string) error {
+	if s == nil {
+		return nil
+	}
+	snapshot := s.Snapshot()
+	data, err := json.MarshalIndent(snapshot, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal usage stats: %w", err)
+	}
+
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create usage stats directory: %w", err)
+	}
+
+	// Atomic write: write to temp file then rename
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write usage stats to temp file: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to rename usage stats file: %w", err)
+	}
+
+	return nil
+}
+
+// Load restores statistics from a JSON file.
+// It merges the loaded data into the current statistics.
+func (s *RequestStatistics) Load(path string) error {
+	if s == nil {
+		return nil
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to read usage stats file: %w", err)
+	}
+
+	var snapshot StatisticsSnapshot
+	if err := json.Unmarshal(data, &snapshot); err != nil {
+		return fmt.Errorf("failed to unmarshal usage stats: %w", err)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Restore simple counters
+	s.totalRequests = snapshot.TotalRequests
+	s.successCount = snapshot.SuccessCount
+	s.failureCount = snapshot.FailureCount
+	s.totalTokens = snapshot.TotalTokens
+
+	// Restore complex maps
+	// Clear existing to avoid double counting if loading multiple times (though typically only called (once on start)
+	s.apis = make(map[string]*apiStats)
+	s.requestsByDay = make(map[string]int64)
+	s.requestsByHour = make(map[int]int64)
+	s.tokensByDay = make(map[string]int64)
+	s.tokensByHour = make(map[int]int64)
+
+	// Restore APIs
+	for apiName, apiSnap := range snapshot.APIs {
+		stats := &apiStats{
+			TotalRequests: apiSnap.TotalRequests,
+			TotalTokens:   apiSnap.TotalTokens,
+			Models:        make(map[string]*modelStats),
+		}
+		for modelName, modelSnap := range apiSnap.Models {
+			details := make([]RequestDetail, len(modelSnap.Details))
+			copy(details, modelSnap.Details)
+			stats.Models[modelName] = &modelStats{
+				TotalRequests: modelSnap.TotalRequests,
+				TotalTokens:   modelSnap.TotalTokens,
+				Details:       details,
+			}
+		}
+		s.apis[apiName] = stats
+	}
+
+	// Restore Time Series Maps
+	for k, v := range snapshot.RequestsByDay {
+		s.requestsByDay[k] = v
+	}
+	for k, v := range snapshot.TokensByDay {
+		s.tokensByDay[k] = v
+	}
+	// Hour maps in snapshot are strings "HH", need to parse back to int
+	for k, v := range snapshot.RequestsByHour {
+		if h, err := time.Parse("15", k); err == nil {
+			s.requestsByHour[h.Hour()] = v
+		}
+	}
+	for k, v := range snapshot.TokensByHour {
+		if h, err := time.Parse("15", k); err == nil {
+			s.tokensByHour[h.Hour()] = v
+		}
+	}
+
+	return nil
 }
 
 // Snapshot returns a copy of the aggregated metrics for external consumption.

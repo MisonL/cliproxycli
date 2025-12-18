@@ -300,6 +300,27 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 		Handler: engine,
 	}
 
+	// Start usage statistics persistence if enabled
+	if cfg.PersistenceEnabled {
+		usageStatsPath := filepath.Join(logDir, "usage_stats.json")
+		reqStats := usage.GetRequestStatistics()
+		if err := reqStats.Load(usageStatsPath); err != nil {
+			log.Warnf("failed to load usage statistics: %v", err)
+		} else {
+			log.Info("usage statistics loaded")
+		}
+
+		go func() {
+			ticker := time.NewTicker(1 * time.Minute)
+			defer ticker.Stop()
+			for range ticker.C {
+				if err := reqStats.Save(usageStatsPath); err != nil {
+					log.Warnf("failed to save usage statistics: %v", err)
+				}
+			}
+		}()
+	}
+
 	return s
 }
 
@@ -771,6 +792,22 @@ func (s *Server) Stop(ctx context.Context) error {
 	}
 
 	log.Debug("API server stopped")
+
+	// Final save of usage statistics if persistence is enabled
+	if s.cfg.PersistenceEnabled {
+		logDir := filepath.Join(s.currentPath, "logs")
+		// Use same logic as in NewServer or stored path if cleaner
+		if base := util.WritablePath(); base != "" {
+			logDir = filepath.Join(base, "logs")
+		}
+		usageStatsPath := filepath.Join(logDir, "usage_stats.json")
+		if err := usage.GetRequestStatistics().Save(usageStatsPath); err != nil {
+			log.Errorf("failed to save final usage statistics: %v", err)
+		} else {
+			log.Info("usage statistics saved")
+		}
+	}
+
 	return nil
 }
 

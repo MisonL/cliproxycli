@@ -6,17 +6,17 @@
 
 现已支持通过 OAuth 登录接入 OpenAI Codex（GPT 系列）和 Claude Code。
 
-您可以使用本地或多账户的CLI方式，通过任何与 OpenAI（包括Responses）/Gemini/Claude 兼容的客户端和SDK进行访问。
+您可以使用本地或多账户的 CLI 方式，通过任何与 OpenAI（包括 Responses）/Gemini/Claude 兼容的客户端和 SDK 进行访问。
 
 ## 赞助商
 
 [![bigmodel.cn](https://assets.router-for.me/chinese.png)](https://www.bigmodel.cn/claude-code?ic=RRVJPB5SII)
 
-本项目由 Z智谱 提供赞助, 他们通过 GLM CODING PLAN 对本项目提供技术支持。
+本项目由 Z 智谱 提供赞助, 他们通过 GLM CODING PLAN 对本项目提供技术支持。
 
-GLM CODING PLAN 是专为AI编码打造的订阅套餐，每月最低仅需20元，即可在十余款主流AI编码工具如 Claude Code、Cline、Roo Code 中畅享智谱旗舰模型GLM-4.6，为开发者提供顶尖的编码体验。
+GLM CODING PLAN 是专为 AI 编码打造的订阅套餐，每月最低仅需 20 元，即可在十余款主流 AI 编码工具如 Claude Code、Cline、Roo Code 中畅享智谱旗舰模型 GLM-4.6，为开发者提供顶尖的编码体验。
 
-智谱AI为本软件提供了特别优惠，使用以下链接购买可以享受九折优惠：https://www.bigmodel.cn/claude-code?ic=RRVJPB5SII
+智谱 AI 为本软件提供了特别优惠，使用以下链接购买可以享受九折优惠：https://www.bigmodel.cn/claude-code?ic=RRVJPB5SII
 
 ## 功能特性
 
@@ -37,8 +37,27 @@ GLM CODING PLAN 是专为AI编码打造的订阅套餐，每月最低仅需20元
 - 支持 Qwen Code 多账户轮询
 - 支持 iFlow 多账户轮询
 - 支持 OpenAI Codex 多账户轮询
+- 支持 OpenAI Codex 多账户轮询
+- 统计数据持久化与自动恢复（防止重启丢失）
+- 可选的“纯内存模式”（无状态运行，不保存 Token 或配置）
 - 通过配置接入上游 OpenAI 兼容提供商（例如 OpenRouter）
 - 可复用的 Go SDK（见 `docs/sdk-usage_CN.md`）
+
+## 数据持久化与内存模式
+
+默认情况下，CLIProxyAPI 会将使用量统计保存到 `logs/usage_stats.json`，并将 Auth Token 保存在 `auths/` 目录中，确保重启后数据不丢失。
+
+如果您希望以**纯无状态模式**（Pure Memory Mode）运行（例如在临时容器中），可以在 `config.yaml` 中设置：
+
+```yaml
+persistence-enabled: false
+```
+
+启用后：
+
+1. 使用量统计仅保留在内存中，重启即丢失。
+2. Auth Token 仅保存在内存中，重启即失效。
+3. 通过 API 修改的配置仅在当前运行实例生效，不写入 `config.yaml`。
 
 ## 新手入门
 
@@ -95,7 +114,7 @@ CLI 封装器，用于通过 CLIProxyAPI OAuth 即时切换多个 Claude 账户�
 
 ### [ProxyPal](https://github.com/heyhuynhgiabuu/proxypal)
 
-基于 macOS 平台的原生 CLIProxyAPI GUI：配置供应商、模型映射以及OAuth端点，无需 API 密钥。
+基于 macOS 平台的原生 CLIProxyAPI GUI：配置供应商、模型映射以及 OAuth 端点，无需 API 密钥。
 
 > [!NOTE]  
 > 如果你开发了基于 CLIProxyAPI 的项目，请提交一个 PR（拉取请求）将其添加到此列表中。

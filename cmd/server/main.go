@@ -436,7 +436,13 @@ func main() {
 	} else if useGitStore {
 		sdkAuth.RegisterTokenStore(gitStoreInst)
 	} else {
-		sdkAuth.RegisterTokenStore(sdkAuth.NewFileTokenStore())
+		// Use MemoryTokenStore if persistence is disabled, otherwise FileTokenStore
+		if !cfg.PersistenceEnabled {
+			sdkAuth.RegisterTokenStore(sdkAuth.NewMemoryTokenStore())
+			log.Info("Persistence disabled: using in-memory token store")
+		} else {
+			sdkAuth.RegisterTokenStore(sdkAuth.NewFileTokenStore())
+		}
 	}
 
 	// Register built-in access providers before constructing services.
