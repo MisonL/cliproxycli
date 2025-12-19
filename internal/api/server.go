@@ -36,6 +36,9 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
+
+	schedulerhandler "github.com/router-for-me/CLIProxyAPI/v6/internal/api/handlers/scheduler"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/scheduler"
 )
 
 const oauthCallbackSuccessHTML = `<html><head><meta charset="utf-8"><title>Authentication successful</title><script>setTimeout(function(){window.close();},5000);</script></head><body><h1>Authentication successful!</h1><p>You can close this window.</p><p>This window will close automatically in 5 seconds.</p></body></html>`
@@ -168,6 +171,9 @@ type Server struct {
 	keepAliveOnTimeout func()
 	keepAliveHeartbeat chan struct{}
 	keepAliveStop      chan struct{}
+
+	schedulerStore  *scheduler.Store
+	schedulerEngine *scheduler.Engine
 }
 
 // NewServer creates and initializes a new API server instance.
@@ -281,6 +287,22 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 	// Apply additional router configurators from options
 	if optionState.routerConfigurator != nil {
 		optionState.routerConfigurator(engine, s.handlers, cfg)
+	}
+
+	// Initialize Scheduler
+	schedulerStore, err := scheduler.NewStore(filepath.Join(logDir, "scheduler"))
+	if err != nil {
+		log.Warnf("Failed to initialize scheduler store: %v", err)
+	} else {
+		// Use Loopback Executor with bind address
+		baseURL := fmt.Sprintf("http://127.0.0.1:%d", cfg.Port)
+		authToken := optionState.localPassword
+		if len(cfg.APIKeys) > 0 {
+			authToken = cfg.APIKeys[0]
+		}
+		executor := scheduler.NewLoopbackExecutor(baseURL, authToken)
+		s.schedulerStore = schedulerStore
+		s.schedulerEngine = scheduler.NewEngine(schedulerStore, executor)
 	}
 
 	// Register management routes when configuration or environment secrets are available.
@@ -601,6 +623,21 @@ func (s *Server) registerManagementRoutes() {
 		mgmt.GET("/iflow-auth-url", s.mgmt.RequestIFlowToken)
 		mgmt.POST("/iflow-auth-url", s.mgmt.RequestIFlowCookieToken)
 		mgmt.GET("/get-auth-status", s.mgmt.GetAuthStatus)
+
+		// Register Scheduler Routes
+		if s.schedulerStore != nil && s.schedulerEngine != nil {
+			schedHandler := schedulerhandler.NewHandler(s.schedulerStore, s.schedulerEngine)
+			schedGroup := s.engine.Group("/v0/management/scheduler")
+			schedGroup.Use(s.managementAvailabilityMiddleware(), s.mgmt.Middleware())
+			{
+				schedGroup.GET("/tasks", schedHandler.ListTasks)
+				schedGroup.POST("/tasks", schedHandler.CreateTask)
+				schedGroup.GET("/tasks/:id", schedHandler.GetTask)
+				schedGroup.PATCH("/tasks/:id", schedHandler.UpdateTask)
+				schedGroup.DELETE("/tasks/:id", schedHandler.DeleteTask)
+				schedGroup.GET("/logs", schedHandler.GetLogs)
+			}
+		}
 	}
 }
 
@@ -755,11 +792,20 @@ func (s *Server) Start() error {
 		if cert == "" || key == "" {
 			return fmt.Errorf("failed to start HTTPS server: tls.cert or tls.key is empty")
 		}
+
+		if s.schedulerEngine != nil {
+			s.schedulerEngine.Start()
+		}
+
 		log.Debugf("Starting API server on %s with TLS", s.server.Addr)
 		if errServeTLS := s.server.ListenAndServeTLS(cert, key); errServeTLS != nil && !errors.Is(errServeTLS, http.ErrServerClosed) {
 			return fmt.Errorf("failed to start HTTPS server: %v", errServeTLS)
 		}
 		return nil
+	}
+
+	if s.schedulerEngine != nil {
+		s.schedulerEngine.Start()
 	}
 
 	log.Debugf("Starting API server on %s", s.server.Addr)
@@ -794,6 +840,10 @@ func (s *Server) Stop(ctx context.Context) error {
 	}
 
 	log.Debug("API server stopped")
+
+	if s.schedulerEngine != nil {
+		s.schedulerEngine.Stop()
+	}
 
 	// Final save of usage statistics if persistence is enabled
 	if s.cfg.PersistenceEnabled {

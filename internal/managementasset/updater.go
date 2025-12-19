@@ -78,39 +78,9 @@ func StartAutoUpdater(ctx context.Context, configFilePath string) {
 }
 
 func runAutoUpdater(ctx context.Context) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	ticker := time.NewTicker(updateCheckInterval)
-	defer ticker.Stop()
-
-	runOnce := func() {
-		cfg := currentConfigPtr.Load()
-		if cfg == nil {
-			log.Debug("management asset auto-updater skipped: config not yet available")
-			return
-		}
-		if disableControlPanel.Load() {
-			log.Debug("management asset auto-updater skipped: control panel disabled")
-			return
-		}
-
-		configPath, _ := schedulerConfigPath.Load().(string)
-		staticDir := StaticDir(configPath)
-		EnsureLatestManagementHTML(ctx, staticDir, cfg.ProxyURL, cfg.RemoteManagement.PanelGitHubRepository)
-	}
-
-	runOnce()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			runOnce()
-		}
-	}
+	// Auto-updater is permanently disabled to support custom frontend modifications.
+	// We do not want the official upstream release to overwrite our custom scheduler page.
+	log.Info("management asset auto-updater is disabled (custom mode)")
 }
 
 func newHTTPClient(proxyURL string) *http.Client {

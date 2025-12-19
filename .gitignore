@@ -42,3 +42,8 @@ _bmad/*
 start.sh
 server.log
 bin/
+
+# Frontend
+management-center/node_modules
+management-center/dist
+management-center/coverage

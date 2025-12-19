@@ -1,0 +1,117 @@
+.container {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.pageTitle {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 24px;
+  color: var(--text-primary);
+}
+
+.taskList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.taskItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--bg-card);
+}
+
+.taskInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  h3 {
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0;
+  }
+
+  .meta {
+    font-size: 14px;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 12px;
+  }
+}
+
+.statusBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+
+  &.active {
+    background-color: var(--success-bg);
+    color: var(--success-text);
+  }
+
+  &.paused {
+    background-color: var(--warning-bg);
+    color: var(--warning-text);
+  }
+
+  &.finished {
+    background-color: var(--muted-bg);
+    color: var(--muted-text);
+  }
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.logsContainer {
+  margin-top: 24px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 24px;
+}
+
+.logEntry {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 14px;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &.error {
+    color: var(--error-text);
+  }
+}
+
+.formGroup {
+  margin-bottom: 16px;
+
+  label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  select,
+  textarea {
+    width: 100%;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid var(--input-border);
+    background-color: var(--input-bg);
+    color: var(--text-primary);
+  }
+}

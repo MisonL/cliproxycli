@@ -534,7 +534,19 @@ func syncInlineAccessProvider(cfg *Config) {
 			cfg.APIKeys = append([]string(nil), provider.APIKeys...)
 		}
 	}
-	cfg.Access.Providers = nil
+	// Re-bootstrap config access provider from API keys.
+	// This ensures that even if only api-keys are provided in the config,
+	// the access manager receives a valid provider configuration.
+	if len(cfg.APIKeys) > 0 {
+		// Use the alias 'config' which refers to the sdk/config import
+		if p := config.MakeInlineAPIKeyProvider(cfg.APIKeys); p != nil {
+			cfg.Access.Providers = []config.AccessProvider{*p}
+		} else {
+			cfg.Access.Providers = nil
+		}
+	} else {
+		cfg.Access.Providers = nil
+	}
 }
 
 // looksLikeBcrypt returns true if the provided string appears to be a bcrypt hash.
