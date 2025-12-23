@@ -5,7 +5,6 @@ package misc
 
 import (
 	"embed"
-	_ "embed"
 	"strings"
 )
 
@@ -36,8 +35,6 @@ func CodexInstructionsForModel(modelName, systemInstructions string) (bool, stri
 			last51Prompt = string(content)
 		} else if strings.HasPrefix(entry.Name(), "gpt_5_2_prompt.md") {
 			last52Prompt = string(content)
-		} else if strings.HasPrefix(entry.Name(), "review_prompt.md") {
-			// lastReviewPrompt = string(content)
 		}
 	}
 	if strings.Contains(modelName, "codex-max") {

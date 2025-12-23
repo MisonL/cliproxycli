@@ -2,7 +2,6 @@ package responses
 
 import (
 	"bytes"
-	"strconv"
 	"strings"
 
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/misc"
@@ -64,7 +63,7 @@ func ConvertOpenAIResponsesRequestToCodex(modelName string, inputRawJSON []byte,
 					})
 				}
 				originalInstructionsText = builder.String()
-				originalInstructions = strconv.Quote(originalInstructionsText)
+				// originalInstructions = strconv.Quote(originalInstructionsText) // unused
 				extractedSystemInstructions = true
 				break
 			}

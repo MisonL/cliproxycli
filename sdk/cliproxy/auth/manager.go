@@ -45,6 +45,10 @@ const (
 	quotaBackoffMax       = 30 * time.Minute
 )
 
+type contextKey string
+
+const managerKey contextKey = "cliproxy.roundtripper"
+
 var quotaCooldownDisabled atomic.Bool
 
 // SetQuotaCooldownDisabled toggles quota cooldown scheduling globally.
@@ -377,13 +381,14 @@ func (m *Manager) executeWithProvider(ctx context.Context, provider string, req 
 
 		accountType, accountInfo := auth.AccountInfo()
 		proxyInfo := auth.ProxyInfo()
-		if accountType == "api_key" {
+		switch accountType {
+		case "api_key":
 			if proxyInfo != "" {
 				log.Debugf("Use API key %s for model %s %s", util.HideAPIKey(accountInfo), req.Model, proxyInfo)
 			} else {
 				log.Debugf("Use API key %s for model %s", util.HideAPIKey(accountInfo), req.Model)
 			}
-		} else if accountType == "oauth" {
+		case "oauth":
 			if proxyInfo != "" {
 				log.Debugf("Use OAuth %s for model %s %s", accountInfo, req.Model, proxyInfo)
 			} else {
@@ -395,7 +400,7 @@ func (m *Manager) executeWithProvider(ctx context.Context, provider string, req 
 		execCtx := ctx
 		if rt := m.roundTripperFor(auth); rt != nil {
 			execCtx = context.WithValue(execCtx, roundTripperContextKey{}, rt)
-			execCtx = context.WithValue(execCtx, "cliproxy.roundtripper", rt)
+			execCtx = context.WithValue(execCtx, managerKey, rt)
 		}
 		execReq := req
 		execReq.Model, execReq.Metadata = rewriteModelForAuth(routeModel, req.Metadata, auth)
@@ -437,13 +442,14 @@ func (m *Manager) executeCountWithProvider(ctx context.Context, provider string,
 
 		accountType, accountInfo := auth.AccountInfo()
 		proxyInfo := auth.ProxyInfo()
-		if accountType == "api_key" {
+		switch accountType {
+		case "api_key":
 			if proxyInfo != "" {
 				log.Debugf("Use API key %s for model %s %s", util.HideAPIKey(accountInfo), req.Model, proxyInfo)
 			} else {
 				log.Debugf("Use API key %s for model %s", util.HideAPIKey(accountInfo), req.Model)
 			}
-		} else if accountType == "oauth" {
+		case "oauth":
 			if proxyInfo != "" {
 				log.Debugf("Use OAuth %s for model %s %s", accountInfo, req.Model, proxyInfo)
 			} else {
@@ -455,7 +461,7 @@ func (m *Manager) executeCountWithProvider(ctx context.Context, provider string,
 		execCtx := ctx
 		if rt := m.roundTripperFor(auth); rt != nil {
 			execCtx = context.WithValue(execCtx, roundTripperContextKey{}, rt)
-			execCtx = context.WithValue(execCtx, "cliproxy.roundtripper", rt)
+			execCtx = context.WithValue(execCtx, managerKey, rt)
 		}
 		execReq := req
 		execReq.Model, execReq.Metadata = rewriteModelForAuth(routeModel, req.Metadata, auth)
@@ -497,13 +503,14 @@ func (m *Manager) executeStreamWithProvider(ctx context.Context, provider string
 
 		accountType, accountInfo := auth.AccountInfo()
 		proxyInfo := auth.ProxyInfo()
-		if accountType == "api_key" {
+		switch accountType {
+		case "api_key":
 			if proxyInfo != "" {
 				log.Debugf("Use API key %s for model %s %s", util.HideAPIKey(accountInfo), req.Model, proxyInfo)
 			} else {
 				log.Debugf("Use API key %s for model %s", util.HideAPIKey(accountInfo), req.Model)
 			}
-		} else if accountType == "oauth" {
+		case "oauth":
 			if proxyInfo != "" {
 				log.Debugf("Use OAuth %s for model %s %s", accountInfo, req.Model, proxyInfo)
 			} else {
@@ -515,7 +522,7 @@ func (m *Manager) executeStreamWithProvider(ctx context.Context, provider string
 		execCtx := ctx
 		if rt := m.roundTripperFor(auth); rt != nil {
 			execCtx = context.WithValue(execCtx, roundTripperContextKey{}, rt)
-			execCtx = context.WithValue(execCtx, "cliproxy.roundtripper", rt)
+			execCtx = context.WithValue(execCtx, managerKey, rt)
 		}
 		execReq := req
 		execReq.Model, execReq.Metadata = rewriteModelForAuth(routeModel, req.Metadata, auth)

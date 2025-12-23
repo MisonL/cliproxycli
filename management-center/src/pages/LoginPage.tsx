@@ -46,7 +46,7 @@ export function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      const redirect = (location.state as any)?.from?.pathname || '/';
+      const redirect = (location.state as { from?: { pathname?: string } })?.from?.pathname || '/';
       navigate(redirect, { replace: true });
     }
   }, [isAuthenticated, navigate, location.state]);
@@ -68,8 +68,8 @@ export function LoginPage() {
       await login({ apiBase: baseToUse, managementKey: managementKey.trim() });
       showNotification(t('common.connected_status'), 'success');
       navigate('/', { replace: true });
-    } catch (err: any) {
-      const message = err?.message || t('login.error_invalid');
+    } catch (err: unknown) {
+      const message = (err as Error)?.message || t('login.error_invalid');
       setError(message);
       showNotification(`${t('notification.login_failed')}: ${message}`, 'error');
     } finally {

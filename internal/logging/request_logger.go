@@ -312,16 +312,14 @@ func (l *FileRequestLogger) generateFilename(url string) string {
 	}
 
 	// Remove leading slash
-	if strings.HasPrefix(path, "/") {
-		path = path[1:]
-	}
+	path = strings.TrimPrefix(path, "/")
 
 	// Sanitize path for filename
 	sanitized := l.sanitizeForFilename(path)
 
 	// Add timestamp
 	timestamp := time.Now().Format("2006-01-02T150405-.000000000")
-	timestamp = strings.Replace(timestamp, ".", "", -1)
+	timestamp = strings.ReplaceAll(timestamp, ".", "")
 
 	return fmt.Sprintf("%s-%s.log", sanitized, timestamp)
 }
@@ -465,11 +463,9 @@ func (l *FileRequestLogger) formatLogContent(url, method string, headers map[str
 	content.WriteString("=== RESPONSE ===\n")
 	content.WriteString(fmt.Sprintf("Status: %d\n", status))
 
-	if responseHeaders != nil {
-		for key, values := range responseHeaders {
-			for _, value := range values {
-				content.WriteString(fmt.Sprintf("%s: %s\n", key, value))
-			}
+	for key, values := range responseHeaders {
+		for _, value := range values {
+			content.WriteString(fmt.Sprintf("%s: %s\n", key, value))
 		}
 	}
 

@@ -39,9 +39,10 @@ func (h *Handler) GetTask(c *gin.Context) {
 func (h *Handler) CreateTask(c *gin.Context) {
 	var req struct {
 		Name       string `json:"name" binding:"required"`
-		Type       string `json:"type" binding:"required"` // interval, fixed_time
+		Type       string `json:"type" binding:"required"` // interval, fixed_time, daily
 		Interval   string `json:"interval"`
 		FixedTime  string `json:"fixed_time"` // ISO8601 string
+		DailyTime  string `json:"daily_time"` // e.g. "09:00,18:00"
 		Prompt     string `json:"prompt" binding:"required"`
 		Model      string `json:"model" binding:"required"`
 		WebhookURL string `json:"webhook_url"`
@@ -63,13 +64,14 @@ func (h *Handler) CreateTask(c *gin.Context) {
 		CreatedAt:  time.Now(),
 	}
 
-	if task.Type == scheduler.TaskTypeInterval {
+	switch task.Type {
+	case scheduler.TaskTypeInterval:
 		if req.Interval == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "interval is required for interval tasks"})
 			return
 		}
 		task.Interval = req.Interval
-	} else if task.Type == scheduler.TaskTypeFixedTime {
+	case scheduler.TaskTypeFixedTime:
 		if req.FixedTime == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "fixed_time is required for fixed_time tasks"})
 			return
@@ -80,7 +82,13 @@ func (h *Handler) CreateTask(c *gin.Context) {
 			return
 		}
 		task.FixedTime = &t
-	} else {
+	case scheduler.TaskTypeDaily:
+		if req.DailyTime == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "daily_time is required for daily tasks"})
+			return
+		}
+		task.DailyTime = req.DailyTime
+	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid task type"})
 		return
 	}
@@ -104,8 +112,12 @@ func (h *Handler) UpdateTask(c *gin.Context) {
 	var req struct {
 		Name       *string `json:"name"`
 		Status     *string `json:"status"`
+		Type       *string `json:"type"`
 		Prompt     *string `json:"prompt"`
+		Model      *string `json:"model"`
 		Interval   *string `json:"interval"`
+		DailyTime  *string `json:"daily_time"`
+		FixedTime  *string `json:"fixed_time"`
 		WebhookURL *string `json:"webhook_url"`
 	}
 
@@ -120,14 +132,31 @@ func (h *Handler) UpdateTask(c *gin.Context) {
 	if req.Status != nil {
 		task.Status = scheduler.TaskStatus(*req.Status)
 	}
+	if req.Type != nil {
+		task.Type = scheduler.TaskType(*req.Type)
+	}
 	if req.Prompt != nil {
 		task.Prompt = *req.Prompt
+	}
+	if req.Model != nil {
+		task.Model = *req.Model
 	}
 	if req.WebhookURL != nil {
 		task.WebhookURL = *req.WebhookURL
 	}
-	if req.Interval != nil && task.Type == scheduler.TaskTypeInterval {
+	if req.Interval != nil {
 		task.Interval = *req.Interval
+	}
+	if req.DailyTime != nil {
+		task.DailyTime = *req.DailyTime
+	}
+	if req.FixedTime != nil {
+		t, err := time.Parse(time.RFC3339, *req.FixedTime)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid fixed_time format (RFC3339 required)"})
+			return
+		}
+		task.FixedTime = &t
 	}
 
 	// Reset next run calculation if schedule params changed?
@@ -155,4 +184,32 @@ func (h *Handler) DeleteTask(c *gin.Context) {
 func (h *Handler) GetLogs(c *gin.Context) {
 	logs := h.store.GetLogs()
 	c.JSON(http.StatusOK, logs)
+}
+
+func (h *Handler) RunTask(c *gin.Context) {
+	id := c.Param("id")
+	task, ok := h.store.GetTask(id)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "task not found"})
+		return
+	}
+
+	// Trigger execution asynchronously to avoid blocking the API
+	// Note: Engine doesn't expose RunTask directly, but we can access Executor?
+	// The Engine design might need a RunTask method to handle concurrency/locking correctly.
+	// For now, let's add a RunTask method to Engine (next step), assuming it exists here.
+	if err := h.engine.RunTaskNow(task); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to trigger task: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "task triggered successfully"})
+}
+
+func (h *Handler) ClearLogs(c *gin.Context) {
+	if err := h.store.ClearLogs(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to clear logs"})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

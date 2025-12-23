@@ -3,6 +3,8 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,11 +19,12 @@ type Executor interface {
 
 // Engine manages the scheduling and execution of tasks.
 type Engine struct {
-	store    *Store
-	executor Executor
-	stopChan chan struct{}
-	wg       sync.WaitGroup
-	mu       sync.Mutex
+	store        *Store
+	executor     Executor
+	stopChan     chan struct{}
+	wg           sync.WaitGroup
+	mu           sync.Mutex
+	runningTasks sync.Map
 }
 
 // NewEngine creates a new scheduler engine.
@@ -72,6 +75,10 @@ func (e *Engine) checkAndRunTasks() {
 		}
 
 		if e.shouldRun(task, now) {
+			if _, loaded := e.runningTasks.LoadOrStore(task.ID, true); loaded {
+				log.Debugf("Task %s is already running, skipping", task.ID)
+				continue
+			}
 			// Run asynchronously to not block the ticker
 			go e.executeTask(task)
 		}
@@ -102,7 +109,7 @@ func (e *Engine) updateNextRun(task *Task, baseTime time.Time) {
 		} else {
 			// Fixed time passed or invalid, mark as finished
 			task.Status = TaskStatusFinished
-			e.store.AddTask(task)
+			_ = e.store.AddTask(task)
 			return
 		}
 	case TaskTypeInterval:
@@ -110,7 +117,7 @@ func (e *Engine) updateNextRun(task *Task, baseTime time.Time) {
 		if err != nil {
 			log.Errorf("Invalid interval for task %s: %v", task.ID, err)
 			task.Status = TaskStatusPaused // Pause on error
-			e.store.AddTask(task)
+			_ = e.store.AddTask(task)
 			return
 		}
 		// If last run is set, add interval to it. Otherwise add to now.
@@ -123,13 +130,60 @@ func (e *Engine) updateNextRun(task *Task, baseTime time.Time) {
 		} else {
 			next = baseTime.Add(duration)
 		}
+	case TaskTypeDaily:
+		if task.DailyTime == "" {
+			log.Errorf("DailyTime is empty for task %s", task.ID)
+			task.Status = TaskStatusPaused
+			_ = e.store.AddTask(task)
+			return
+		}
+
+		timePoints := strings.Split(task.DailyTime, ",")
+		var candidates []time.Time
+
+		for _, p := range timePoints {
+			p = strings.TrimSpace(p)
+			if p == "" {
+				continue
+			}
+
+			parsedTime, err := time.Parse("15:04", p)
+			if err != nil {
+				log.Errorf("Invalid time format %s for task %s", p, task.ID)
+				continue
+			}
+
+			// Create candidate for today
+			candidate := time.Date(baseTime.Year(), baseTime.Month(), baseTime.Day(),
+				parsedTime.Hour(), parsedTime.Minute(), 0, 0, baseTime.Location())
+
+			// If already passed today, scheduled for tomorrow
+			if !candidate.After(baseTime) {
+				candidate = candidate.AddDate(0, 0, 1)
+			}
+			candidates = append(candidates, candidate)
+		}
+
+		if len(candidates) == 0 {
+			log.Errorf("No valid time points for task %s", task.ID)
+			task.Status = TaskStatusPaused
+			_ = e.store.AddTask(task)
+			return
+		}
+
+		// Sort and pick the earliest one
+		sort.Slice(candidates, func(i, j int) bool {
+			return candidates[i].Before(candidates[j])
+		})
+		next = candidates[0]
 	}
 
 	task.NextRunAt = &next
-	e.store.AddTask(task)
+	_ = e.store.AddTask(task)
 }
 
 func (e *Engine) executeTask(task *Task) {
+	defer e.runningTasks.Delete(task.ID)
 	// Double check status inside goroutine?
 	// e.mu.Lock()... no, task passed by ref might change, but fine for now.
 
@@ -156,7 +210,7 @@ func (e *Engine) executeTask(task *Task) {
 		Success:    success,
 		Output:     outputStr,
 	}
-	e.store.AddLog(entry)
+	_ = e.store.AddLog(entry)
 
 	// Update Task State
 	e.mu.Lock()
@@ -178,6 +232,20 @@ func (e *Engine) executeTask(task *Task) {
 	if task.Type != TaskTypeFixedTime {
 		e.updateNextRun(task, now)
 	} else {
-		e.store.AddTask(task)
+		if e.store != nil {
+			_ = e.store.AddTask(task)
+		}
 	}
+}
+
+// RunTaskNow manually triggers a task execution asynchronously.
+func (e *Engine) RunTaskNow(task *Task) error {
+	log.Infof("Manual trigger for task: %s", task.Name)
+	if _, loaded := e.runningTasks.LoadOrStore(task.ID, true); loaded {
+		log.Warnf("Task %s is already running, skipping manual trigger", task.ID)
+		return nil
+	}
+	// Execute in background
+	go e.executeTask(task)
+	return nil
 }

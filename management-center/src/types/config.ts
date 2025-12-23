@@ -27,7 +27,7 @@ export interface Config {
   claudeApiKeys?: ProviderKeyConfig[];
   openaiCompatibility?: OpenAIProviderConfig[];
   oauthExcludedModels?: Record<string, string[]>;
-  raw?: Record<string, any>;
+  raw?: Record<string, unknown>;
 }
 
 export type RawConfigSection =

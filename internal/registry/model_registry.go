@@ -617,6 +617,47 @@ func (r *ModelRegistry) GetAvailableModels(handlerType string) []map[string]any 
 		if effectiveClients > 0 || (availableClients > 0 && (expiredClients > 0 || cooldownSuspended > 0) && otherSuspended == 0) {
 			model := r.convertModelToMap(registration.Info, handlerType)
 			if model != nil {
+				// Inject supported providers list
+				if len(registration.Providers) > 0 {
+					var providers []string
+					for p, count := range registration.Providers {
+						if count > 0 {
+							providers = append(providers, p)
+						}
+					}
+					// Sort for consistency
+					sort.Strings(providers)
+					model["supported_providers"] = providers
+
+					// Add direct access variants for each provider if they have a recognized shortcut
+					for _, p := range providers {
+						shortcut := ""
+						switch strings.ToLower(p) {
+						case "antigravity":
+							shortcut = "ant"
+						case "gemini-cli":
+							shortcut = "gcli"
+						case "vertex":
+							shortcut = "vtx"
+						case "iflow":
+							shortcut = "if"
+						case "aistudio":
+							shortcut = "as"
+						}
+
+						if shortcut != "" {
+							directModel := make(map[string]any)
+							for k, v := range model {
+								directModel[k] = v
+							}
+							directModel["id"] = shortcut + ":" + registration.Info.ID
+							directModel["is_direct"] = true
+							directModel["provider"] = p
+							// Ensure direct variants are also in the list
+							models = append(models, directModel)
+						}
+					}
+				}
 				models = append(models, model)
 			}
 		}
@@ -679,24 +720,23 @@ func (r *ModelRegistry) GetModelProviders(modelID string) []string {
 		count int
 	}
 	providers := make([]providerCount, 0, len(registration.Providers))
-	// suspendedByProvider := make(map[string]int)
-	// if registration.SuspendedClients != nil {
-	// 	for clientID := range registration.SuspendedClients {
-	// 		if provider, ok := r.clientProviders[clientID]; ok && provider != "" {
-	// 			suspendedByProvider[provider]++
-	// 		}
-	// 	}
-	// }
+	suspendedByProvider := make(map[string]int)
+	if registration.SuspendedClients != nil {
+		for clientID := range registration.SuspendedClients {
+			if provider, ok := r.clientProviders[clientID]; ok && provider != "" {
+				suspendedByProvider[provider]++
+			}
+		}
+	}
 	for name, count := range registration.Providers {
 		if count <= 0 {
 			continue
 		}
-		// adjusted := count - suspendedByProvider[name]
-		// if adjusted <= 0 {
-		// 	continue
-		// }
-		// providers = append(providers, providerCount{name: name, count: adjusted})
-		providers = append(providers, providerCount{name: name, count: count})
+		adjusted := count - suspendedByProvider[name]
+		if adjusted <= 0 {
+			continue
+		}
+		providers = append(providers, providerCount{name: name, count: adjusted})
 	}
 	if len(providers) == 0 {
 		return nil

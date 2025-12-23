@@ -95,27 +95,28 @@ func ConvertCodexResponseToOpenAI(_ context.Context, modelName string, originalR
 		}
 	}
 
-	if dataType == "response.reasoning_summary_text.delta" {
+	switch dataType {
+	case "response.reasoning_summary_text.delta":
 		if deltaResult := rootResult.Get("delta"); deltaResult.Exists() {
 			template, _ = sjson.Set(template, "choices.0.delta.role", "assistant")
 			template, _ = sjson.Set(template, "choices.0.delta.reasoning_content", deltaResult.String())
 		}
-	} else if dataType == "response.reasoning_summary_text.done" {
+	case "response.reasoning_summary_text.done":
 		template, _ = sjson.Set(template, "choices.0.delta.role", "assistant")
 		template, _ = sjson.Set(template, "choices.0.delta.reasoning_content", "\n\n")
-	} else if dataType == "response.output_text.delta" {
+	case "response.output_text.delta":
 		if deltaResult := rootResult.Get("delta"); deltaResult.Exists() {
 			template, _ = sjson.Set(template, "choices.0.delta.role", "assistant")
 			template, _ = sjson.Set(template, "choices.0.delta.content", deltaResult.String())
 		}
-	} else if dataType == "response.completed" {
+	case "response.completed":
 		finishReason := "stop"
 		if (*param).(*ConvertCliToOpenAIParams).FunctionCallIndex != -1 {
 			finishReason = "tool_calls"
 		}
 		template, _ = sjson.Set(template, "choices.0.finish_reason", finishReason)
 		template, _ = sjson.Set(template, "choices.0.native_finish_reason", finishReason)
-	} else if dataType == "response.output_item.done" {
+	case "response.output_item.done":
 		functionCallItemTemplate := `{"index":0,"id":"","type":"function","function":{"name":"","arguments":""}}`
 		itemResult := rootResult.Get("item")
 		if itemResult.Exists() {
@@ -144,7 +145,7 @@ func ConvertCodexResponseToOpenAI(_ context.Context, modelName string, originalR
 			template, _ = sjson.SetRaw(template, "choices.0.delta.tool_calls.-1", functionCallItemTemplate)
 		}
 
-	} else {
+	default:
 		return []string{}
 	}
 

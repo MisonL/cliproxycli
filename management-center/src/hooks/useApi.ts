@@ -13,7 +13,7 @@ interface UseApiOptions<T> {
   successMessage?: string;
 }
 
-export function useApi<T = any, Args extends any[] = any[]>(
+export function useApi<T = unknown, Args extends unknown[] = unknown[]>(
   apiFunction: (...args: Args) => Promise<T>,
   options: UseApiOptions<T> = {}
 ) {

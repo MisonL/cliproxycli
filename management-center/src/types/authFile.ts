@@ -25,7 +25,7 @@ export interface AuthFileItem {
   runtimeOnly?: boolean | string;
   disabled?: boolean;
   modified?: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface AuthFilesResponse {

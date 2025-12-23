@@ -29,6 +29,8 @@ import (
 	"github.com/tidwall/sjson"
 )
 
+const altKey = contextKey("alt")
+
 const (
 	antigravityBaseURLDaily = "https://daily-cloudcode-pa.sandbox.googleapis.com"
 	// antigravityBaseURLAutopush     = "https://autopush-cloudcode-pa.sandbox.googleapis.com"
@@ -42,6 +44,10 @@ const (
 	defaultAntigravityAgent    = "antigravity/1.11.5 windows/amd64"
 	antigravityAuthType        = "antigravity"
 	refreshSkew                = 3000 * time.Second
+
+	// Anti-risk control headers for official endpoint mimicry
+	antigravityXGoogAPIClient      = "gl-node/22.17.0"
+	antigravityClientMetadataValue = "ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI"
 )
 
 var randSource = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -499,7 +505,7 @@ func (e *AntigravityExecutor) convertStreamToNonStream(stream []byte) []byte {
 
 // ExecuteStream performs a streaming request to the Antigravity API.
 func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (stream <-chan cliproxyexecutor.StreamChunk, err error) {
-	ctx = context.WithValue(ctx, "alt", "")
+	ctx = context.WithValue(ctx, altKey, "")
 
 	token, updatedAuth, errToken := e.ensureAccessToken(ctx, auth)
 	if errToken != nil {
@@ -665,7 +671,8 @@ func (e *AntigravityExecutor) CountTokens(ctx context.Context, auth *cliproxyaut
 
 	from := opts.SourceFormat
 	to := sdktranslator.FromString("antigravity")
-	respCtx := context.WithValue(ctx, "alt", opts.Alt)
+	const altKey contextKey = "alt"
+	respCtx := context.WithValue(ctx, altKey, opts.Alt)
 
 	baseURLs := antigravityBaseURLFallbackOrder(auth)
 	httpClient := newProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
@@ -1019,6 +1026,8 @@ func (e *AntigravityExecutor) buildRequest(ctx context.Context, auth *cliproxyau
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+token)
 	httpReq.Header.Set("User-Agent", resolveUserAgent(auth))
+	httpReq.Header.Set("X-Goog-Api-Client", antigravityXGoogAPIClient)
+	httpReq.Header.Set("Client-Metadata", antigravityClientMetadataValue)
 	if stream {
 		httpReq.Header.Set("Accept", "text/event-stream")
 	} else {
@@ -1248,7 +1257,7 @@ func modelName2Alias(modelName string) string {
 		return "gemini-claude-sonnet-4-5-thinking"
 	case "claude-opus-4-5-thinking":
 		return "gemini-claude-opus-4-5-thinking"
-	case "chat_20706", "chat_23310", "gemini-2.5-flash-thinking", "gemini-3-pro-low", "gemini-2.5-pro":
+	case "chat_20706", "chat_23310":
 		return ""
 	default:
 		return modelName

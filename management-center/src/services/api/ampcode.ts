@@ -8,7 +8,7 @@ import type { AmpcodeConfig, AmpcodeModelMapping } from '@/types';
 
 export const ampcodeApi = {
   async getAmpcode(): Promise<AmpcodeConfig> {
-    const data = await apiClient.get('/ampcode');
+    const data = await apiClient.get<unknown>('/ampcode');
     return normalizeAmpcodeConfig(data) ?? {};
   },
 
@@ -22,7 +22,7 @@ export const ampcodeApi = {
     apiClient.put('/ampcode/restrict-management-to-localhost', { value: enabled }),
 
   async getModelMappings(): Promise<AmpcodeModelMapping[]> {
-    const data = await apiClient.get('/ampcode/model-mappings');
+    const data = await apiClient.get<Record<string, unknown>>('/ampcode/model-mappings');
     const list = data?.['model-mappings'] ?? data?.modelMappings ?? data?.items ?? data;
     return normalizeAmpcodeModelMappings(list);
   },

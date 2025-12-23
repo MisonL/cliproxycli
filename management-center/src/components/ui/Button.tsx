@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, PropsWithChildren } from 'react';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
-type ButtonSize = 'md' | 'sm';
+type ButtonSize = 'md' | 'sm' | 'icon';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -24,6 +24,7 @@ export function Button({
     'btn',
     `btn-${variant}`,
     size === 'sm' ? 'btn-sm' : '',
+    size === 'icon' ? 'btn-icon' : '',
     fullWidth ? 'btn-full' : '',
     className
   ]

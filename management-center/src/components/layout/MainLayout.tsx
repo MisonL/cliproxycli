@@ -17,6 +17,7 @@ import {
 import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
 import { useAuthStore, useConfigStore, useLanguageStore, useNotificationStore, useThemeStore } from '@/stores';
 import { versionApi } from '@/services/api';
+import { AgentChat } from '@/components/AgentChat';
 
 const sidebarIcons: Record<string, ReactNode> = {
   settings: <IconSlidersHorizontal size={18} />,
@@ -249,16 +250,16 @@ export function MainLayout() {
     try {
       await fetchConfig(undefined, true);
       showNotification(t('notification.data_refreshed'), 'success');
-    } catch (error: any) {
-      showNotification(`${t('notification.refresh_failed')}: ${error?.message || ''}`, 'error');
+    } catch (error: unknown) {
+      showNotification(`${t('notification.refresh_failed')}: ${(error as Error)?.message || ''}`, 'error');
     }
   };
 
   const handleVersionCheck = async () => {
     setCheckingVersion(true);
     try {
-      const data = await versionApi.checkLatest();
-      const latest = data?.['latest-version'] ?? data?.latest_version ?? data?.latest ?? '';
+      const data = (await versionApi.checkLatest()) as Record<string, unknown>;
+      const latest = (data?.['latest-version'] ?? data?.latest_version ?? data?.latest ?? '') as string;
       const comparison = compareVersions(latest, serverVersion);
 
       if (!latest) {
@@ -276,8 +277,8 @@ export function MainLayout() {
       } else {
         showNotification(t('system_info.version_is_latest'), 'success');
       }
-    } catch (error: any) {
-      showNotification(`${t('system_info.version_check_error')}: ${error?.message || ''}`, 'error');
+    } catch (error: unknown) {
+      showNotification(`${t('system_info.version_check_error')}: ${(error as Error)?.message || ''}`, 'error');
     } finally {
       setCheckingVersion(false);
     }
@@ -379,6 +380,7 @@ export function MainLayout() {
           </footer>
         </div>
       </div>
+      <AgentChat />
     </div>
   );
 }

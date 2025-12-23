@@ -30,13 +30,14 @@ export function SystemPage() {
   );
   const groupedModels = useMemo(() => classifyModels(models, { otherLabel }), [models, otherLabel]);
 
-  const normalizeApiKeyList = (input: any): string[] => {
+  const normalizeApiKeyList = (input: unknown): string[] => {
     if (!Array.isArray(input)) return [];
     const seen = new Set<string>();
     const keys: string[] = [];
 
-    input.forEach((item) => {
-      const value = typeof item === 'string' ? item : item?.['api-key'] ?? item?.apiKey ?? '';
+    input.forEach((item: unknown) => {
+      const itemObj = item as Record<string, unknown>;
+      const value = typeof item === 'string' ? item : itemObj?.['api-key'] ?? itemObj?.apiKey ?? '';
       const trimmed = String(value || '').trim();
       if (!trimmed || seen.has(trimmed)) return;
       seen.add(trimmed);
@@ -98,8 +99,8 @@ export function SystemPage() {
         type: hasModels ? 'success' : 'warning',
         message: hasModels ? t('system_info.models_count', { count: list.length }) : t('system_info.models_empty')
       });
-    } catch (err: any) {
-      const message = `${t('system_info.models_error')}: ${err?.message || ''}`;
+    } catch (err: unknown) {
+      const message = `${t('system_info.models_error')}: ${(err as Error)?.message || ''}`;
       setModelStatus({ type: 'error', message });
     }
   };
@@ -144,7 +145,7 @@ export function SystemPage() {
           </div>
           <div className="stat-card">
             <div className="stat-label">{t('connection.status')}</div>
-            <div className="stat-value">{t(`common.${auth.connectionStatus}_status` as any)}</div>
+            <div className="stat-value">{t(`common.${auth.connectionStatus}_status` as 'common.connected_status')}</div>
           </div>
         </div>
       </Card>

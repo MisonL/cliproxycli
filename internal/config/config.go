@@ -67,6 +67,13 @@ type Config struct {
 	// GeminiKey defines Gemini API key configurations with optional routing overrides.
 	GeminiKey []GeminiKey `yaml:"gemini-api-key" json:"gemini-api-key"`
 
+	// KiroKey defines a list of Kiro (AWS CodeWhisperer) configurations.
+	KiroKey []KiroKey `yaml:"kiro" json:"kiro"`
+
+	// KiroPreferredEndpoint sets the global default preferred endpoint for all Kiro providers.
+	// Values: "ide" (default, CodeWhisperer) or "cli" (Amazon Q).
+	KiroPreferredEndpoint string `yaml:"kiro-preferred-endpoint" json:"kiro-preferred-endpoint"`
+
 	// Codex defines a list of Codex API key configurations as specified in the YAML configuration file.
 	CodexKey []CodexKey `yaml:"codex-api-key" json:"codex-api-key"`
 
@@ -88,6 +95,14 @@ type Config struct {
 
 	// Payload defines default and override rules for provider payload parameters.
 	Payload PayloadConfig `yaml:"payload" json:"payload"`
+
+	// IncognitoBrowser enables opening OAuth URLs in incognito/private browsing mode.
+	// This is useful when you want to login with a different account without logging out
+	// from your current session. Default: false.
+	IncognitoBrowser bool `yaml:"incognito-browser" json:"incognito-browser"`
+
+	// Routing defines the intelligent model routing and load balancing configuration.
+	Routing RoutingConfig `yaml:"routing" json:"routing"`
 
 	legacyMigrationPending bool `yaml:"-" json:"-"`
 }
@@ -265,6 +280,35 @@ type GeminiKey struct {
 	ExcludedModels []string `yaml:"excluded-models,omitempty" json:"excluded-models,omitempty"`
 }
 
+// KiroKey represents the configuration for Kiro (AWS CodeWhisperer) authentication.
+type KiroKey struct {
+	// TokenFile is the path to the Kiro token file (default: ~/.aws/sso/cache/kiro-auth-token.json)
+	TokenFile string `yaml:"token-file,omitempty" json:"token-file,omitempty"`
+
+	// AccessToken is the OAuth access token for direct configuration.
+	AccessToken string `yaml:"access-token,omitempty" json:"access-token,omitempty"`
+
+	// RefreshToken is the OAuth refresh token for token renewal.
+	RefreshToken string `yaml:"refresh-token,omitempty" json:"refresh-token,omitempty"`
+
+	// ProfileArn is the AWS CodeWhisperer profile ARN.
+	ProfileArn string `yaml:"profile-arn,omitempty" json:"profile-arn,omitempty"`
+
+	// Region is the AWS region (default: us-east-1).
+	Region string `yaml:"region,omitempty" json:"region,omitempty"`
+
+	// ProxyURL optionally overrides the global proxy for this configuration.
+	ProxyURL string `yaml:"proxy-url,omitempty" json:"proxy-url,omitempty"`
+
+	// AgentTaskType sets the Kiro API task type. Known values: "vibe", "dev", "chat".
+	// Leave empty to let API use defaults. Different values may inject different system prompts.
+	AgentTaskType string `yaml:"agent-task-type,omitempty" json:"agent-task-type,omitempty"`
+
+	// PreferredEndpoint sets the preferred Kiro API endpoint/quota.
+	// Values: "codewhisperer" (default, IDE quota) or "amazonq" (CLI quota).
+	PreferredEndpoint string `yaml:"preferred-endpoint,omitempty" json:"preferred-endpoint,omitempty"`
+}
+
 // OpenAICompatibility represents the configuration for OpenAI API compatibility
 // with external providers, allowing model aliases to be routed through OpenAI API format.
 type OpenAICompatibility struct {
@@ -304,6 +348,51 @@ type OpenAICompatibilityModel struct {
 
 	// Alias is the model name alias that clients will use to reference this model.
 	Alias string `yaml:"alias" json:"alias"`
+}
+
+// RoutingConfig holds the configuration for the intelligent model router.
+type RoutingConfig struct {
+	// DefaultStrategy is the global default selection strategy (e.g., "round-robin", "priority").
+	DefaultStrategy string `yaml:"default-strategy" json:"default-strategy"`
+
+	// Rules defines model-specific routing overrides.
+	Rules []RoutingRule `yaml:"rules" json:"rules"`
+
+	// ClientOverrides defines contextual routing overrides based on request attributes.
+	ClientOverrides []ClientOverride `yaml:"client-overrides" json:"client-overrides"`
+}
+
+// RoutingRule defines how a specific model or pattern should be routed.
+type RoutingRule struct {
+	// Model is the client-facing model ID or wildcard pattern (e.g., "claude-*").
+	Model string `yaml:"model" json:"model"`
+
+	// Strategy overrides the global default strategy for this model.
+	Strategy string `yaml:"strategy" json:"strategy"`
+
+	// Backends defines the allowed providers and their relative priority/weight.
+	Backends []BackendEntry `yaml:"backends" json:"backends"`
+
+	// Priority lists providers in order of preference (used for "priority" strategy).
+	Priority []string `yaml:"priority" json:"priority"`
+}
+
+// BackendEntry defines a single provider target with optional weight.
+type BackendEntry struct {
+	// Provider is the identifier for the AI service (e.g., "antigravity", "geminicli").
+	Provider string `yaml:"provider" json:"provider"`
+
+	// Weight is used for weighted distribution (used for "weight" strategy).
+	Weight int `yaml:"weight" json:"weight"`
+}
+
+// ClientOverride allows forcing a provider based on client-specific metadata like User-Agent.
+type ClientOverride struct {
+	// UserAgent is a pattern to match against the request's User-Agent header.
+	UserAgent string `yaml:"user-agent" json:"user-agent"`
+
+	// ForceProvider is the provider identifier to use if the pattern matches.
+	ForceProvider string `yaml:"force-provider" json:"force-provider"`
 }
 
 // LoadConfig reads a YAML configuration file from the given path,
@@ -406,8 +495,14 @@ func LoadConfigOptional(configFile string, optional bool) (*Config, error) {
 	// Sanitize Claude key headers
 	cfg.SanitizeClaudeKeys()
 
+	// Sanitize Kiro keys: trim whitespace from credential fields
+	cfg.SanitizeKiroKeys()
+
 	// Sanitize OpenAI compatibility providers: drop entries without base-url
 	cfg.SanitizeOpenAICompatibility()
+
+	// Sanitize routing configuration
+	cfg.SanitizeRoutingConfig()
 
 	// Normalize OAuth provider model exclusion map.
 	cfg.OAuthExcludedModels = NormalizeOAuthExcludedModels(cfg.OAuthExcludedModels)
@@ -483,6 +578,44 @@ func (cfg *Config) SanitizeClaudeKeys() {
 		entry.Headers = NormalizeHeaders(entry.Headers)
 		entry.ExcludedModels = NormalizeExcludedModels(entry.ExcludedModels)
 	}
+}
+
+// SanitizeRoutingConfig cleans up empty rules and normalizes identifiers.
+func (cfg *Config) SanitizeRoutingConfig() {
+	if cfg == nil {
+		return
+	}
+
+	// Normalize default strategy
+	cfg.Routing.DefaultStrategy = strings.ToLower(strings.TrimSpace(cfg.Routing.DefaultStrategy))
+	if cfg.Routing.DefaultStrategy == "" {
+		cfg.Routing.DefaultStrategy = "priority"
+	}
+
+	// Clean up rules
+	validRules := make([]RoutingRule, 0, len(cfg.Routing.Rules))
+	for _, rule := range cfg.Routing.Rules {
+		rule.Model = strings.TrimSpace(rule.Model)
+		if rule.Model == "" {
+			continue
+		}
+		for i, p := range rule.Priority {
+			rule.Priority[i] = strings.ToLower(strings.TrimSpace(p))
+		}
+		validRules = append(validRules, rule)
+	}
+	cfg.Routing.Rules = validRules
+
+	// Clean up client overrides
+	validOverrides := make([]ClientOverride, 0, len(cfg.Routing.ClientOverrides))
+	for _, o := range cfg.Routing.ClientOverrides {
+		o.UserAgent = strings.TrimSpace(o.UserAgent)
+		o.ForceProvider = strings.ToLower(strings.TrimSpace(o.ForceProvider))
+		if o.UserAgent != "" && o.ForceProvider != "" {
+			validOverrides = append(validOverrides, o)
+		}
+	}
+	cfg.Routing.ClientOverrides = validOverrides
 }
 
 // SanitizeGeminiKeys deduplicates and normalizes Gemini credentials.
@@ -623,6 +756,23 @@ func NormalizeOAuthExcludedModels(entries map[string][]string) map[string][]stri
 	return out
 }
 
+// SanitizeKiroKeys trims whitespace from Kiro credential fields.
+func (cfg *Config) SanitizeKiroKeys() {
+	if cfg == nil || len(cfg.KiroKey) == 0 {
+		return
+	}
+	for i := range cfg.KiroKey {
+		entry := &cfg.KiroKey[i]
+		entry.TokenFile = strings.TrimSpace(entry.TokenFile)
+		entry.AccessToken = strings.TrimSpace(entry.AccessToken)
+		entry.RefreshToken = strings.TrimSpace(entry.RefreshToken)
+		entry.ProfileArn = strings.TrimSpace(entry.ProfileArn)
+		entry.Region = strings.TrimSpace(entry.Region)
+		entry.ProxyURL = strings.TrimSpace(entry.ProxyURL)
+		entry.PreferredEndpoint = strings.TrimSpace(entry.PreferredEndpoint)
+	}
+}
+
 // hashSecret hashes the given secret using bcrypt.
 func hashSecret(secret string) (string, error) {
 	// Use default cost for simplicity.
@@ -708,8 +858,7 @@ func sanitizeConfigForPersist(cfg *Config) *Config {
 		return nil
 	}
 	clone := *cfg
-	clone.SDKConfig = cfg.SDKConfig
-	clone.SDKConfig.Access = config.AccessConfig{}
+	clone.Access = config.AccessConfig{}
 	return &clone
 }
 

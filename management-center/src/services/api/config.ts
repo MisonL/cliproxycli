@@ -11,14 +11,14 @@ export const configApi = {
    * 获取配置（会进行字段规范化）
    */
   async getConfig(): Promise<Config> {
-    const raw = await apiClient.get('/config');
+    const raw = await apiClient.get<unknown>('/config');
     return normalizeConfigResponse(raw);
   },
 
   /**
    * 获取原始配置（不做转换）
    */
-  getRawConfig: () => apiClient.get('/config'),
+  getRawConfig: () => apiClient.get<Config>('/config'),
 
   /**
    * 更新 Debug 模式

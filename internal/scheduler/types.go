@@ -6,8 +6,10 @@ import "time"
 type TaskType string
 
 const (
-	TaskTypeInterval  TaskType = "interval"
-	TaskTypeFixedTime TaskType = "fixed_time"
+	TaskTypeInterval     TaskType = "interval"
+	TaskTypeFixedTime    TaskType = "fixed_time"
+	TaskTypeDaily        TaskType = "daily"
+	TaskTypeSystemReport TaskType = "system_report"
 )
 
 // TaskStatus defines the operational status of a task.
@@ -26,6 +28,7 @@ type Task struct {
 	Type         TaskType   `json:"type"`       // "interval" or "fixed_time"
 	Interval     string     `json:"interval"`   // e.g. "30m", "1h" (only for TaskTypeInterval)
 	FixedTime    *time.Time `json:"fixed_time"` // ISO timestamp (only for TaskTypeFixedTime)
+	DailyTime    string     `json:"daily_time"` // e.g. "09:00,18:00" (only for TaskTypeDaily)
 	Prompt       string     `json:"prompt"`
 	Model        string     `json:"model"`
 	WebhookURL   string     `json:"webhook_url"`

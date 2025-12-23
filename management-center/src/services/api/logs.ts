@@ -25,11 +25,11 @@ export interface ErrorLogsResponse {
 }
 
 export const logsApi = {
-  fetchLogs: (params: LogsQuery = {}): Promise<LogsResponse> => apiClient.get('/logs', { params }),
+  fetchLogs: (params: LogsQuery = {}): Promise<LogsResponse> => apiClient.get<LogsResponse>('/logs', { params }),
 
   clearLogs: () => apiClient.delete('/logs'),
 
-  fetchErrorLogs: (): Promise<ErrorLogsResponse> => apiClient.get('/request-error-logs'),
+  fetchErrorLogs: (): Promise<ErrorLogsResponse> => apiClient.get<ErrorLogsResponse>('/request-error-logs'),
 
   downloadErrorLog: (filename: string) =>
     apiClient.getRaw(`/request-error-logs/${encodeURIComponent(filename)}`, {

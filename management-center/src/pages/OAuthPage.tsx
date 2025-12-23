@@ -44,8 +44,9 @@ export function OAuthPage() {
   const isLocal = useMemo(() => isLocalhost(window.location.hostname), []);
 
   useEffect(() => {
+    const currentTimers = timers.current;
     return () => {
-      Object.values(timers.current).forEach((timer) => window.clearInterval(timer));
+      Object.values(currentTimers).forEach((timer) => window.clearInterval(timer));
     };
   }, []);
 
@@ -73,10 +74,10 @@ export function OAuthPage() {
           window.clearInterval(timer);
           delete timers.current[provider];
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         setStates((prev) => ({
           ...prev,
-          [provider]: { ...prev[provider], status: 'error', error: err?.message, polling: false }
+          [provider]: { ...prev[provider], status: 'error', error: (err as Error)?.message, polling: false }
         }));
         window.clearInterval(timer);
         delete timers.current[provider];
@@ -99,12 +100,12 @@ export function OAuthPage() {
       if (res.state) {
         startPolling(provider, res.state);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setStates((prev) => ({
         ...prev,
-        [provider]: { ...prev[provider], status: 'error', error: err?.message, polling: false }
+        [provider]: { ...prev[provider], status: 'error', error: (err as Error)?.message, polling: false }
       }));
-      showNotification(`${t('auth_login.codex_oauth_start_error')} ${err?.message || ''}`, 'error');
+      showNotification(`${t('auth_login.codex_oauth_start_error')} ${(err as Error)?.message || ''}`, 'error');
     }
   };
 
@@ -145,15 +146,16 @@ export function OAuthPage() {
         }));
         showNotification(`${t('auth_login.iflow_cookie_status_error')} ${res.error || ''}`, 'error');
       }
-    } catch (err: any) {
-      if (err?.status === 409) {
+    } catch (err: unknown) {
+      const errorStatus = (err as { status?: number })?.status;
+      if (errorStatus === 409) {
         const message = t('auth_login.iflow_cookie_config_duplicate');
         setIflowCookie((prev) => ({ ...prev, loading: false, error: message, errorType: 'warning' }));
         showNotification(message, 'warning');
         return;
       }
-      setIflowCookie((prev) => ({ ...prev, loading: false, error: err?.message, errorType: 'error' }));
-      showNotification(`${t('auth_login.iflow_cookie_start_error')} ${err?.message || ''}`, 'error');
+      setIflowCookie((prev) => ({ ...prev, loading: false, error: (err as Error)?.message, errorType: 'error' }));
+      showNotification(`${t('auth_login.iflow_cookie_start_error')} ${(err as Error)?.message || ''}`, 'error');
     }
   };
 

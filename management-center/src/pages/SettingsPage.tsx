@@ -45,8 +45,8 @@ export function SettingsPage() {
         const data = (await fetchConfig()) as Config;
         setProxyValue(data?.proxyUrl ?? '');
         setRetryValue(typeof data?.requestRetry === 'number' ? data.requestRetry : 0);
-      } catch (err: any) {
-        setError(err?.message || t('notification.refresh_failed'));
+      } catch (err: unknown) {
+        setError((err as Error)?.message || t('notification.refresh_failed'));
       } finally {
         setLoading(false);
       }
@@ -62,7 +62,7 @@ export function SettingsPage() {
         setRetryValue(config.requestRetry);
       }
     }
-  }, [config?.proxyUrl, config?.requestRetry]);
+  }, [config]);
 
   const setPendingFlag = (key: PendingKey, value: boolean) => {
     setPending((prev) => ({ ...prev, [key]: value }));
@@ -72,7 +72,7 @@ export function SettingsPage() {
     section: PendingKey,
     rawKey: 'debug' | 'usage-statistics-enabled' | 'request-log' | 'logging-to-file' | 'ws-auth',
     value: boolean,
-    updater: (val: boolean) => Promise<any>,
+    updater: (val: boolean) => Promise<unknown>,
     successMessage: string
   ) => {
     const previous = (() => {
@@ -99,9 +99,9 @@ export function SettingsPage() {
       await updater(value);
       clearCache(rawKey);
       showNotification(successMessage, 'success');
-    } catch (err: any) {
+    } catch (err: unknown) {
       updateConfigValue(rawKey, previous);
-      showNotification(`${t('notification.update_failed')}: ${err?.message || ''}`, 'error');
+      showNotification(`${t('notification.update_failed')}: ${(err as Error)?.message || ''}`, 'error');
     } finally {
       setPendingFlag(section, false);
     }
@@ -115,10 +115,10 @@ export function SettingsPage() {
       await configApi.updateProxyUrl(proxyValue.trim());
       clearCache('proxy-url');
       showNotification(t('notification.proxy_updated'), 'success');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setProxyValue(previous);
       updateConfigValue('proxy-url', previous);
-      showNotification(`${t('notification.update_failed')}: ${err?.message || ''}`, 'error');
+      showNotification(`${t('notification.update_failed')}: ${(err as Error)?.message || ''}`, 'error');
     } finally {
       setPendingFlag('proxy', false);
     }
@@ -133,10 +133,10 @@ export function SettingsPage() {
       clearCache('proxy-url');
       setProxyValue('');
       showNotification(t('notification.proxy_cleared'), 'success');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setProxyValue(previous);
       updateConfigValue('proxy-url', previous);
-      showNotification(`${t('notification.update_failed')}: ${err?.message || ''}`, 'error');
+      showNotification(`${t('notification.update_failed')}: ${(err as Error)?.message || ''}`, 'error');
     } finally {
       setPendingFlag('proxy', false);
     }
@@ -156,10 +156,10 @@ export function SettingsPage() {
       await configApi.updateRequestRetry(parsed);
       clearCache('request-retry');
       showNotification(t('notification.retry_updated'), 'success');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setRetryValue(previous);
       updateConfigValue('request-retry', previous);
-      showNotification(`${t('notification.update_failed')}: ${err?.message || ''}`, 'error');
+      showNotification(`${t('notification.update_failed')}: ${(err as Error)?.message || ''}`, 'error');
     } finally {
       setPendingFlag('retry', false);
     }
@@ -305,9 +305,9 @@ export function SettingsPage() {
                   await configApi.updateSwitchProject(value);
                   clearCache('quota-exceeded');
                   showNotification(t('notification.quota_switch_project_updated'), 'success');
-                } catch (err: any) {
+                } catch (err: unknown) {
                   updateConfigValue('quota-exceeded', { ...(config?.quotaExceeded || {}), switchProject: previous });
-                  showNotification(`${t('notification.update_failed')}: ${err?.message || ''}`, 'error');
+                  showNotification(`${t('notification.update_failed')}: ${(err as Error)?.message || ''}`, 'error');
                 } finally {
                   setPendingFlag('switchProject', false);
                 }
@@ -328,9 +328,9 @@ export function SettingsPage() {
                   await configApi.updateSwitchPreviewModel(value);
                   clearCache('quota-exceeded');
                   showNotification(t('notification.quota_switch_preview_updated'), 'success');
-                } catch (err: any) {
+                } catch (err: unknown) {
                   updateConfigValue('quota-exceeded', { ...(config?.quotaExceeded || {}), switchPreviewModel: previous });
-                  showNotification(`${t('notification.update_failed')}: ${err?.message || ''}`, 'error');
+                  showNotification(`${t('notification.update_failed')}: ${(err as Error)?.message || ''}`, 'error');
                 } finally {
                   setPendingFlag('switchPreview', false);
                 }

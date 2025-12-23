@@ -34,10 +34,11 @@ export const modelsApi = {
       resolvedHeaders.Authorization = `Bearer ${apiKey}`;
     }
 
-    const response = await axios.get(endpoint, {
+    const response = await axios.get<Record<string, unknown>>(endpoint, {
       headers: Object.keys(resolvedHeaders).length ? resolvedHeaders : undefined
     });
-    const payload = response.data?.data ?? response.data?.models ?? response.data;
-    return normalizeModelList(payload, { dedupe: true });
+    const data = response.data;
+    const payload = data?.data ?? data?.models ?? data;
+    return normalizeModelList(payload as unknown[], { dedupe: true });
   }
 };

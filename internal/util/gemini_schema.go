@@ -199,15 +199,21 @@ func selectBest(items []gjson.Result) (bestIdx int, types []string) {
 		t := item.Get("type").String()
 		score := 0
 
-		switch {
-		case t == "object" || item.Get("properties").Exists():
-			score, t = 3, orDefault(t, "object")
-		case t == "array" || item.Get("items").Exists():
-			score, t = 2, orDefault(t, "array")
-		case t != "" && t != "null":
+		switch t {
+		case "object":
+			score = 3
+		case "array":
+			score = 2
+		case "string", "number", "integer", "boolean":
 			score = 1
 		default:
-			t = orDefault(t, "null")
+			if item.Get("properties").Exists() {
+				score, t = 3, "object"
+			} else if item.Get("items").Exists() {
+				score, t = 2, "array"
+			} else {
+				t = orDefault(t, "null")
+			}
 		}
 
 		if t != "" {
@@ -482,11 +488,11 @@ func splitGJSONPath(path string) []string {
 
 func mergeDescriptionRaw(schemaRaw, parentDesc string) string {
 	childDesc := gjson.Get(schemaRaw, "description").String()
-	switch {
-	case childDesc == "":
+	switch childDesc {
+	case "":
 		schemaRaw, _ = sjson.Set(schemaRaw, "description", parentDesc)
 		return schemaRaw
-	case childDesc == parentDesc:
+	case parentDesc:
 		return schemaRaw
 	default:
 		combined := fmt.Sprintf("%s (%s)", parentDesc, childDesc)

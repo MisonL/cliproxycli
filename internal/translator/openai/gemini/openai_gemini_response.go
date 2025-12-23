@@ -228,9 +228,7 @@ func ConvertOpenAIResponseToGemini(_ context.Context, _ string, originalRequestR
 					var parts []interface{}
 					for _, accumulator := range (*param).(*ConvertOpenAIResponseToGeminiParams).ToolCallsAccumulator {
 						argsStr := accumulator.Arguments.String()
-						var argsMap map[string]interface{}
-
-						argsMap = parseArgsToMap(argsStr)
+						argsMap := parseArgsToMap(argsStr)
 
 						functionCallPart := map[string]interface{}{
 							"functionCall": map[string]interface{}{
@@ -482,11 +480,12 @@ func captureBracketed(runes []rune, i int) (string, int) {
 	}
 	startRune := runes[i]
 	var endRune rune
-	if startRune == '{' {
+	switch startRune {
+	case '{':
 		endRune = '}'
-	} else if startRune == '[' {
+	case '[':
 		endRune = ']'
-	} else {
+	default:
 		return "", -1
 	}
 	depth := 0
@@ -514,9 +513,10 @@ func captureBracketed(runes []rune, i int) (string, int) {
 			j++
 			continue
 		}
-		if r == startRune {
+		switch r {
+		case startRune:
 			depth++
-		} else if r == endRune {
+		case endRune:
 			depth--
 			if depth == 0 {
 				return string(runes[i : j+1]), j + 1
@@ -610,8 +610,7 @@ func ConvertOpenAIResponseToGeminiNonStream(_ context.Context, _ string, origina
 						functionArgs := function.Get("arguments").String()
 
 						// Parse arguments
-						var argsMap map[string]interface{}
-						argsMap = parseArgsToMap(functionArgs)
+						argsMap := parseArgsToMap(functionArgs)
 
 						functionCallPart := map[string]interface{}{
 							"functionCall": map[string]interface{}{

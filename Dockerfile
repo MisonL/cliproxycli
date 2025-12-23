@@ -4,10 +4,12 @@ ARG BUILD_DATE=unknown
 
 FROM oven/bun:1 AS frontend-builder
 WORKDIR /app
-COPY management-center/package.json management-center/bun.lockb ./
+COPY management-center/package.json ./
 RUN bun install --frozen-lockfile || (echo "Retrying without lockfile..." && rm bun.lockb && bun install)
 COPY management-center/ ./
-RUN bun run build || echo "Build failed, proceeding with empty assets..."
+RUN bun add react-chartjs-2 chart.js
+RUN bunx vite build
+RUN ls -la dist/ || echo "dist still missing"
 
 FROM golang:1.24-alpine AS builder
 
@@ -31,6 +33,7 @@ RUN apk add --no-cache tzdata
 
 RUN mkdir /CLIProxyAPI
 RUN mkdir /CLIProxyAPI/static
+RUN mkdir /CLIProxyAPI/data
 
 COPY --from=builder ./app/CLIProxyAPI /CLIProxyAPI/CLIProxyAPI
 COPY --from=frontend-builder /app/dist/index.html /CLIProxyAPI/static/management.html

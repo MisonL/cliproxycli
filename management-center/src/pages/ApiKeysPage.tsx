@@ -40,8 +40,8 @@ export function ApiKeysPage() {
         const result = (await fetchConfig('api-keys', force)) as string[] | undefined;
         const list = Array.isArray(result) ? result : [];
         setApiKeys(list);
-      } catch (err: any) {
-        setError(err?.message || t('notification.refresh_failed'));
+      } catch (err: unknown) {
+        setError((err as Error)?.message || t('notification.refresh_failed'));
       } finally {
         setLoading(false);
       }
@@ -103,8 +103,8 @@ export function ApiKeysPage() {
       updateConfigValue('api-keys', nextKeys);
       clearCache('api-keys');
       closeModal();
-    } catch (err: any) {
-      showNotification(`${t('notification.update_failed')}: ${err?.message || ''}`, 'error');
+    } catch (err: unknown) {
+      showNotification(`${t('notification.update_failed')}: ${(err as Error)?.message || ''}`, 'error');
     } finally {
       setSaving(false);
     }
@@ -120,8 +120,8 @@ export function ApiKeysPage() {
       updateConfigValue('api-keys', nextKeys);
       clearCache('api-keys');
       showNotification(t('notification.api_key_deleted'), 'success');
-    } catch (err: any) {
-      showNotification(`${t('notification.delete_failed')}: ${err?.message || ''}`, 'error');
+    } catch (err: unknown) {
+      showNotification(`${t('notification.delete_failed')}: ${(err as Error)?.message || ''}`, 'error');
     } finally {
       setDeletingIndex(null);
     }

@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/buildinfo"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/usage"
 	sdkAuth "github.com/router-for-me/CLIProxyAPI/v6/sdk/auth"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
@@ -61,6 +62,13 @@ func NewHandler(cfg *config.Config, configFilePath string, manager *coreauth.Man
 
 // SetConfig updates the in-memory config reference when the server hot-reloads.
 func (h *Handler) SetConfig(cfg *config.Config) { h.cfg = cfg }
+
+// ListModels returns all available models from the global registry
+func (h *Handler) ListModels(c *gin.Context) {
+	reg := registry.GetGlobalRegistry()
+	models := reg.GetAvailableModels("openai")
+	c.JSON(http.StatusOK, gin.H{"object": "list", "data": models})
+}
 
 // SetAuthManager updates the auth manager reference used by management endpoints.
 func (h *Handler) SetAuthManager(manager *coreauth.Manager) { h.authManager = manager }

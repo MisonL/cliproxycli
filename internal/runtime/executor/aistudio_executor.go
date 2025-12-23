@@ -59,12 +59,18 @@ func (e *AIStudioExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth,
 	if err != nil {
 		return resp, err
 	}
+	apiKey, bearer := geminiCreds(auth)
 	endpoint := e.buildEndpoint(req.Model, body.action, opts.Alt)
 	wsReq := &wsrelay.HTTPRequest{
-		Method:  http.MethodPost,
-		URL:     endpoint,
-		Headers: http.Header{"Content-Type": []string{"application/json"}},
-		Body:    body.payload,
+		Method: http.MethodPost,
+		URL:    endpoint,
+		Headers: http.Header{
+			"Content-Type":      []string{"application/json"},
+			"User-Agent":        []string{geminiUserAgent},
+			"X-Goog-Api-Client": []string{geminiXGoogAPIClient},
+			"Client-Metadata":   []string{geminiClientMetadata},
+		},
+		Body: body.payload,
 	}
 
 	var authID, authLabel, authType, authValue string
@@ -72,6 +78,11 @@ func (e *AIStudioExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth,
 		authID = auth.ID
 		authLabel = auth.Label
 		authType, authValue = auth.AccountInfo()
+	}
+	if apiKey != "" {
+		wsReq.Headers.Set("x-goog-api-key", apiKey)
+	} else if bearer != "" {
+		wsReq.Headers.Set("Authorization", "Bearer "+bearer)
 	}
 	recordAPIRequest(ctx, e.cfg, upstreamRequestLog{
 		URL:       endpoint,
@@ -113,12 +124,18 @@ func (e *AIStudioExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth
 	if err != nil {
 		return nil, err
 	}
+	apiKey, bearer := geminiCreds(auth)
 	endpoint := e.buildEndpoint(req.Model, body.action, opts.Alt)
 	wsReq := &wsrelay.HTTPRequest{
-		Method:  http.MethodPost,
-		URL:     endpoint,
-		Headers: http.Header{"Content-Type": []string{"application/json"}},
-		Body:    body.payload,
+		Method: http.MethodPost,
+		URL:    endpoint,
+		Headers: http.Header{
+			"Content-Type":      []string{"application/json"},
+			"User-Agent":        []string{geminiUserAgent},
+			"X-Goog-Api-Client": []string{geminiXGoogAPIClient},
+			"Client-Metadata":   []string{geminiClientMetadata},
+		},
+		Body: body.payload,
 	}
 	var authID, authLabel, authType, authValue string
 	if auth != nil {
@@ -137,6 +154,11 @@ func (e *AIStudioExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth
 		AuthType:  authType,
 		AuthValue: authValue,
 	})
+	if apiKey != "" {
+		wsReq.Headers.Set("x-goog-api-key", apiKey)
+	} else if bearer != "" {
+		wsReq.Headers.Set("Authorization", "Bearer "+bearer)
+	}
 	wsStream, err := e.relay.Stream(ctx, authID, wsReq)
 	if err != nil {
 		recordAPIResponseError(ctx, e.cfg, err)
@@ -263,12 +285,23 @@ func (e *AIStudioExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.A
 	body.payload, _ = sjson.DeleteBytes(body.payload, "tools")
 	body.payload, _ = sjson.DeleteBytes(body.payload, "safetySettings")
 
+	apiKey, bearer := geminiCreds(auth)
 	endpoint := e.buildEndpoint(req.Model, "countTokens", "")
 	wsReq := &wsrelay.HTTPRequest{
-		Method:  http.MethodPost,
-		URL:     endpoint,
-		Headers: http.Header{"Content-Type": []string{"application/json"}},
-		Body:    body.payload,
+		Method: http.MethodPost,
+		URL:    endpoint,
+		Headers: http.Header{
+			"Content-Type":      []string{"application/json"},
+			"User-Agent":        []string{geminiUserAgent},
+			"X-Goog-Api-Client": []string{geminiXGoogAPIClient},
+			"Client-Metadata":   []string{geminiClientMetadata},
+		},
+		Body: body.payload,
+	}
+	if apiKey != "" {
+		wsReq.Headers.Set("x-goog-api-key", apiKey)
+	} else if bearer != "" {
+		wsReq.Headers.Set("Authorization", "Bearer "+bearer)
 	}
 	var authID, authLabel, authType, authValue string
 	if auth != nil {

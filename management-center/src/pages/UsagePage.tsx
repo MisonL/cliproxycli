@@ -91,8 +91,8 @@ export function UsagePage() {
     setLoading(true);
     setError('');
     try {
-      const data = await usageApi.getUsage();
-      const payload = data?.usage ?? data;
+      const data = (await usageApi.getUsage()) as Record<string, unknown>;
+      const payload = (data?.usage || data) as UsagePayload;
       setUsage(payload);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t('usage_stats.loading_error');

@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	. "github.com/router-for-me/CLIProxyAPI/v6/internal/constant"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/constant"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/interfaces"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v6/sdk/api/handlers"
@@ -43,7 +43,7 @@ func NewOpenAIResponsesAPIHandler(apiHandlers *handlers.BaseAPIHandler) *OpenAIR
 
 // HandlerType returns the identifier for this handler implementation.
 func (h *OpenAIResponsesAPIHandler) HandlerType() string {
-	return OpenaiResponse
+	return constant.OpenaiResponse
 }
 
 // Models returns the OpenAIResponses-compatible model metadata supported by this handler.
@@ -79,7 +79,7 @@ func (h *OpenAIResponsesAPIHandler) Responses(c *gin.Context) {
 				Type:    "invalid_request_error",
 			},
 		})
-		return
+
 	}
 
 	// Check if the client requested a streaming response.
@@ -111,10 +111,9 @@ func (h *OpenAIResponsesAPIHandler) handleNonStreamingResponse(c *gin.Context, r
 	resp, errMsg := h.ExecuteWithAuthManager(cliCtx, h.HandlerType(), modelName, rawJSON, "")
 	if errMsg != nil {
 		h.WriteErrorResponse(c, errMsg)
-		return
+
 	}
 	_, _ = c.Writer.Write(resp)
-	return
 
 	// no legacy fallback
 
@@ -142,7 +141,7 @@ func (h *OpenAIResponsesAPIHandler) handleStreamingResponse(c *gin.Context, rawJ
 				Type:    "server_error",
 			},
 		})
-		return
+
 	}
 
 	// New core execution path
@@ -150,7 +149,7 @@ func (h *OpenAIResponsesAPIHandler) handleStreamingResponse(c *gin.Context, rawJ
 	cliCtx, cliCancel := h.GetContextWithCancel(h, c, context.Background())
 	dataChan, errChan := h.ExecuteStreamWithAuthManager(cliCtx, h.HandlerType(), modelName, rawJSON, "")
 	h.forwardResponsesStream(c, flusher, func(err error) { cliCancel(err) }, dataChan, errChan)
-	return
+
 }
 
 func (h *OpenAIResponsesAPIHandler) forwardResponsesStream(c *gin.Context, flusher http.Flusher, cancel func(error), data <-chan []byte, errs <-chan *interfaces.ErrorMessage) {
@@ -158,13 +157,13 @@ func (h *OpenAIResponsesAPIHandler) forwardResponsesStream(c *gin.Context, flush
 		select {
 		case <-c.Request.Context().Done():
 			cancel(c.Request.Context().Err())
-			return
+
 		case chunk, ok := <-data:
 			if !ok {
 				_, _ = c.Writer.Write([]byte("\n"))
 				flusher.Flush()
 				cancel(nil)
-				return
+
 			}
 
 			if bytes.HasPrefix(chunk, []byte("event:")) {
@@ -187,7 +186,7 @@ func (h *OpenAIResponsesAPIHandler) forwardResponsesStream(c *gin.Context, flush
 				execErr = errMsg.Error
 			}
 			cancel(execErr)
-			return
+
 		case <-time.After(500 * time.Millisecond):
 		}
 	}

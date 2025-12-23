@@ -347,7 +347,9 @@ func (s *ObjectTokenStore) syncConfigFromBucket(ctx context.Context, example str
 		if errGet != nil {
 			return fmt.Errorf("object store: fetch config: %w", errGet)
 		}
-		defer object.Close()
+		defer func() {
+			_ = object.Close()
+		}()
 		data, errRead := io.ReadAll(object)
 		if errRead != nil {
 			return fmt.Errorf("object store: read config: %w", errRead)
@@ -471,9 +473,6 @@ func (s *ObjectTokenStore) deleteAuthObject(ctx context.Context, path string) er
 }
 
 func (s *ObjectTokenStore) putObject(ctx context.Context, key string, data []byte, contentType string) error {
-	if len(data) == 0 {
-		return s.deleteObject(ctx, key)
-	}
 	fullKey := s.prefixedKey(key)
 	reader := bytes.NewReader(data)
 	_, err := s.client.PutObject(ctx, s.cfg.Bucket, fullKey, reader, int64(len(data)), minio.PutObjectOptions{

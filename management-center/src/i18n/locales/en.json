@@ -89,7 +89,8 @@
     "usage_stats": "Usage Statistics",
     "config_management": "Config Management",
     "logs": "Logs Viewer",
-    "system_info": "Management Center Info"
+    "system_info": "Management Center Info",
+    "ai_copilot": "AI Copilot"
   },
   "basic_settings": {
     "title": "Basic Settings",
@@ -300,6 +301,8 @@
     "filter_all": "All",
     "filter_qwen": "Qwen",
     "filter_gemini": "Gemini",
+    "filter_kiro": "Kiro",
+    "filter_github-copilot": "GitHub Copilot",
     "filter_gemini-cli": "GeminiCLI",
     "filter_aistudio": "AIStudio",
     "filter_claude": "Claude",
@@ -311,6 +314,8 @@
     "filter_unknown": "Other",
     "type_qwen": "Qwen",
     "type_gemini": "Gemini",
+    "type_kiro": "Kiro",
+    "type_github-copilot": "GitHub Copilot",
     "type_gemini-cli": "GeminiCLI",
     "type_aistudio": "AIStudio",
     "type_claude": "Claude",
@@ -724,5 +729,70 @@
     "build_date": "Build Time",
     "version": "Management UI Version",
     "author": "Author"
+  },
+  "scheduler": {
+    "title": "Scheduled Tasks",
+    "create_task": "Create Task",
+    "search_placeholder": "Search tasks...",
+    "type_filter_all": "All Types",
+    "stats": {
+      "total": "Total Tasks",
+      "active": "Active",
+      "paused": "Paused",
+      "success_rate": "24h Success Rate"
+    },
+    "no_tasks": "No scheduled tasks found",
+    "no_logs": "No execution logs",
+    "log_success": "Success",
+    "log_failed": "Failed",
+    "modal_title_create": "Create Task",
+    "modal_title_edit": "Edit Task",
+    "cancel": "Cancel",
+    "save": "Save",
+    "form": {
+      "name": "Task Name",
+      "type": "Schedule Type",
+      "type_interval": "Interval Execution",
+      "type_fixed": "Fixed Time",
+      "type_daily": "Daily Recurrence",
+      "interval_label": "Execution Interval",
+      "fixed_time_label": "Execution Time (ISO 8601)",
+      "daily_time_label": "Daily Time Points",
+      "add_time_point": "Add Time",
+      "model": "Task Model",
+      "prompt": "Prompt",
+      "webhook_url": "Webhook URL (Optional)",
+      "status": "Initial Status",
+      "status_active": "Active",
+      "status_paused": "Paused",
+      "status_finished": "Finished"
+    },
+    "meta": {
+      "every": "Every",
+      "at": "At",
+      "model": "Model",
+      "next_run": "Next Run",
+      "daily_at": "Daily"
+    },
+    "task_logs_title": "Execution Logs: {{name}}",
+    "no_history_for_task": "No execution history for this task",
+    "search_logs": "Search logs...",
+    "log_detail_title": "Log Detail",
+    "duration": "Duration"
+  },
+  "agent": {
+    "title": "AI Assistant",
+    "settings_title": "Assistant Settings",
+    "model": "Model",
+    "temperature": "Temperature",
+    "max_tokens": "Max Tokens",
+    "system_prompt": "System Prompt",
+    "input_placeholder": "Type a message...",
+    "welcome": "Hello! I'm your AI scheduling assistant. How can I help you today?",
+    "clear_chat": "Clear Chat",
+    "close": "Close",
+    "send": "Send",
+    "settings": "Settings",
+    "default_system_prompt": "You are an AI Scheduler Copilot. You help users manage their scheduled AI tasks.\nYou have access to tools to list, create, delete, and run tasks, as well as view logs.\nWhen a user asks to create a task, ask for clarification if parameters (like interval or prompt) are missing.\nAlways use the tools provided to perform actions.\nRefuse to do anything outside the scope of managing scheduled tasks."
   }
 }

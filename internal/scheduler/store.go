@@ -159,3 +159,11 @@ func (s *Store) GetLogs() []*ExecutionLog {
 	}
 	return logs
 }
+
+// ClearLogs removes all execution logs and saves.
+func (s *Store) ClearLogs() error {
+	s.mu.Lock()
+	s.Logs = make([]*ExecutionLog, 0)
+	s.mu.Unlock()
+	return s.Save()
+}

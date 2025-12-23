@@ -62,7 +62,7 @@ export interface ApiStats {
 const TOKENS_PER_PRICE_UNIT = 1_000_000;
 const MODEL_PRICE_STORAGE_KEY = 'cli-proxy-model-prices-v2';
 
-const normalizeAuthIndex = (value: any) => {
+const normalizeAuthIndex = (value: unknown) => {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value.toString();
   }
@@ -186,20 +186,25 @@ export function formatUsd(value: number): string {
 /**
  * 从使用数据中收集所有请求明细
  */
-export function collectUsageDetails(usageData: any): UsageDetail[] {
-  if (!usageData) {
+export function collectUsageDetails(usageData: unknown): UsageDetail[] {
+  if (!usageData || typeof usageData !== 'object') {
     return [];
   }
-  const apis = usageData.apis || {};
+  const obj = usageData as Record<string, unknown>;
+  const apis = (obj.apis || {}) as Record<string, unknown>;
   const details: UsageDetail[] = [];
-  Object.values(apis as Record<string, any>).forEach((apiEntry) => {
-    const models = apiEntry?.models || {};
-    Object.entries(models as Record<string, any>).forEach(([modelName, modelEntry]) => {
-      const modelDetails = Array.isArray(modelEntry.details) ? modelEntry.details : [];
-      modelDetails.forEach((detail: any) => {
-        if (detail && detail.timestamp) {
+  Object.values(apis).forEach((apiEntry) => {
+    if (!apiEntry || typeof apiEntry !== 'object') return;
+    const apiObj = apiEntry as Record<string, unknown>;
+    const models = (apiObj.models || {}) as Record<string, unknown>;
+    Object.entries(models).forEach(([modelName, modelEntry]) => {
+      if (!modelEntry || typeof modelEntry !== 'object') return;
+      const modelObj = modelEntry as Record<string, unknown>;
+      const modelDetails = Array.isArray(modelObj.details) ? modelObj.details : [];
+      modelDetails.forEach((detail: unknown) => {
+        if (detail && typeof detail === 'object' && (detail as Record<string, unknown>).timestamp) {
           details.push({
-            ...detail,
+            ...(detail as UsageDetail),
             __modelName: modelName
           });
         }
@@ -212,8 +217,10 @@ export function collectUsageDetails(usageData: any): UsageDetail[] {
 /**
  * 从单条明细提取总 tokens
  */
-export function extractTotalTokens(detail: any): number {
-  const tokens = detail?.tokens || {};
+export function extractTotalTokens(detail: unknown): number {
+  if (!detail || typeof detail !== 'object') return 0;
+  const obj = detail as Record<string, unknown>;
+  const tokens = (obj.tokens || {}) as Record<string, unknown>;
   if (typeof tokens.total_tokens === 'number') {
     return tokens.total_tokens;
   }
@@ -231,7 +238,7 @@ export function extractTotalTokens(detail: any): number {
 /**
  * 计算 token 分类统计
  */
-export function calculateTokenBreakdown(usageData: any): TokenBreakdown {
+export function calculateTokenBreakdown(usageData: unknown): TokenBreakdown {
   const details = collectUsageDetails(usageData);
   if (!details.length) {
     return { cachedTokens: 0, reasoningTokens: 0 };
@@ -240,7 +247,7 @@ export function calculateTokenBreakdown(usageData: any): TokenBreakdown {
   let cachedTokens = 0;
   let reasoningTokens = 0;
 
-  details.forEach(detail => {
+  details.forEach((detail) => {
     const tokens = detail?.tokens || {};
     cachedTokens += Math.max(
       typeof tokens.cached_tokens === 'number' ? Math.max(tokens.cached_tokens, 0) : 0,
@@ -257,7 +264,7 @@ export function calculateTokenBreakdown(usageData: any): TokenBreakdown {
 /**
  * 计算最近 N 分钟的 RPM/TPM
  */
-export function calculateRecentPerMinuteRates(windowMinutes: number = 30, usageData: any): RateStats {
+export function calculateRecentPerMinuteRates(windowMinutes = 30, usageData: unknown): RateStats {
   const details = collectUsageDetails(usageData);
   const effectiveWindow = Number.isFinite(windowMinutes) && windowMinutes > 0 ? windowMinutes : 30;
 
@@ -270,7 +277,7 @@ export function calculateRecentPerMinuteRates(windowMinutes: number = 30, usageD
   let requestCount = 0;
   let tokenCount = 0;
 
-  details.forEach(detail => {
+  details.forEach((detail) => {
     const timestamp = Date.parse(detail.timestamp);
     if (Number.isNaN(timestamp) || timestamp < windowStart) {
       return;
@@ -292,15 +299,18 @@ export function calculateRecentPerMinuteRates(windowMinutes: number = 30, usageD
 /**
  * 从使用数据获取模型名称列表
  */
-export function getModelNamesFromUsage(usageData: any): string[] {
-  if (!usageData) {
+export function getModelNamesFromUsage(usageData: unknown): string[] {
+  if (!usageData || typeof usageData !== 'object') {
     return [];
   }
-  const apis = usageData.apis || {};
+  const obj = usageData as Record<string, unknown>;
+  const apis = (obj.apis || {}) as Record<string, unknown>;
   const names = new Set<string>();
-  Object.values(apis as Record<string, any>).forEach(apiEntry => {
-    const models = apiEntry?.models || {};
-    Object.keys(models).forEach(modelName => {
+  Object.values(apis).forEach((apiEntry) => {
+    if (!apiEntry || typeof apiEntry !== 'object') return;
+    const apiObj = apiEntry as Record<string, unknown>;
+    const models = (apiObj.models || {}) as Record<string, unknown>;
+    Object.keys(models).forEach((modelName) => {
       if (modelName) {
         names.add(modelName);
       }
@@ -312,7 +322,7 @@ export function getModelNamesFromUsage(usageData: any): string[] {
 /**
  * 计算成本数据
  */
-export function calculateCost(detail: any, modelPrices: Record<string, ModelPrice>): number {
+export function calculateCost(detail: UsageDetail, modelPrices: Record<string, ModelPrice>): number {
   const modelName = detail.__modelName || '';
   const price = modelPrices[modelName];
   if (!price) {
@@ -322,7 +332,7 @@ export function calculateCost(detail: any, modelPrices: Record<string, ModelPric
   const rawInputTokens = Number(tokens.input_tokens);
   const rawCompletionTokens = Number(tokens.output_tokens);
   const rawCachedTokensPrimary = Number(tokens.cached_tokens);
-  const rawCachedTokensAlternate = Number(tokens.cache_tokens);
+  const rawCachedTokensAlternate = Number(tokens.cache_tokens ?? (tokens as Record<string, unknown>).cached_tokens);
 
   const inputTokens = Number.isFinite(rawInputTokens) ? Math.max(rawInputTokens, 0) : 0;
   const completionTokens = Number.isFinite(rawCompletionTokens) ? Math.max(rawCompletionTokens, 0) : 0;
@@ -342,7 +352,7 @@ export function calculateCost(detail: any, modelPrices: Record<string, ModelPric
 /**
  * 计算总成本
  */
-export function calculateTotalCost(usageData: any, modelPrices: Record<string, ModelPrice>): number {
+export function calculateTotalCost(usageData: unknown, modelPrices: Record<string, ModelPrice>): number {
   const details = collectUsageDetails(usageData);
   if (!details.length || !Object.keys(modelPrices).length) {
     return 0;
@@ -367,11 +377,12 @@ export function loadModelPrices(): Record<string, ModelPrice> {
       return {};
     }
     const normalized: Record<string, ModelPrice> = {};
-    Object.entries(parsed).forEach(([model, price]: [string, any]) => {
-      if (!model) return;
-      const promptRaw = Number(price?.prompt);
-      const completionRaw = Number(price?.completion);
-      const cacheRaw = Number(price?.cache);
+    Object.entries(parsed).forEach(([model, price]) => {
+      if (!model || !price || typeof price !== 'object') return;
+      const priceObj = price as Record<string, unknown>;
+      const promptRaw = Number(priceObj.prompt);
+      const completionRaw = Number(priceObj.completion);
+      const cacheRaw = Number(priceObj.cache);
 
       if (!Number.isFinite(promptRaw) && !Number.isFinite(completionRaw) && !Number.isFinite(cacheRaw)) {
         return;
@@ -415,37 +426,43 @@ export function saveModelPrices(prices: Record<string, ModelPrice>): void {
 /**
  * 获取 API 统计数据
  */
-export function getApiStats(usageData: any, modelPrices: Record<string, ModelPrice>): ApiStats[] {
-  if (!usageData?.apis) {
+export function getApiStats(usageData: unknown, modelPrices: Record<string, ModelPrice>): ApiStats[] {
+  if (!usageData || typeof usageData !== 'object') {
     return [];
   }
-  const apis = usageData.apis;
+  const obj = usageData as Record<string, unknown>;
+  if (!obj.apis) {
+    return [];
+  }
+  const apis = obj.apis as Record<string, unknown>;
   const result: ApiStats[] = [];
 
-  Object.entries(apis as Record<string, any>).forEach(([endpoint, apiData]) => {
+  Object.entries(apis).forEach(([endpoint, apiDataRaw]) => {
+    const apiData = apiDataRaw as Record<string, unknown>;
     const models: Record<string, { requests: number; tokens: number }> = {};
     let totalCost = 0;
 
     const modelsData = apiData?.models || {};
-    Object.entries(modelsData as Record<string, any>).forEach(([modelName, modelData]) => {
+    Object.entries(modelsData as Record<string, unknown>).forEach(([modelName, modelData]) => {
+      const modelObj = modelData as Record<string, unknown>;
       models[modelName] = {
-        requests: modelData.total_requests || 0,
-        tokens: modelData.total_tokens || 0
+        requests: Number(modelObj.total_requests) || 0,
+        tokens: Number(modelObj.total_tokens) || 0
       };
 
       const price = modelPrices[modelName];
       if (price) {
-        const details = Array.isArray(modelData.details) ? modelData.details : [];
-        details.forEach((detail: any) => {
-          totalCost += calculateCost({ ...detail, __modelName: modelName }, modelPrices);
+        const details = Array.isArray(modelObj.details) ? modelObj.details : [];
+        details.forEach((detail: unknown) => {
+          totalCost += calculateCost({ ...(detail as UsageDetail), __modelName: modelName }, modelPrices);
         });
       }
     });
 
     result.push({
       endpoint: maskUsageSensitiveValue(endpoint) || endpoint,
-      totalRequests: apiData.total_requests || 0,
-      totalTokens: apiData.total_tokens || 0,
+      totalRequests: Number(apiData.total_requests) || 0,
+      totalTokens: Number(apiData.total_tokens) || 0,
       totalCost,
       models
     });
@@ -457,30 +474,32 @@ export function getApiStats(usageData: any, modelPrices: Record<string, ModelPri
 /**
  * 获取模型统计数据
  */
-export function getModelStats(usageData: any, modelPrices: Record<string, ModelPrice>): Array<{
+export function getModelStats(usageData: unknown, modelPrices: Record<string, ModelPrice>): Array<{
   model: string;
   requests: number;
   tokens: number;
   cost: number;
 }> {
-  if (!usageData?.apis) {
+  if (!usageData || typeof usageData !== 'object' || !(usageData as Record<string, unknown>).apis) {
     return [];
   }
-
+  const obj = usageData as Record<string, unknown>;
   const modelMap = new Map<string, { requests: number; tokens: number; cost: number }>();
 
-  Object.values(usageData.apis as Record<string, any>).forEach(apiData => {
-    const models = apiData?.models || {};
-    Object.entries(models as Record<string, any>).forEach(([modelName, modelData]) => {
+  Object.values(obj.apis as Record<string, unknown>).forEach(apiData => {
+    const apiObj = apiData as Record<string, unknown>;
+    const models = (apiObj.models || {}) as Record<string, unknown>;
+    Object.entries(models).forEach(([modelName, modelData]) => {
+      const modelObj = modelData as Record<string, unknown>;
       const existing = modelMap.get(modelName) || { requests: 0, tokens: 0, cost: 0 };
-      existing.requests += modelData.total_requests || 0;
-      existing.tokens += modelData.total_tokens || 0;
+      existing.requests += Number(modelObj.total_requests) || 0;
+      existing.tokens += Number(modelObj.total_tokens) || 0;
 
       const price = modelPrices[modelName];
       if (price) {
-        const details = Array.isArray(modelData.details) ? modelData.details : [];
-        details.forEach((detail: any) => {
-          existing.cost += calculateCost({ ...detail, __modelName: modelName }, modelPrices);
+        const details = Array.isArray(modelObj.details) ? modelObj.details : [];
+        details.forEach((detail: unknown) => {
+          existing.cost += calculateCost({ ...(detail as UsageDetail), __modelName: modelName }, modelPrices);
         });
       }
       modelMap.set(modelName, existing);
@@ -521,7 +540,7 @@ export function formatDayLabel(date: Date): string {
 /**
  * 构建小时级别的数据序列
  */
-export function buildHourlySeriesByModel(usageData: any, metric: 'requests' | 'tokens' = 'requests'): {
+export function buildHourlySeriesByModel(usageData: unknown, metric: 'requests' | 'tokens' = 'requests'): {
   labels: string[];
   dataByModel: Map<string, number[]>;
   hasData: boolean;
@@ -588,7 +607,7 @@ export function buildHourlySeriesByModel(usageData: any, metric: 'requests' | 't
 /**
  * 构建日级别的数据序列
  */
-export function buildDailySeriesByModel(usageData: any, metric: 'requests' | 'tokens' = 'requests'): {
+export function buildDailySeriesByModel(usageData: unknown, metric: 'requests' | 'tokens' = 'requests'): {
   labels: string[];
   dataByModel: Map<string, number[]>;
   hasData: boolean;
@@ -704,7 +723,7 @@ const buildAreaGradient = (context: ScriptableContext<'line'>, baseHex: string, 
  * 构建图表数据
  */
 export function buildChartData(
-  usageData: any,
+  usageData: unknown,
   period: 'hour' | 'day' = 'day',
   metric: 'requests' | 'tokens' = 'requests',
   selectedModels: string[] = []
@@ -754,10 +773,12 @@ export function buildChartData(
 /**
  * 依据 usage 数据计算密钥使用统计
  */
-export function computeKeyStats(usageData: any, masker: (val: string) => string = maskApiKey): KeyStats {
-  if (!usageData) {
+export function computeKeyStats(usageData: unknown, masker: (val: string) => string = maskApiKey): KeyStats {
+  if (!usageData || typeof usageData !== 'object') {
     return { bySource: {}, byAuthIndex: {} };
   }
+  const obj = usageData as Record<string, unknown>;
+  void obj; // ignore unused for now or use correctly if needed
 
   const sourceStats: Record<string, KeyStatBucket> = {};
   const authIndexStats: Record<string, KeyStatBucket> = {};
@@ -769,17 +790,21 @@ export function computeKeyStats(usageData: any, masker: (val: string) => string 
     return bucket[key];
   };
 
-  const apis = usageData.apis || {};
-  Object.values(apis as any).forEach((apiEntry: any) => {
-    const models = apiEntry?.models || {};
+  const apis = (usageData as Record<string, unknown>).apis || {};
+  Object.values(apis as Record<string, unknown>).forEach((apiEntry) => {
+    const apiObj = apiEntry as Record<string, unknown>;
+    const models = (apiObj.models || {}) as Record<string, unknown>;
 
-    Object.values(models as any).forEach((modelEntry: any) => {
-      const details = modelEntry?.details || [];
+    Object.values(models).forEach((modelEntry) => {
+      const modelObj = modelEntry as Record<string, unknown>;
+      const details = Array.isArray(modelObj.details) ? modelObj.details : [];
 
-      details.forEach((detail: any) => {
-        const source = maskUsageSensitiveValue(detail?.source, masker);
-        const authIndexKey = normalizeAuthIndex(detail?.auth_index);
-        const isFailed = detail?.failed === true;
+      details.forEach((detail: unknown) => {
+        const detailObj = detail as Record<string, unknown>;
+        const source = maskUsageSensitiveValue(String(detailObj.source || ''), masker);
+        const authIndexValue = detailObj.auth_index ?? detailObj.authIndex;
+        const authIndexKey = normalizeAuthIndex(authIndexValue);
+        const isFailed = detailObj.failed === true;
 
         if (source) {
           const bucket = ensureBucket(sourceStats, source);

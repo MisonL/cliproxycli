@@ -101,10 +101,11 @@ export const useAuthStore = create<AuthStoreState>()(
             connectionError: null
           });
           localStorage.setItem('isLoggedIn', 'true');
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : 'Connection failed';
           set({
             connectionStatus: 'error',
-            connectionError: error.message || 'Connection failed'
+            connectionError: message
           });
           throw error;
         }
@@ -147,7 +148,7 @@ export const useAuthStore = create<AuthStoreState>()(
           });
 
           return true;
-        } catch (error) {
+        } catch {
           set({
             isAuthenticated: false,
             connectionStatus: 'error'

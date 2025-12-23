@@ -20,9 +20,9 @@ export const authFilesApi = {
 
   // OAuth 排除模型
   async getOauthExcludedModels(): Promise<Record<string, string[]>> {
-    const data = await apiClient.get('/oauth-excluded-models');
-    const payload = (data && (data['oauth-excluded-models'] ?? data.items ?? data)) as any;
-    return payload && typeof payload === 'object' ? payload : {};
+    const data = await apiClient.get<Record<string, unknown>>('/oauth-excluded-models');
+    const payload = data['oauth-excluded-models'] ?? data.items ?? data;
+    return payload && typeof payload === 'object' ? (payload as Record<string, string[]>) : {};
   },
 
   saveOauthExcludedModels: (provider: string, models: string[]) =>
@@ -33,7 +33,8 @@ export const authFilesApi = {
 
   // 获取认证凭证支持的模型
   async getModelsForAuthFile(name: string): Promise<{ id: string; display_name?: string; type?: string; owned_by?: string }[]> {
-    const data = await apiClient.get(`/auth-files/models?name=${encodeURIComponent(name)}`);
-    return (data && Array.isArray(data['models'])) ? data['models'] : [];
+    const data = await apiClient.get<Record<string, unknown>>(`/auth-files/models?name=${encodeURIComponent(name)}`);
+    const models = data['models'];
+    return Array.isArray(models) ? (models as { id: string; display_name?: string; type?: string; owned_by?: string }[]) : [];
   }
 };

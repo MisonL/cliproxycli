@@ -8,7 +8,7 @@ package geminiCLI
 import (
 	"bytes"
 
-	. "github.com/router-for-me/CLIProxyAPI/v6/internal/translator/claude/gemini"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/translator/claude/gemini"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -43,5 +43,5 @@ func ConvertGeminiCLIRequestToClaude(modelName string, inputRawJSON []byte, stre
 		rawJSON, _ = sjson.DeleteBytes(rawJSON, "systemInstruction")
 	}
 	// Delegate to the Gemini-to-Claude conversion function for further processing
-	return ConvertGeminiRequestToClaude(modelName, rawJSON, stream)
+	return gemini.ConvertGeminiRequestToClaude(modelName, rawJSON, stream)
 }

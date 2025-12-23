@@ -24,4 +24,13 @@ const (
 
 	// Antigravity represents the Antigravity response format identifier.
 	Antigravity = "antigravity"
+
+	// Kiro represents the Kiro (AWS CodeWhisperer) provider identifier.
+	Kiro = "kiro"
+
+	// GitHubCopilot represents the GitHub Copilot provider identifier.
+	GitHubCopilot = "github-copilot"
+
+	// AmazonQ represents the Amazon Q provider identifier.
+	AmazonQ = "amazon-q"
 )

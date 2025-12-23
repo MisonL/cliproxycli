@@ -47,3 +47,11 @@ bin/
 management-center/node_modules
 management-center/dist
 management-center/coverage
+
+# Temporary files
+*.bak
+*.tmp
+*.old
+conversation-*.txt
+lint_report.txt
+server

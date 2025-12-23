@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -12,12 +13,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/interfaces"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/router"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 	coreexecutor "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
 	"github.com/router-for-me/CLIProxyAPI/v6/sdk/config"
 	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
-	"golang.org/x/net/context"
 )
 
 // ErrorResponse represents a standard error response format for the API.
@@ -47,6 +48,9 @@ type BaseAPIHandler struct {
 	// AuthManager manages auth lifecycle and execution in the new architecture.
 	AuthManager *coreauth.Manager
 
+	// Router handles intelligent model routing and load balancing.
+	Router *router.Router
+
 	// Cfg holds the current application configuration.
 	Cfg *config.SDKConfig
 }
@@ -60,10 +64,11 @@ type BaseAPIHandler struct {
 //
 // Returns:
 //   - *BaseAPIHandler: A new API handlers instance
-func NewBaseAPIHandlers(cfg *config.SDKConfig, authManager *coreauth.Manager) *BaseAPIHandler {
+func NewBaseAPIHandlers(cfg *config.SDKConfig, authManager *coreauth.Manager, r *router.Router) *BaseAPIHandler {
 	return &BaseAPIHandler{
 		Cfg:         cfg,
 		AuthManager: authManager,
+		Router:      r,
 	}
 }
 
@@ -96,6 +101,14 @@ func (h *BaseAPIHandler) GetAlt(c *gin.Context) string {
 	return alt
 }
 
+// contextKey defines a custom type for context keys to avoid collisions.
+type contextKey string
+
+const (
+	ginContextKey     contextKey = "gin"
+	handlerContextKey contextKey = "handler"
+)
+
 // GetContextWithCancel creates a new context with cancellation capabilities.
 // It embeds the Gin context and the API handler into the new context for later use.
 // The returned cancel function also handles logging the API response if request logging is enabled.
@@ -110,8 +123,8 @@ func (h *BaseAPIHandler) GetAlt(c *gin.Context) string {
 //   - APIHandlerCancelFunc: A function to cancel the context and log the response.
 func (h *BaseAPIHandler) GetContextWithCancel(handler interfaces.APIHandler, c *gin.Context, ctx context.Context) (context.Context, APIHandlerCancelFunc) {
 	newCtx, cancel := context.WithCancel(ctx)
-	newCtx = context.WithValue(newCtx, "gin", c)
-	newCtx = context.WithValue(newCtx, "handler", handler)
+	newCtx = context.WithValue(newCtx, ginContextKey, c)
+	newCtx = context.WithValue(newCtx, handlerContextKey, handler)
 	return newCtx, func(params ...interface{}) {
 		if h.Cfg.RequestLog && len(params) == 1 {
 			if existing, exists := c.Get("API_RESPONSE"); exists {
@@ -178,7 +191,7 @@ func appendAPIResponse(c *gin.Context, data []byte) {
 // ExecuteWithAuthManager executes a non-streaming request via the core auth manager.
 // This path is the only supported execution route.
 func (h *BaseAPIHandler) ExecuteWithAuthManager(ctx context.Context, handlerType, modelName string, rawJSON []byte, alt string) ([]byte, *interfaces.ErrorMessage) {
-	providers, normalizedModel, metadata, errMsg := h.getRequestDetails(modelName)
+	providers, normalizedModel, metadata, errMsg := h.getRequestDetails(ctx, modelName)
 	if errMsg != nil {
 		return nil, errMsg
 	}
@@ -220,7 +233,7 @@ func (h *BaseAPIHandler) ExecuteWithAuthManager(ctx context.Context, handlerType
 // ExecuteCountWithAuthManager executes a non-streaming request via the core auth manager.
 // This path is the only supported execution route.
 func (h *BaseAPIHandler) ExecuteCountWithAuthManager(ctx context.Context, handlerType, modelName string, rawJSON []byte, alt string) ([]byte, *interfaces.ErrorMessage) {
-	providers, normalizedModel, metadata, errMsg := h.getRequestDetails(modelName)
+	providers, normalizedModel, metadata, errMsg := h.getRequestDetails(ctx, modelName)
 	if errMsg != nil {
 		return nil, errMsg
 	}
@@ -262,7 +275,7 @@ func (h *BaseAPIHandler) ExecuteCountWithAuthManager(ctx context.Context, handle
 // ExecuteStreamWithAuthManager executes a streaming request via the core auth manager.
 // This path is the only supported execution route.
 func (h *BaseAPIHandler) ExecuteStreamWithAuthManager(ctx context.Context, handlerType, modelName string, rawJSON []byte, alt string) (<-chan []byte, <-chan *interfaces.ErrorMessage) {
-	providers, normalizedModel, metadata, errMsg := h.getRequestDetails(modelName)
+	providers, normalizedModel, metadata, errMsg := h.getRequestDetails(ctx, modelName)
 	if errMsg != nil {
 		errChan := make(chan *interfaces.ErrorMessage, 1)
 		errChan <- errMsg
@@ -334,15 +347,38 @@ func (h *BaseAPIHandler) ExecuteStreamWithAuthManager(ctx context.Context, handl
 	return dataChan, errChan
 }
 
-func (h *BaseAPIHandler) getRequestDetails(modelName string) (providers []string, normalizedModel string, metadata map[string]any, err *interfaces.ErrorMessage) {
+func (h *BaseAPIHandler) getRequestDetails(ctx context.Context, modelName string) (providers []string, normalizedModel string, metadata map[string]any, err *interfaces.ErrorMessage) {
 	// Resolve "auto" model to an actual available model first
 	resolvedModelName := util.ResolveAutoModel(modelName)
 
-	// Normalize the model name to handle dynamic thinking suffixes before determining the provider.
-	normalizedModel, metadata = normalizeModelMetadata(resolvedModelName)
+	// Context for router (extract User-Agent from gin context embedded in ctx)
+	var userAgent string
+	if ctx != nil {
+		if c, ok := ctx.Value(ginContextKey).(*gin.Context); ok {
+			userAgent = c.GetHeader("User-Agent")
+		}
+	}
 
-	// Use the normalizedModel to get the provider name.
-	providers = util.GetProviderName(normalizedModel)
+	// 1. Resolve through the intelligent router
+	var finalModelID string
+	if h.Router != nil {
+		res, _ := h.Router.Resolve(ctx, resolvedModelName, userAgent)
+		providers = res.Providers
+		finalModelID = res.ModelID
+	} else {
+		// Fallback for when router isn't initialized
+		providers = util.GetProviderName(resolvedModelName)
+		finalModelID = resolvedModelName
+	}
+
+	// 2. Normalize the model name to handle dynamic thinking suffixes
+	normalizedModel, metadata = normalizeModelMetadata(finalModelID)
+
+	// If no providers found via router, try legacy fallback
+	if len(providers) == 0 {
+		providers = util.GetProviderName(normalizedModel)
+	}
+
 	if len(providers) == 0 && metadata != nil {
 		if originalRaw, ok := metadata[util.ThinkingOriginalModelMetadataKey]; ok {
 			if originalModel, okStr := originalRaw.(string); okStr {
@@ -360,10 +396,6 @@ func (h *BaseAPIHandler) getRequestDetails(modelName string) (providers []string
 	if len(providers) == 0 {
 		return nil, "", nil, &interfaces.ErrorMessage{StatusCode: http.StatusBadRequest, Error: fmt.Errorf("unknown provider for model %s", modelName)}
 	}
-
-	// If it's a dynamic model, the normalizedModel was already set to extractedModelName.
-	// If it's a non-dynamic model, normalizedModel was set by normalizeModelMetadata.
-	// So, normalizedModel is already correctly set at this point.
 
 	return providers, normalizedModel, metadata, nil
 }
@@ -460,7 +492,7 @@ func (h *BaseAPIHandler) WriteErrorResponse(c *gin.Context, msg *interfaces.Erro
 
 func (h *BaseAPIHandler) LoggingAPIResponseError(ctx context.Context, err *interfaces.ErrorMessage) {
 	if h.Cfg.RequestLog {
-		if ginContext, ok := ctx.Value("gin").(*gin.Context); ok {
+		if ginContext, ok := ctx.Value(ginContextKey).(*gin.Context); ok {
 			if apiResponseErrors, isExist := ginContext.Get("API_RESPONSE_ERROR"); isExist {
 				if slicesAPIResponseError, isOk := apiResponseErrors.([]*interfaces.ErrorMessage); isOk {
 					slicesAPIResponseError = append(slicesAPIResponseError, err)

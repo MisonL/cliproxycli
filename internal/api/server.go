@@ -26,6 +26,8 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/logging"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/managementasset"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/router"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/usage"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
 	sdkaccess "github.com/router-for-me/CLIProxyAPI/v6/sdk/access"
@@ -235,10 +237,13 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 	envAdminPassword = strings.TrimSpace(envAdminPassword)
 	envManagementSecret := envAdminPasswordSet && envAdminPassword != ""
 
+	// Initialize Router
+	modelRouter := router.NewRouter(registry.GetGlobalRegistry(), &cfg.Routing)
+
 	// Create server instance
 	s := &Server{
 		engine:              engine,
-		handlers:            handlers.NewBaseAPIHandlers(&cfg.SDKConfig, authManager),
+		handlers:            handlers.NewBaseAPIHandlers(&cfg.SDKConfig, authManager, modelRouter),
 		cfg:                 cfg,
 		accessManager:       accessManager,
 		requestLogger:       requestLogger,
@@ -267,6 +272,11 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 		logDir = filepath.Join(base, "logs")
 	}
 	s.mgmt.SetLogDirectory(logDir)
+
+	dataDir := util.PersistencePath()
+	if !filepath.IsAbs(dataDir) {
+		dataDir = filepath.Join(s.currentPath, dataDir)
+	}
 	s.localPassword = optionState.localPassword
 
 	// Setup routes
@@ -290,7 +300,7 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 	}
 
 	// Initialize Scheduler
-	schedulerStore, err := scheduler.NewStore(filepath.Join(logDir, "scheduler"))
+	schedulerStore, err := scheduler.NewStore(filepath.Join(dataDir, "scheduler"))
 	if err != nil {
 		log.Warnf("Failed to initialize scheduler store: %v", err)
 	} else {
@@ -300,7 +310,7 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 		if len(cfg.APIKeys) > 0 {
 			authToken = cfg.APIKeys[0]
 		}
-		executor := scheduler.NewLoopbackExecutor(baseURL, authToken)
+		executor := scheduler.NewLoopbackExecutor(baseURL, authToken, schedulerStore)
 		s.schedulerStore = schedulerStore
 		s.schedulerEngine = scheduler.NewEngine(schedulerStore, executor)
 	}
@@ -324,7 +334,7 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 
 	// Start usage statistics persistence if enabled
 	if cfg.PersistenceEnabled {
-		usageStatsPath := filepath.Join(logDir, "usage_stats.json")
+		usageStatsPath := filepath.Join(dataDir, "usage_stats.json")
 		reqStats := usage.GetRequestStatistics()
 		if err := reqStats.Load(usageStatsPath); err != nil {
 			log.Warnf("failed to load usage statistics: %v", err)
@@ -514,6 +524,7 @@ func (s *Server) registerManagementRoutes() {
 		mgmt.GET("/config.yaml", s.mgmt.GetConfigYAML)
 		mgmt.PUT("/config.yaml", s.mgmt.PutConfigYAML)
 		mgmt.GET("/latest-version", s.mgmt.GetLatestVersion)
+		mgmt.GET("/models", s.mgmt.ListModels)
 
 		mgmt.GET("/debug", s.mgmt.GetDebug)
 		mgmt.PUT("/debug", s.mgmt.PutDebug)
@@ -635,7 +646,9 @@ func (s *Server) registerManagementRoutes() {
 				schedGroup.GET("/tasks/:id", schedHandler.GetTask)
 				schedGroup.PATCH("/tasks/:id", schedHandler.UpdateTask)
 				schedGroup.DELETE("/tasks/:id", schedHandler.DeleteTask)
+				schedGroup.POST("/tasks/:id/run", schedHandler.RunTask)
 				schedGroup.GET("/logs", schedHandler.GetLogs)
+				schedGroup.DELETE("/logs", schedHandler.ClearLogs)
 			}
 		}
 	}

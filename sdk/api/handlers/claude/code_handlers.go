@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	. "github.com/router-for-me/CLIProxyAPI/v6/internal/constant"
+	"github.com/router-for-me/CLIProxyAPI/v6/internal/constant"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/interfaces"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
 	"github.com/router-for-me/CLIProxyAPI/v6/sdk/api/handlers"
@@ -47,7 +47,7 @@ func NewClaudeCodeAPIHandler(apiHandlers *handlers.BaseAPIHandler) *ClaudeCodeAP
 
 // HandlerType returns the identifier for this handler implementation.
 func (h *ClaudeCodeAPIHandler) HandlerType() string {
-	return Claude
+	return constant.Claude
 }
 
 // Models returns a list of models supported by this handler.
@@ -164,7 +164,9 @@ func (h *ClaudeCodeAPIHandler) handleNonStreamingResponse(c *gin.Context, rawJSO
 		if err != nil {
 			log.Warnf("failed to decompress gzipped Claude response: %v", err)
 		} else {
-			defer gzReader.Close()
+			defer func() {
+				_ = gzReader.Close()
+			}()
 			if decompressed, err := io.ReadAll(gzReader); err != nil {
 				log.Warnf("failed to read decompressed Claude response: %v", err)
 			} else {
@@ -214,7 +216,7 @@ func (h *ClaudeCodeAPIHandler) handleStreamingResponse(c *gin.Context, rawJSON [
 
 	dataChan, errChan := h.ExecuteStreamWithAuthManager(cliCtx, h.HandlerType(), modelName, rawJSON, "")
 	h.forwardClaudeStream(c, flusher, func(err error) { cliCancel(err) }, dataChan, errChan)
-	return
+
 }
 
 func (h *ClaudeCodeAPIHandler) forwardClaudeStream(c *gin.Context, flusher http.Flusher, cancel func(error), data <-chan []byte, errs <-chan *interfaces.ErrorMessage) {

@@ -5,7 +5,6 @@ package cliproxy
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -105,6 +104,10 @@ func newDefaultAuthManager() *sdkAuth.Manager {
 		sdkAuth.NewCodexAuthenticator(),
 		sdkAuth.NewClaudeAuthenticator(),
 		sdkAuth.NewQwenAuthenticator(),
+		sdkAuth.NewIFlowAuthenticator(),
+		sdkAuth.NewAntigravityAuthenticator(),
+		sdkAuth.NewKiroAuthenticator(),
+		sdkAuth.NewGitHubCopilotAuthenticator(),
 	)
 }
 
@@ -379,6 +382,10 @@ func (s *Service) ensureExecutorsForAuth(a *coreauth.Auth) {
 		s.coreManager.RegisterExecutor(executor.NewQwenExecutor(s.cfg))
 	case "iflow":
 		s.coreManager.RegisterExecutor(executor.NewIFlowExecutor(s.cfg))
+	case "kiro":
+		s.coreManager.RegisterExecutor(executor.NewKiroExecutor(s.cfg))
+	case "github-copilot":
+		s.coreManager.RegisterExecutor(executor.NewGitHubCopilotExecutor(s.cfg))
 	default:
 		providerKey := strings.ToLower(strings.TrimSpace(a.Provider))
 		if providerKey == "" {
@@ -436,22 +443,6 @@ func (s *Service) Run(ctx context.Context) error {
 		if errLoad := s.coreManager.Load(ctx); errLoad != nil {
 			log.Warnf("failed to load auth store: %v", errLoad)
 		}
-	}
-
-	tokenResult, err := s.tokenProvider.Load(ctx, s.cfg)
-	if err != nil && !errors.Is(err, context.Canceled) {
-		return err
-	}
-	if tokenResult == nil {
-		tokenResult = &TokenClientResult{}
-	}
-
-	apiKeyResult, err := s.apiKeyProvider.Load(ctx, s.cfg)
-	if err != nil && !errors.Is(err, context.Canceled) {
-		return err
-	}
-	if apiKeyResult == nil {
-		apiKeyResult = &APIKeyClientResult{}
 	}
 
 	// legacy clients removed; no caches to refresh
@@ -524,7 +515,7 @@ func (s *Service) Run(ctx context.Context) error {
 		s.rebindExecutors()
 	}
 
-	watcherWrapper, err = s.watcherFactory(s.configPath, s.cfg.AuthDir, reloadCallback)
+	watcherWrapper, err := s.watcherFactory(s.configPath, s.cfg.AuthDir, reloadCallback)
 	if err != nil {
 		return fmt.Errorf("cliproxy: failed to create watcher: %w", err)
 	}
@@ -721,6 +712,18 @@ func (s *Service) registerModelsForAuth(a *coreauth.Auth) {
 	case "iflow":
 		models = registry.GetIFlowModels()
 		models = applyExcludedModels(models, excluded)
+	case "kiro":
+		models = registry.GetKiroModels()
+		models = applyExcludedModels(models, excluded)
+		// Register Amazon Q models if available (they share infrastructure with Kiro)
+		qModels := registry.GetAmazonQModels()
+		qModels = applyExcludedModels(qModels, excluded)
+		if len(qModels) > 0 {
+			models = append(models, qModels...)
+		}
+	case "github-copilot":
+		models = registry.GetGitHubCopilotModels()
+		models = applyExcludedModels(models, excluded)
 	default:
 		// Handle OpenAI-compatibility providers by name using config
 		if s.cfg != nil {
@@ -763,7 +766,7 @@ func (s *Service) registerModelsForAuth(a *coreauth.Auth) {
 			for i := range s.cfg.OpenAICompatibility {
 				compat := &s.cfg.OpenAICompatibility[i]
 				if strings.EqualFold(compat.Name, compatName) {
-					isCompatAuth = true
+					// isCompatAuth = true // unused
 					// Convert compatibility models to registry models
 					ms := make([]*ModelInfo, 0, len(compat.Models))
 					for j := range compat.Models {

@@ -31,6 +31,7 @@ import (
 	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 	clipexec "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
 	sdktr "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -130,7 +131,7 @@ func (MyExecutor) Execute(ctx context.Context, a *coreauth.Auth, req clipexec.Re
 	}
 	defer func() {
 		if errClose := resp.Body.Close(); errClose != nil {
-			// Best-effort close; log if needed in real projects.
+			log.Errorf("custom-provider: failed to close response body: %v", errClose)
 		}
 	}()
 	body, _ := io.ReadAll(resp.Body)

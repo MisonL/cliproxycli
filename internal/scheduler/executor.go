@@ -17,16 +17,22 @@ type LoopbackExecutor struct {
 	BaseURL       string
 	AuthToken     string // Optional: Bearer token if needed
 	LocalPassword string // Optional: X-Local-Password
+	store         *Store
 }
 
-func NewLoopbackExecutor(baseURL, localPwd string) *LoopbackExecutor {
+func NewLoopbackExecutor(baseURL, localPwd string, store *Store) *LoopbackExecutor {
 	return &LoopbackExecutor{
 		BaseURL:       strings.TrimRight(baseURL, "/"),
 		LocalPassword: localPwd,
+		store:         store,
 	}
 }
 
 func (e *LoopbackExecutor) Execute(ctx context.Context, task *Task) (string, error) {
+	if task.Type == TaskTypeSystemReport {
+		return e.generateSystemReport(task)
+	}
+
 	// Construct generic chat completion request
 	// Assuming OpenAI compatible format for simplicity as it covers most
 	requestBody := map[string]interface{}{
@@ -50,6 +56,7 @@ func (e *LoopbackExecutor) Execute(ctx context.Context, task *Task) (string, err
 	req.Header.Set("Content-Type", "application/json")
 	if e.LocalPassword != "" {
 		req.Header.Set("X-Local-Password", e.LocalPassword)
+		req.Header.Set("Authorization", "Bearer "+e.LocalPassword)
 	}
 	// Add specific User-Agent to identify scheduler traffic
 	req.Header.Set("User-Agent", "CLIProxyAPI-Scheduler/1.0")
@@ -59,7 +66,9 @@ func (e *LoopbackExecutor) Execute(ctx context.Context, task *Task) (string, err
 	if err != nil {
 		return "", fmt.Errorf("http request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -94,12 +103,127 @@ func (e *LoopbackExecutor) Execute(ctx context.Context, task *Task) (string, err
 	return string(respBody), nil
 }
 
+func (e *LoopbackExecutor) generateSystemReport(task *Task) (string, error) {
+	if e.store == nil {
+		return "Store not initialized", nil
+	}
+
+	tasks := e.store.GetTasks()
+	logs := e.store.GetLogs()
+
+	totalTasks := len(tasks)
+	activeTasks := 0
+	for _, t := range tasks {
+		if t.Status == TaskStatusActive {
+			activeTasks++
+		}
+	}
+
+	now := time.Now()
+	oneDayAgo := now.Add(-24 * time.Hour)
+	recentLogs := 0
+	recentFailures := 0
+
+	for _, l := range logs {
+		if l.ExecutedAt.After(oneDayAgo) {
+			recentLogs++
+			if !l.Success {
+				recentFailures++
+			}
+		}
+	}
+
+	successRate := 100.0
+	if recentLogs > 0 {
+		successRate = float64(recentLogs-recentFailures) / float64(recentLogs) * 100
+	}
+
+	report := fmt.Sprintf(
+		"**System Report**\n\n"+
+			"- Total Tasks: %d\n"+
+			"- Active Tasks: %d\n"+
+			"- Executions (24h): %d\n"+
+			"- Failures (24h): %d\n"+
+			"- Success Rate (24h): %.1f%%\n"+
+			"- Generated At: %s",
+		totalTasks, activeTasks, recentLogs, recentFailures, successRate, now.Format(time.RFC3339),
+	)
+
+	if task.WebhookURL != "" {
+		go e.triggerWebhook(task, report)
+	}
+
+	return report, nil
+}
+
 func (e *LoopbackExecutor) triggerWebhook(task *Task, content string) {
-	payload := map[string]interface{}{
-		"task_id":     task.ID,
-		"task_name":   task.Name,
-		"executed_at": time.Now(),
-		"content":     content,
+	var payload interface{}
+
+	// Detect WeCom Webhook
+	if strings.Contains(task.WebhookURL, "qyapi.weixin.qq.com") {
+		// Use Template Card for WeCom
+		// Format: https://developer.work.weixin.qq.com/document/path/91770
+
+		// Truncate content for desc if too long
+		desc := content
+		if len(desc) > 100 {
+			desc = desc[:97] + "..."
+		}
+
+		payload = map[string]interface{}{
+			"msgtype": "template_card",
+			"template_card": map[string]interface{}{
+				"card_type": "text_notice",
+				"source": map[string]string{
+					"icon_url": "https://wework.qpic.cn/wwpic/252813_jOfDHtcISzuay14_1628280241/0",
+					"desc":     desc,
+				},
+				"main_title": map[string]string{
+					"title": fmt.Sprintf("Task: %s", task.Name),
+					"desc":  "Task Execution Result",
+				},
+				"emphasis_content": map[string]string{
+					"title": "Success",
+					"desc":  "Status",
+				},
+				"sub_title_text": fmt.Sprintf("Executed at: %s", time.Now().Format("2006-01-02 15:04:05")),
+				"horizontal_content_list": []map[string]string{
+					{
+						"keyname": "Task Type",
+						"value":   string(task.Type),
+					},
+					{
+						"keyname": "Model",
+						"value":   task.Model,
+					},
+				},
+				"card_action": map[string]string{
+					"type": "url",
+					"url":  "http://localhost:21301/management.html", // Ideally configurable
+				},
+				// Use quote_area for the main content
+				"quote_area": map[string]string{
+					"type":       "text",
+					"quote_text": content,
+				},
+			},
+		}
+
+		// Adjust for System Report
+		if task.Type == TaskTypeSystemReport {
+			// Parse simple key-values from markdown report for visual presentation?
+			// For now, just put the report in quote_text
+			payload.(map[string]interface{})["template_card"].(map[string]interface{})["main_title"].(map[string]string)["title"] = "System Report"
+		}
+
+	} else {
+		// Default JSON payload
+		payload = map[string]interface{}{
+			"task_id":     task.ID,
+			"task_name":   task.Name,
+			"executed_at": time.Now(),
+			"content":     content,
+		}
 	}
 
 	data, _ := json.Marshal(payload)
@@ -108,6 +232,13 @@ func (e *LoopbackExecutor) triggerWebhook(task *Task, content string) {
 		log.Warnf("Webhook failed for task %s: %v", task.ID, err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	// Read response for debugging if needed
+	// body, _ := io.ReadAll(resp.Body)
+	// log.Infof("Webhook response: %s", string(body))
+
 	log.Infof("Webhook dispatched for task %s, status: %d", task.ID, resp.StatusCode)
 }

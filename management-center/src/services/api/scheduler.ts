@@ -3,9 +3,10 @@ import { apiClient as api } from './client';
 export interface SchedulerTask {
   id: string;
   name: string;
-  type: 'interval' | 'fixed_time';
+  type: 'interval' | 'fixed_time' | 'daily';
   interval?: string;
   fixed_time?: string;
+  daily_time?: string;
   prompt: string;
   model: string;
   webhook_url?: string;
@@ -36,5 +37,7 @@ export const schedulerApi = {
   updateTask: (id: string, data: Partial<SchedulerTask>) =>
     api.patch<SchedulerTask>(`/scheduler/tasks/${id}`, data),
   deleteTask: (id: string) => api.delete(`/scheduler/tasks/${id}`),
+  runTask: (id: string) => api.post(`/scheduler/tasks/${id}/run`, {}),
   getLogs: () => api.get<SchedulerLog[]>('/scheduler/logs'),
+  clearLogs: () => api.delete('/scheduler/logs'),
 };

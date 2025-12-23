@@ -567,7 +567,8 @@ func (e *GeminiVertexExecutor) countTokensWithServiceAccount(ctx context.Context
 	translatedReq = util.StripThinkingConfigIfUnsupported(req.Model, translatedReq)
 	translatedReq = fixGeminiImageAspectRatio(req.Model, translatedReq)
 	translatedReq, _ = sjson.SetBytes(translatedReq, "model", upstreamModel)
-	respCtx := context.WithValue(ctx, "alt", opts.Alt)
+	const altKey contextKey = "alt"
+	respCtx := context.WithValue(ctx, altKey, opts.Alt)
 	translatedReq, _ = sjson.DeleteBytes(translatedReq, "tools")
 	translatedReq, _ = sjson.DeleteBytes(translatedReq, "generationConfig")
 	translatedReq, _ = sjson.DeleteBytes(translatedReq, "safetySettings")
@@ -656,7 +657,8 @@ func (e *GeminiVertexExecutor) countTokensWithAPIKey(ctx context.Context, auth *
 	translatedReq = util.StripThinkingConfigIfUnsupported(req.Model, translatedReq)
 	translatedReq = fixGeminiImageAspectRatio(req.Model, translatedReq)
 	translatedReq, _ = sjson.SetBytes(translatedReq, "model", upstreamModel)
-	respCtx := context.WithValue(ctx, "alt", opts.Alt)
+	const altKey contextKey = "alt"
+	respCtx := context.WithValue(ctx, altKey, opts.Alt)
 	translatedReq, _ = sjson.DeleteBytes(translatedReq, "tools")
 	translatedReq, _ = sjson.DeleteBytes(translatedReq, "generationConfig")
 	translatedReq, _ = sjson.DeleteBytes(translatedReq, "safetySettings")

@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -45,11 +44,6 @@ func createReverseProxy(upstreamURL string, secretSource SecretSource) (*httputi
 		// We will set our own Authorization using the configured upstream-api-key
 		req.Header.Del("Authorization")
 		req.Header.Del("X-Api-Key")
-
-		// Preserve correlation headers for debugging
-		if req.Header.Get("X-Request-ID") == "" {
-			// Could generate one here if needed
-		}
 
 		// Note: We do NOT filter Anthropic-Beta headers in the proxy path
 		// Users going through ampcode.com proxy are paying for the service and should get all features
@@ -175,13 +169,6 @@ func isStreamingResponse(resp *http.Response) bool {
 	}
 
 	return false
-}
-
-// proxyHandler converts httputil.ReverseProxy to gin.HandlerFunc
-func proxyHandler(proxy *httputil.ReverseProxy) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		proxy.ServeHTTP(c.Writer, c.Request)
-	}
 }
 
 // filterBetaFeatures removes a specific beta feature from comma-separated list

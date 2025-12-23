@@ -13,6 +13,8 @@ const MODEL_CATEGORIES = [
   { id: 'gpt', label: 'GPT', patterns: [/gpt/i, /\bo\d\b/i, /\bo\d+\.?/i, /\bchatgpt/i] },
   { id: 'claude', label: 'Claude', patterns: [/claude/i] },
   { id: 'gemini', label: 'Gemini', patterns: [/gemini/i, /\bgai\b/i] },
+  { id: 'kiro', label: 'Kiro', patterns: [/kiro/i, /amazon/i, /codewhisperer/i] },
+  { id: 'github-copilot', label: 'Copilot', patterns: [/copilot/i] },
   { id: 'kimi', label: 'Kimi', patterns: [/kimi/i] },
   { id: 'qwen', label: 'Qwen', patterns: [/qwen/i] },
   { id: 'glm', label: 'GLM', patterns: [/glm/i, /chatglm/i] },
@@ -29,19 +31,20 @@ const matchCategory = (text: string) => {
   return null;
 };
 
-export function normalizeModelList(payload: any, { dedupe = false } = {}): ModelInfo[] {
-  const toModel = (entry: any): ModelInfo | null => {
+export function normalizeModelList(payload: unknown, { dedupe = false } = {}): ModelInfo[] {
+  const toModel = (entry: unknown): ModelInfo | null => {
     if (typeof entry === 'string') {
       return { name: entry };
     }
     if (!entry || typeof entry !== 'object') {
       return null;
     }
-    const name = entry.id || entry.name || entry.model || entry.value;
+    const obj = entry as Record<string, unknown>;
+    const name = obj.id ?? obj.name ?? obj.model ?? obj.value;
     if (!name) return null;
 
-    const alias = entry.alias || entry.display_name || entry.displayName;
-    const description = entry.description || entry.note || entry.comment;
+    const alias = obj.alias ?? obj.display_name ?? obj.displayName;
+    const description = obj.description ?? obj.note ?? obj.comment;
     const model: ModelInfo = { name: String(name) };
     if (alias && alias !== name) {
       model.alias = String(alias);
@@ -57,10 +60,11 @@ export function normalizeModelList(payload: any, { dedupe = false } = {}): Model
   if (Array.isArray(payload)) {
     models = payload.map(toModel);
   } else if (payload && typeof payload === 'object') {
-    if (Array.isArray(payload.data)) {
-      models = payload.data.map(toModel);
-    } else if (Array.isArray(payload.models)) {
-      models = payload.models.map(toModel);
+    const obj = payload as Record<string, unknown>;
+    if (Array.isArray(obj.data)) {
+      models = obj.data.map(toModel);
+    } else if (Array.isArray(obj.models)) {
+      models = obj.models.map(toModel);
     }
   }
 
@@ -116,3 +120,34 @@ export function classifyModels(models: ModelInfo[] = [], { otherLabel = 'Other' 
 
   return populatedGroups;
 }
+
+export interface ModelEntry {
+  name: string;
+  alias: string;
+}
+
+export const modelsToEntries = (models?: ModelAlias[]): ModelEntry[] => {
+  if (!Array.isArray(models) || models.length === 0) {
+    return [{ name: '', alias: '' }];
+  }
+  return models.map((m) => ({
+    name: m.name || '',
+    alias: m.alias || ''
+  }));
+};
+
+export const entriesToModels = (entries: ModelEntry[]): ModelAlias[] => {
+  return entries
+    .filter((entry) => entry.name.trim())
+    .map((entry) => {
+      const model: ModelAlias = { name: entry.name.trim() };
+      const alias = entry.alias.trim();
+      if (alias && alias !== model.name) {
+        model.alias = alias;
+      }
+      return model;
+    });
+};
+
+import type { ModelAlias } from '@/types';
+

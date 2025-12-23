@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { HeaderInputList } from '@/components/ui/HeaderInputList';
-import { ModelInputList, modelsToEntries, entriesToModels } from '@/components/ui/ModelInputList';
+import { ModelInputList } from '@/components/ui/ModelInputList';
+import { modelsToEntries, entriesToModels } from '@/utils/models';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { IconCheck, IconX } from '@/components/ui/icons';
 import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
@@ -18,6 +19,7 @@ import type {
   ApiKeyEntry,
   AmpcodeConfig,
   AmpcodeModelMapping,
+  Config,
 } from '@/types';
 import type { KeyStats, KeyStatBucket } from '@/utils/usage';
 import type { ModelInfo } from '@/utils/models';
@@ -275,15 +277,17 @@ export function AiProvidersPage() {
     }
   }, []);
 
-  const loadConfigs = async () => {
+  const loadConfigs = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const data = await fetchConfig();
-      setGeminiKeys(data?.geminiApiKeys || []);
-      setCodexConfigs(data?.codexApiKeys || []);
-      setClaudeConfigs(data?.claudeApiKeys || []);
-      setOpenaiProviders(data?.openaiCompatibility || []);
+      const data = (await fetchConfig()) as Config;
+      if (data) {
+        setGeminiKeys(data.geminiApiKeys || []);
+        setCodexConfigs(data.codexApiKeys || []);
+        setClaudeConfigs(data.claudeApiKeys || []);
+        setOpenaiProviders(data.openaiCompatibility || []);
+      }
       try {
         const ampcode = await ampcodeApi.getAmpcode();
         updateConfigValue('ampcode', ampcode);
@@ -291,17 +295,17 @@ export function AiProvidersPage() {
       } catch {
         // ignore
       }
-    } catch (err: any) {
-      setError(err?.message || t('notification.refresh_failed'));
+    } catch (err: unknown) {
+      setError((err as Error)?.message || t('notification.refresh_failed'));
     } finally {
       setLoading(false);
     }
-  };
+  }, [clearCache, fetchConfig, t, updateConfigValue]);
 
   useEffect(() => {
     loadConfigs();
     loadKeyStats();
-  }, [loadKeyStats]);
+  }, [loadConfigs, loadKeyStats]);
 
   useEffect(() => {
     if (config?.geminiApiKeys) setGeminiKeys(config.geminiApiKeys);
@@ -398,8 +402,8 @@ export function AiProvidersPage() {
         updateConfigValue('ampcode', ampcode);
         clearCache('ampcode');
         setAmpcodeForm(buildAmpcodeFormState(ampcode));
-      } catch (err: any) {
-        setAmpcodeModalError(err?.message || t('notification.refresh_failed'));
+      } catch (err: unknown) {
+        setAmpcodeModalError((err as Error)?.message || t('notification.refresh_failed'));
       } finally {
         setAmpcodeModalLoading(false);
       }
@@ -460,21 +464,21 @@ export function AiProvidersPage() {
         headers
       );
       setOpenaiDiscoveryModels(list);
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (allowFallback) {
         try {
           const list = await modelsApi.fetchModels(baseUrl);
           setOpenaiDiscoveryModels(list);
           return;
-        } catch (fallbackErr: any) {
-          const message = fallbackErr?.message || err?.message || '';
+        } catch (fallbackErr: unknown) {
+          const message = (fallbackErr as Error)?.message || (err as Error)?.message || '';
           setOpenaiDiscoveryModels([]);
           setOpenaiDiscoveryError(`${t('ai_providers.openai_models_fetch_error')}: ${message}`);
         }
       } else {
         setOpenaiDiscoveryModels([]);
         setOpenaiDiscoveryError(
-          `${t('ai_providers.openai_models_fetch_error')}: ${err?.message || ''}`
+          `${t('ai_providers.openai_models_fetch_error')}: ${(err as Error)?.message || ''}`
         );
       }
     } finally {
@@ -647,14 +651,14 @@ export function AiProvidersPage() {
 
       setOpenaiTestStatus('success');
       setOpenaiTestMessage(t('ai_providers.openai_test_success'));
-    } catch (err: any) {
+    } catch (err: unknown) {
       setOpenaiTestStatus('error');
-      if (err?.name === 'AbortError') {
+      if ((err as Error)?.name === 'AbortError') {
         setOpenaiTestMessage(
           t('ai_providers.openai_test_timeout', { seconds: OPENAI_TEST_TIMEOUT_MS / 1000 })
         );
       } else {
-        setOpenaiTestMessage(`${t('ai_providers.openai_test_failed')}: ${err?.message || ''}`);
+        setOpenaiTestMessage(`${t('ai_providers.openai_test_failed')}: ${(err as Error)?.message || ''}`);
       }
     } finally {
       window.clearTimeout(timeoutId);
@@ -667,14 +671,13 @@ export function AiProvidersPage() {
     setAmpcodeModalError('');
     try {
       await ampcodeApi.clearUpstreamApiKey();
-      const previous = config?.ampcode ?? {};
-      const next: AmpcodeConfig = { ...previous };
-      delete (next as any).upstreamApiKey;
+      const next: AmpcodeConfig = { ...(config?.ampcode || {} as AmpcodeConfig) };
+      delete (next as Partial<AmpcodeConfig>).upstreamApiKey;
       updateConfigValue('ampcode', next);
       clearCache('ampcode');
       showNotification(t('notification.ampcode_upstream_api_key_cleared'), 'success');
-    } catch (err: any) {
-      const message = err?.message || '';
+    } catch (err: unknown) {
+      const message = (err as Error)?.message || '';
       setAmpcodeModalError(message);
       showNotification(`${t('notification.update_failed')}: ${message}`, 'error');
     } finally {
@@ -734,7 +737,7 @@ export function AiProvidersPage() {
         if (modelMappings.length) {
           next.modelMappings = modelMappings;
         } else {
-          delete (next as any).modelMappings;
+          delete (next as Partial<AmpcodeConfig>).modelMappings;
         }
       }
 
@@ -742,8 +745,8 @@ export function AiProvidersPage() {
       clearCache('ampcode');
       showNotification(t('notification.ampcode_updated'), 'success');
       closeModal();
-    } catch (err: any) {
-      const message = err?.message || '';
+    } catch (err: unknown) {
+      const message = (err as Error)?.message || '';
       setAmpcodeModalError(message);
       showNotification(`${t('notification.update_failed')}: ${message}`, 'error');
     } finally {
@@ -757,7 +760,7 @@ export function AiProvidersPage() {
       const payload: GeminiKeyConfig = {
         apiKey: geminiForm.apiKey.trim(),
         baseUrl: geminiForm.baseUrl?.trim() || undefined,
-        headers: buildHeaderObject(headersToEntries(geminiForm.headers as any)),
+        headers: buildHeaderObject(headersToEntries(geminiForm.headers as Record<string, string>)),
         excludedModels: parseExcludedModels(geminiForm.excludedText),
       };
       const nextList =
@@ -775,8 +778,8 @@ export function AiProvidersPage() {
           : t('notification.gemini_key_added');
       showNotification(message, 'success');
       closeModal();
-    } catch (err: any) {
-      showNotification(`${t('notification.update_failed')}: ${err?.message || ''}`, 'error');
+    } catch (err: unknown) {
+      showNotification(`${t('notification.update_failed')}: ${(err as Error)?.message || ''}`, 'error');
     } finally {
       setSaving(false);
     }
@@ -791,8 +794,8 @@ export function AiProvidersPage() {
       updateConfigValue('gemini-api-key', next);
       clearCache('gemini-api-key');
       showNotification(t('notification.gemini_key_deleted'), 'success');
-    } catch (err: any) {
-      showNotification(`${t('notification.delete_failed')}: ${err?.message || ''}`, 'error');
+    } catch (err: unknown) {
+      showNotification(`${t('notification.delete_failed')}: ${(err as Error)?.message || ''}`, 'error');
     }
   };
 
@@ -825,11 +828,11 @@ export function AiProvidersPage() {
           enabled ? t('notification.config_enabled') : t('notification.config_disabled'),
           'success'
         );
-      } catch (err: any) {
+      } catch (err: unknown) {
         setGeminiKeys(previousList);
         updateConfigValue('gemini-api-key', previousList);
         clearCache('gemini-api-key');
-        showNotification(`${t('notification.update_failed')}: ${err?.message || ''}`, 'error');
+        showNotification(`${t('notification.update_failed')}: ${(err as Error)?.message || ''}`, 'error');
       } finally {
         setConfigSwitchingKey(null);
       }
@@ -870,7 +873,7 @@ export function AiProvidersPage() {
         enabled ? t('notification.config_enabled') : t('notification.config_disabled'),
         'success'
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (provider === 'codex') {
         setCodexConfigs(previousList);
         updateConfigValue('codex-api-key', previousList);
@@ -880,7 +883,7 @@ export function AiProvidersPage() {
         updateConfigValue('claude-api-key', previousList);
         clearCache('claude-api-key');
       }
-      showNotification(`${t('notification.update_failed')}: ${err?.message || ''}`, 'error');
+      showNotification(`${t('notification.update_failed')}: ${(err as Error)?.message || ''}`, 'error');
     } finally {
       setConfigSwitchingKey(null);
     }
@@ -901,7 +904,7 @@ export function AiProvidersPage() {
         apiKey: providerForm.apiKey.trim(),
         baseUrl,
         proxyUrl: providerForm.proxyUrl?.trim() || undefined,
-        headers: buildHeaderObject(headersToEntries(providerForm.headers as any)),
+        headers: buildHeaderObject(headersToEntries(providerForm.headers as Record<string, string>)),
         models: entriesToModels(providerForm.modelEntries),
         excludedModels: parseExcludedModels(providerForm.excludedText),
       };
@@ -934,15 +937,16 @@ export function AiProvidersPage() {
       }
 
       closeModal();
-    } catch (err: any) {
-      showNotification(`${t('notification.update_failed')}: ${err?.message || ''}`, 'error');
+    } catch (err: unknown) {
+      showNotification(`${t('notification.update_failed')}: ${(err as Error)?.message || ''}`, 'error');
     } finally {
       setSaving(false);
     }
   };
 
   const deleteProviderEntry = async (type: 'codex' | 'claude', apiKey: string) => {
-    if (!window.confirm(t(`ai_providers.${type}_delete_confirm` as any))) return;
+    const confirmKey = type === 'codex' ? 'ai_providers.codex_delete_confirm' : 'ai_providers.claude_delete_confirm';
+    if (!window.confirm(t(confirmKey))) return;
     try {
       if (type === 'codex') {
         await providersApi.deleteCodexConfig(apiKey);
@@ -959,8 +963,8 @@ export function AiProvidersPage() {
         clearCache('claude-api-key');
         showNotification(t('notification.claude_config_deleted'), 'success');
       }
-    } catch (err: any) {
-      showNotification(`${t('notification.delete_failed')}: ${err?.message || ''}`, 'error');
+    } catch (err: unknown) {
+      showNotification(`${t('notification.delete_failed')}: ${(err as Error)?.message || ''}`, 'error');
     }
   };
 
@@ -996,8 +1000,8 @@ export function AiProvidersPage() {
           : t('notification.openai_provider_added');
       showNotification(message, 'success');
       closeModal();
-    } catch (err: any) {
-      showNotification(`${t('notification.update_failed')}: ${err?.message || ''}`, 'error');
+    } catch (err: unknown) {
+      showNotification(`${t('notification.update_failed')}: ${(err as Error)?.message || ''}`, 'error');
     } finally {
       setSaving(false);
     }
@@ -1012,8 +1016,8 @@ export function AiProvidersPage() {
       updateConfigValue('openai-compatibility', next);
       clearCache('openai-compatibility');
       showNotification(t('notification.openai_provider_deleted'), 'success');
-    } catch (err: any) {
-      showNotification(`${t('notification.delete_failed')}: ${err?.message || ''}`, 'error');
+    } catch (err: unknown) {
+      showNotification(`${t('notification.delete_failed')}: ${(err as Error)?.message || ''}`, 'error');
     }
   };
 
@@ -1813,7 +1817,7 @@ export function AiProvidersPage() {
             onChange={(e) => setGeminiForm((prev) => ({ ...prev, baseUrl: e.target.value }))}
           />
           <HeaderInputList
-            entries={headersToEntries(geminiForm.headers as any)}
+            entries={headersToEntries(geminiForm.headers as Record<string, string>)}
             onChange={(entries) =>
               setGeminiForm((prev) => ({ ...prev, headers: buildHeaderObject(entries) }))
             }
@@ -1889,7 +1893,7 @@ export function AiProvidersPage() {
             onChange={(e) => setProviderForm((prev) => ({ ...prev, proxyUrl: e.target.value }))}
           />
           <HeaderInputList
-            entries={headersToEntries(providerForm.headers as any)}
+            entries={headersToEntries(providerForm.headers as Record<string, string>)}
             onChange={(entries) =>
               setProviderForm((prev) => ({ ...prev, headers: buildHeaderObject(entries) }))
             }

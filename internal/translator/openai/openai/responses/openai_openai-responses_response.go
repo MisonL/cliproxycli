@@ -68,7 +68,7 @@ func ConvertOpenAIChatCompletionsResponseToOpenAIResponses(ctx context.Context, 
 	st := (*param).(*oaiToResponsesState)
 
 	if bytes.HasPrefix(rawJSON, []byte("data:")) {
-		rawJSON = bytes.TrimSpace(rawJSON[5:])
+		rawJSON = bytes.TrimPrefix(rawJSON, []byte("data:"))
 	}
 
 	rawJSON = bytes.TrimSpace(rawJSON)
@@ -689,10 +689,7 @@ func ConvertOpenAIChatCompletionsResponseToOpenAIResponsesNonStream(_ context.Co
 		includeReasoning = gjson.GetBytes(requestRawJSON, "reasoning").Exists()
 	}
 	if includeReasoning {
-		rid := id
-		if strings.HasPrefix(rid, "resp_") {
-			rid = strings.TrimPrefix(rid, "resp_")
-		}
+		rid := strings.TrimPrefix(id, "resp_")
 		reasoningItem := map[string]interface{}{
 			"id":                fmt.Sprintf("rs_%s", rid),
 			"type":              "reasoning",

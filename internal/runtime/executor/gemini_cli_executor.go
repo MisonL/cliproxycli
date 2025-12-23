@@ -100,7 +100,8 @@ func (e *GeminiCLIExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth
 	}
 
 	httpClient := newHTTPClient(ctx, e.cfg, auth, 0)
-	respCtx := context.WithValue(ctx, "alt", opts.Alt)
+	const altKey contextKey = "alt"
+	respCtx := context.WithValue(ctx, altKey, opts.Alt)
 
 	var authID, authLabel, authType, authValue string
 	authID = auth.ID
@@ -233,7 +234,8 @@ func (e *GeminiCLIExecutor) ExecuteStream(ctx context.Context, auth *cliproxyaut
 	}
 
 	httpClient := newHTTPClient(ctx, e.cfg, auth, 0)
-	respCtx := context.WithValue(ctx, "alt", opts.Alt)
+	const altKey contextKey = "alt"
+	respCtx := context.WithValue(ctx, altKey, opts.Alt)
 
 	var authID, authLabel, authType, authValue string
 	authID = auth.ID
@@ -405,7 +407,8 @@ func (e *GeminiCLIExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.
 	}
 
 	httpClient := newHTTPClient(ctx, e.cfg, auth, 0)
-	respCtx := context.WithValue(ctx, "alt", opts.Alt)
+	const altKey contextKey = "alt"
+	respCtx := context.WithValue(ctx, altKey, opts.Alt)
 
 	var authID, authLabel, authType, authValue string
 	if auth != nil {

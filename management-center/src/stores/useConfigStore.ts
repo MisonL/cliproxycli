@@ -9,20 +9,20 @@ import type { RawConfigSection } from '@/types/config';
 import { configApi } from '@/services/api/config';
 import { CACHE_EXPIRY_MS } from '@/utils/constants';
 
-interface ConfigCache {
-  data: any;
+interface ConfigCacheEntry {
+  data: unknown;
   timestamp: number;
 }
 
 interface ConfigState {
   config: Config | null;
-  cache: Map<string, ConfigCache>;
+  cache: Map<string, ConfigCacheEntry>;
   loading: boolean;
   error: string | null;
 
   // 操作
-  fetchConfig: (section?: RawConfigSection, forceRefresh?: boolean) => Promise<Config | any>;
-  updateConfigValue: (section: RawConfigSection, value: any) => void;
+  fetchConfig: (section?: RawConfigSection, forceRefresh?: boolean) => Promise<Config | unknown>;
+  updateConfigValue: (section: RawConfigSection, value: unknown) => void;
   clearCache: (section?: RawConfigSection) => void;
   isCacheValid: (section?: RawConfigSection) => boolean;
 }
@@ -151,10 +151,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       });
 
       return section ? extractSectionValue(data, section) : data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (requestId === configRequestToken) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
         set({
-          error: error.message || 'Failed to fetch config',
+          error: message || 'Failed to fetch config',
           loading: false
         });
       }
@@ -174,49 +175,49 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
 
       switch (section) {
         case 'debug':
-          nextConfig.debug = value;
+          nextConfig.debug = value as boolean;
           break;
         case 'proxy-url':
-          nextConfig.proxyUrl = value;
+          nextConfig.proxyUrl = value as string;
           break;
         case 'request-retry':
-          nextConfig.requestRetry = value;
+          nextConfig.requestRetry = value as number;
           break;
         case 'quota-exceeded':
-          nextConfig.quotaExceeded = value;
+          nextConfig.quotaExceeded = value as Config['quotaExceeded'];
           break;
         case 'usage-statistics-enabled':
-          nextConfig.usageStatisticsEnabled = value;
+          nextConfig.usageStatisticsEnabled = value as boolean;
           break;
         case 'request-log':
-          nextConfig.requestLog = value;
+          nextConfig.requestLog = value as boolean;
           break;
         case 'logging-to-file':
-          nextConfig.loggingToFile = value;
+          nextConfig.loggingToFile = value as boolean;
           break;
         case 'ws-auth':
-          nextConfig.wsAuth = value;
+          nextConfig.wsAuth = value as boolean;
           break;
         case 'api-keys':
-          nextConfig.apiKeys = value;
+          nextConfig.apiKeys = value as string[];
           break;
         case 'ampcode':
-          nextConfig.ampcode = value;
+          nextConfig.ampcode = value as Config['ampcode'];
           break;
         case 'gemini-api-key':
-          nextConfig.geminiApiKeys = value;
+          nextConfig.geminiApiKeys = value as Config['geminiApiKeys'];
           break;
         case 'codex-api-key':
-          nextConfig.codexApiKeys = value;
+          nextConfig.codexApiKeys = value as Config['codexApiKeys'];
           break;
         case 'claude-api-key':
-          nextConfig.claudeApiKeys = value;
+          nextConfig.claudeApiKeys = value as Config['claudeApiKeys'];
           break;
         case 'openai-compatibility':
-          nextConfig.openaiCompatibility = value;
+          nextConfig.openaiCompatibility = value as Config['openaiCompatibility'];
           break;
         case 'oauth-excluded-models':
-          nextConfig.oauthExcludedModels = value;
+          nextConfig.oauthExcludedModels = value as Config['oauthExcludedModels'];
           break;
         default:
           break;

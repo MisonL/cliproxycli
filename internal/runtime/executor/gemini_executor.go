@@ -31,6 +31,11 @@ const (
 
 	// streamScannerBuffer is the buffer size for SSE stream scanning.
 	streamScannerBuffer = 52_428_800
+
+	// Anti-risk control headers for official endpoint mimicry
+	geminiUserAgent      = "google-api-nodejs-client/9.15.1"
+	geminiXGoogAPIClient = "gl-node/22.17.0"
+	geminiClientMetadata = "ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI"
 )
 
 // GeminiExecutor is a stateless executor for the official Gemini API using API keys.
@@ -293,7 +298,8 @@ func (e *GeminiExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Aut
 	translatedReq = ApplyThinkingMetadata(translatedReq, req.Metadata, req.Model)
 	translatedReq = util.StripThinkingConfigIfUnsupported(req.Model, translatedReq)
 	translatedReq = fixGeminiImageAspectRatio(req.Model, translatedReq)
-	respCtx := context.WithValue(ctx, "alt", opts.Alt)
+	const altKey contextKey = "alt"
+	respCtx := context.WithValue(ctx, altKey, opts.Alt)
 	translatedReq, _ = sjson.DeleteBytes(translatedReq, "tools")
 	translatedReq, _ = sjson.DeleteBytes(translatedReq, "generationConfig")
 	translatedReq, _ = sjson.DeleteBytes(translatedReq, "safetySettings")
@@ -399,6 +405,9 @@ func resolveGeminiBaseURL(auth *cliproxyauth.Auth) string {
 }
 
 func applyGeminiHeaders(req *http.Request, auth *cliproxyauth.Auth) {
+	req.Header.Set("User-Agent", geminiUserAgent)
+	req.Header.Set("X-Goog-Api-Client", geminiXGoogAPIClient)
+	req.Header.Set("Client-Metadata", geminiClientMetadata)
 	var attrs map[string]string
 	if auth != nil {
 		attrs = auth.Attributes

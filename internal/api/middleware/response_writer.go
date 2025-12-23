@@ -185,7 +185,7 @@ func (w *ResponseWriterWrapper) captureCurrentHeaders() {
 	}
 
 	// Capture all current headers from the underlying ResponseWriter
-	for key, values := range w.ResponseWriter.Header() {
+	for key, values := range w.Header() {
 		// Make a copy of the values slice to avoid reference issues
 		headerValues := make([]string, len(values))
 		copy(headerValues, values)

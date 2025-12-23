@@ -98,3 +98,12 @@ func WritablePath() string {
 	}
 	return ""
 }
+
+// PersistencePath returns the path to the persistent data directory.
+// It resolves relative to WritablePath() if set, otherwise to the current directory.
+func PersistencePath() string {
+	if base := WritablePath(); base != "" {
+		return filepath.Join(base, "data")
+	}
+	return "data"
+}

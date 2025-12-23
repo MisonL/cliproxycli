@@ -10,7 +10,7 @@ export const configFileApi = {
       responseType: 'text',
       headers: { Accept: 'application/yaml, text/yaml, text/plain' }
     });
-    const data = response.data as any;
+    const data = response.data as unknown;
     if (typeof data === 'string') return data;
     if (data === undefined || data === null) return '';
     return String(data);

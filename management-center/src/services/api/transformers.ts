@@ -10,7 +10,7 @@ import type {
 import type { Config } from '@/types/config';
 import { buildHeaderObject } from '@/utils/headers';
 
-const normalizeBoolean = (value: any): boolean | undefined => {
+const normalizeBoolean = (value: unknown): boolean | undefined => {
   if (value === undefined || value === null) return undefined;
   if (typeof value === 'boolean') return value;
   if (typeof value === 'number') return value !== 0;
@@ -22,16 +22,17 @@ const normalizeBoolean = (value: any): boolean | undefined => {
   return Boolean(value);
 };
 
-const normalizeModelAliases = (models: any): ModelAlias[] => {
+const normalizeModelAliases = (models: unknown): ModelAlias[] => {
   if (!Array.isArray(models)) return [];
   return models
-    .map((item) => {
-      if (!item) return null;
-      const name = item.name || item.id || item.model;
+    .map((item: unknown) => {
+      if (!item || typeof item !== 'object') return null;
+      const obj = item as Record<string, unknown>;
+      const name = obj.name || obj.id || obj.model;
       if (!name) return null;
-      const alias = item.alias || item.display_name || item.displayName;
-      const priority = item.priority ?? item['priority'];
-      const testModel = item['test-model'] ?? item.testModel;
+      const alias = obj.alias || obj.display_name || obj.displayName;
+      const priority = obj.priority ?? obj['priority'];
+      const testModel = obj['test-model'] ?? obj.testModel;
       const entry: ModelAlias = { name: String(name) };
       if (alias && alias !== name) {
         entry.alias = String(alias);
@@ -47,13 +48,13 @@ const normalizeModelAliases = (models: any): ModelAlias[] => {
     .filter(Boolean) as ModelAlias[];
 };
 
-const normalizeHeaders = (headers: any) => {
+const normalizeHeaders = (headers: unknown) => {
   if (!headers || typeof headers !== 'object') return undefined;
   const normalized = buildHeaderObject(headers as Record<string, string>);
   return Object.keys(normalized).length ? normalized : undefined;
 };
 
-const normalizeExcludedModels = (input: any): string[] => {
+const normalizeExcludedModels = (input: unknown): string[] => {
   const rawList = Array.isArray(input) ? input : typeof input === 'string' ? input.split(/[\n,]/) : [];
   const seen = new Set<string>();
   const normalized: string[] = [];
@@ -70,14 +71,21 @@ const normalizeExcludedModels = (input: any): string[] => {
   return normalized;
 };
 
-const normalizeApiKeyEntry = (entry: any): ApiKeyEntry | null => {
+const normalizeApiKeyEntry = (entry: unknown): ApiKeyEntry | null => {
   if (!entry) return null;
-  const apiKey = entry['api-key'] ?? entry.apiKey ?? entry.key ?? (typeof entry === 'string' ? entry : '');
+  if (typeof entry === 'string') {
+    const trimmed = entry.trim();
+    return trimmed ? { apiKey: trimmed } : null;
+  }
+  if (typeof entry !== 'object') return null;
+
+  const obj = entry as Record<string, unknown>;
+  const apiKey = obj['api-key'] ?? obj.apiKey ?? obj.key;
   const trimmed = String(apiKey || '').trim();
   if (!trimmed) return null;
 
-  const proxyUrl = entry['proxy-url'] ?? entry.proxyUrl;
-  const headers = normalizeHeaders(entry.headers);
+  const proxyUrl = obj['proxy-url'] ?? obj.proxyUrl;
+  const headers = normalizeHeaders(obj.headers);
 
   return {
     apiKey: trimmed,
@@ -86,68 +94,83 @@ const normalizeApiKeyEntry = (entry: any): ApiKeyEntry | null => {
   };
 };
 
-const normalizeProviderKeyConfig = (item: any): ProviderKeyConfig | null => {
+const normalizeProviderKeyConfig = (item: unknown): ProviderKeyConfig | null => {
   if (!item) return null;
-  const apiKey = item['api-key'] ?? item.apiKey ?? (typeof item === 'string' ? item : '');
+  if (typeof item === 'string') {
+    const trimmed = item.trim();
+    return trimmed ? { apiKey: trimmed } : null;
+  }
+  if (typeof item !== 'object') return null;
+
+  const obj = item as Record<string, unknown>;
+  const apiKey = obj['api-key'] ?? obj.apiKey;
   const trimmed = String(apiKey || '').trim();
   if (!trimmed) return null;
 
   const config: ProviderKeyConfig = { apiKey: trimmed };
-  const baseUrl = item['base-url'] ?? item.baseUrl;
-  const proxyUrl = item['proxy-url'] ?? item.proxyUrl;
+  const baseUrl = obj['base-url'] ?? obj.baseUrl;
+  const proxyUrl = obj['proxy-url'] ?? obj.proxyUrl;
   if (baseUrl) config.baseUrl = String(baseUrl);
   if (proxyUrl) config.proxyUrl = String(proxyUrl);
-  const headers = normalizeHeaders(item.headers);
+  const headers = normalizeHeaders(obj.headers);
   if (headers) config.headers = headers;
-  const models = normalizeModelAliases(item.models);
+  const models = normalizeModelAliases(obj.models);
   if (models.length) config.models = models;
   const excludedModels = normalizeExcludedModels(
-    item['excluded-models'] ?? item.excludedModels ?? item['excluded_models'] ?? item.excluded_models
+    obj['excluded-models'] ?? obj.excludedModels ?? obj['excluded_models'] ?? obj.excluded_models
   );
   if (excludedModels.length) config.excludedModels = excludedModels;
   return config;
 };
 
-const normalizeGeminiKeyConfig = (item: any): GeminiKeyConfig | null => {
+const normalizeGeminiKeyConfig = (item: unknown): GeminiKeyConfig | null => {
   if (!item) return null;
-  let apiKey = item['api-key'] ?? item.apiKey;
-  if (!apiKey && typeof item === 'string') {
-    apiKey = item;
+  if (typeof item === 'string') {
+    const trimmed = item.trim();
+    return trimmed ? { apiKey: trimmed } : null;
   }
+  if (typeof item !== 'object') return null;
+
+  const obj = item as Record<string, unknown>;
+  const apiKey = obj['api-key'] ?? obj.apiKey;
   const trimmed = String(apiKey || '').trim();
   if (!trimmed) return null;
 
   const config: GeminiKeyConfig = { apiKey: trimmed };
-  const baseUrl = item['base-url'] ?? item.baseUrl ?? item['base_url'];
+  const baseUrl = obj['base-url'] ?? obj.baseUrl ?? obj['base_url'];
   if (baseUrl) config.baseUrl = String(baseUrl);
-  const headers = normalizeHeaders(item.headers);
+  const headers = normalizeHeaders(obj.headers);
   if (headers) config.headers = headers;
-  const excludedModels = normalizeExcludedModels(item['excluded-models'] ?? item.excludedModels);
+  const excludedModels = normalizeExcludedModels(obj['excluded-models'] ?? obj.excludedModels);
   if (excludedModels.length) config.excludedModels = excludedModels;
   return config;
 };
 
-const normalizeOpenAIProvider = (provider: any): OpenAIProviderConfig | null => {
+const normalizeOpenAIProvider = (provider: unknown): OpenAIProviderConfig | null => {
   if (!provider || typeof provider !== 'object') return null;
-  const name = provider.name || provider.id;
-  const baseUrl = provider['base-url'] ?? provider.baseUrl;
+  const obj = provider as Record<string, unknown>;
+  const name = obj.name || obj.id;
+  const baseUrl = obj['base-url'] ?? obj.baseUrl;
   if (!name || !baseUrl) return null;
 
   let apiKeyEntries: ApiKeyEntry[] = [];
-  if (Array.isArray(provider['api-key-entries'])) {
-    apiKeyEntries = provider['api-key-entries']
-      .map((entry: any) => normalizeApiKeyEntry(entry))
+  const rawEntries = obj['api-key-entries'];
+  const rawKeys = obj['api-keys'];
+
+  if (Array.isArray(rawEntries)) {
+    apiKeyEntries = rawEntries
+      .map((entry: unknown) => normalizeApiKeyEntry(entry))
       .filter(Boolean) as ApiKeyEntry[];
-  } else if (Array.isArray(provider['api-keys'])) {
-    apiKeyEntries = provider['api-keys']
-      .map((key: any) => normalizeApiKeyEntry({ 'api-key': key }))
+  } else if (Array.isArray(rawKeys)) {
+    apiKeyEntries = rawKeys
+      .map((key: unknown) => normalizeApiKeyEntry({ 'api-key': key }))
       .filter(Boolean) as ApiKeyEntry[];
   }
 
-  const headers = normalizeHeaders(provider.headers);
-  const models = normalizeModelAliases(provider.models);
-  const priority = provider.priority ?? provider['priority'];
-  const testModel = provider['test-model'] ?? provider.testModel;
+  const headers = normalizeHeaders(obj.headers);
+  const models = normalizeModelAliases(obj.models);
+  const priority = obj.priority ?? obj['priority'];
+  const testModel = obj['test-model'] ?? obj.testModel;
 
   const result: OpenAIProviderConfig = {
     name: String(name),
@@ -162,12 +185,13 @@ const normalizeOpenAIProvider = (provider: any): OpenAIProviderConfig | null => 
   return result;
 };
 
-const normalizeOauthExcluded = (payload: any): Record<string, string[]> | undefined => {
+const normalizeOauthExcluded = (payload: unknown): Record<string, string[]> | undefined => {
   if (!payload || typeof payload !== 'object') return undefined;
-  const source = payload['oauth-excluded-models'] ?? payload.items ?? payload;
+  const obj = payload as Record<string, unknown>;
+  const source = obj['oauth-excluded-models'] ?? obj.items ?? obj;
   if (!source || typeof source !== 'object') return undefined;
   const map: Record<string, string[]> = {};
-  Object.entries(source).forEach(([provider, models]) => {
+  Object.entries(source as Record<string, unknown>).forEach(([provider, models]) => {
     const key = String(provider || '').trim();
     if (!key) return;
     const normalized = normalizeExcludedModels(models);
@@ -176,15 +200,16 @@ const normalizeOauthExcluded = (payload: any): Record<string, string[]> | undefi
   return map;
 };
 
-const normalizeAmpcodeModelMappings = (input: any): AmpcodeModelMapping[] => {
+const normalizeAmpcodeModelMappings = (input: unknown): AmpcodeModelMapping[] => {
   if (!Array.isArray(input)) return [];
   const seen = new Set<string>();
   const mappings: AmpcodeModelMapping[] = [];
 
-  input.forEach((entry) => {
+  input.forEach((entry: unknown) => {
     if (!entry || typeof entry !== 'object') return;
-    const from = String(entry.from ?? entry['from'] ?? '').trim();
-    const to = String(entry.to ?? entry['to'] ?? '').trim();
+    const obj = entry as Record<string, unknown>;
+    const from = String(obj.from ?? obj['from'] ?? '').trim();
+    const to = String(obj.to ?? obj['to'] ?? '').trim();
     if (!from || !to) return;
     const key = from.toLowerCase();
     if (seen.has(key)) return;
@@ -195,8 +220,10 @@ const normalizeAmpcodeModelMappings = (input: any): AmpcodeModelMapping[] => {
   return mappings;
 };
 
-const normalizeAmpcodeConfig = (payload: any): AmpcodeConfig | undefined => {
-  const source = payload?.ampcode ?? payload;
+const normalizeAmpcodeConfig = (payload: unknown): AmpcodeConfig | undefined => {
+  if (!payload || typeof payload !== 'object') return undefined;
+  const obj = payload as Record<string, unknown>;
+  const source = (obj?.ampcode ?? obj) as Record<string, unknown>;
   if (!source || typeof source !== 'object') return undefined;
 
   const config: AmpcodeConfig = {};
@@ -234,64 +261,69 @@ const normalizeAmpcodeConfig = (payload: any): AmpcodeConfig | undefined => {
 /**
  * 规范化 /config 返回值
  */
-export const normalizeConfigResponse = (raw: any): Config => {
-  const config: Config = { raw: raw || {} };
+export const normalizeConfigResponse = (raw: unknown): Config => {
   if (!raw || typeof raw !== 'object') {
-    return config;
+    return { raw: (raw || {}) as Record<string, unknown> };
   }
+  const obj = raw as Record<string, unknown>;
+  const config: Config = { raw: obj };
 
-  config.debug = raw.debug;
-  config.proxyUrl = raw['proxy-url'] ?? raw.proxyUrl;
-  config.requestRetry = raw['request-retry'] ?? raw.requestRetry;
+  config.debug = obj.debug as boolean | undefined;
+  config.proxyUrl = (obj['proxy-url'] ?? obj.proxyUrl) as string | undefined;
+  config.requestRetry = (obj['request-retry'] ?? obj.requestRetry) as number | undefined;
 
-  const quota = raw['quota-exceeded'] ?? raw.quotaExceeded;
+  const quota = obj['quota-exceeded'] ?? obj.quotaExceeded;
   if (quota && typeof quota === 'object') {
+    const qObj = quota as Record<string, unknown>;
     config.quotaExceeded = {
-      switchProject: quota['switch-project'] ?? quota.switchProject,
-      switchPreviewModel: quota['switch-preview-model'] ?? quota.switchPreviewModel
+      switchProject: (qObj['switch-project'] ?? qObj.switchProject) as boolean | undefined,
+      switchPreviewModel: (qObj['switch-preview-model'] ?? qObj.switchPreviewModel) as boolean | undefined
     };
   }
 
-  config.usageStatisticsEnabled = raw['usage-statistics-enabled'] ?? raw.usageStatisticsEnabled;
-  config.requestLog = raw['request-log'] ?? raw.requestLog;
-  config.loggingToFile = raw['logging-to-file'] ?? raw.loggingToFile;
-  config.wsAuth = raw['ws-auth'] ?? raw.wsAuth;
-  config.apiKeys = Array.isArray(raw['api-keys']) ? raw['api-keys'].slice() : raw.apiKeys;
+  config.usageStatisticsEnabled = (obj['usage-statistics-enabled'] ??
+    obj.usageStatisticsEnabled) as boolean | undefined;
+  config.requestLog = (obj['request-log'] ?? obj.requestLog) as boolean | undefined;
+  config.loggingToFile = (obj['logging-to-file'] ?? obj.loggingToFile) as boolean | undefined;
+  config.wsAuth = (obj['ws-auth'] ?? obj.wsAuth) as boolean | undefined;
+  config.apiKeys = Array.isArray(obj['api-keys'])
+    ? (obj['api-keys'].slice() as string[])
+    : (obj.apiKeys as string[] | undefined);
 
-  const geminiList = raw['gemini-api-key'] ?? raw.geminiApiKey ?? raw.geminiApiKeys;
+  const geminiList = obj['gemini-api-key'] ?? obj.geminiApiKey ?? obj.geminiApiKeys;
   if (Array.isArray(geminiList)) {
     config.geminiApiKeys = geminiList
-      .map((item: any) => normalizeGeminiKeyConfig(item))
+      .map((item: unknown) => normalizeGeminiKeyConfig(item))
       .filter(Boolean) as GeminiKeyConfig[];
   }
 
-  const codexList = raw['codex-api-key'] ?? raw.codexApiKey ?? raw.codexApiKeys;
+  const codexList = obj['codex-api-key'] ?? obj.codexApiKey ?? obj.codexApiKeys;
   if (Array.isArray(codexList)) {
     config.codexApiKeys = codexList
-      .map((item: any) => normalizeProviderKeyConfig(item))
+      .map((item: unknown) => normalizeProviderKeyConfig(item))
       .filter(Boolean) as ProviderKeyConfig[];
   }
 
-  const claudeList = raw['claude-api-key'] ?? raw.claudeApiKey ?? raw.claudeApiKeys;
+  const claudeList = obj['claude-api-key'] ?? obj.claudeApiKey ?? obj.claudeApiKeys;
   if (Array.isArray(claudeList)) {
     config.claudeApiKeys = claudeList
-      .map((item: any) => normalizeProviderKeyConfig(item))
+      .map((item: unknown) => normalizeProviderKeyConfig(item))
       .filter(Boolean) as ProviderKeyConfig[];
   }
 
-  const openaiList = raw['openai-compatibility'] ?? raw.openaiCompatibility ?? raw.openAICompatibility;
+  const openaiList = obj['openai-compatibility'] ?? obj.openaiCompatibility ?? obj.openAICompatibility;
   if (Array.isArray(openaiList)) {
     config.openaiCompatibility = openaiList
-      .map((item: any) => normalizeOpenAIProvider(item))
+      .map((item: unknown) => normalizeOpenAIProvider(item))
       .filter(Boolean) as OpenAIProviderConfig[];
   }
 
-  const ampcode = normalizeAmpcodeConfig(raw.ampcode);
+  const ampcode = normalizeAmpcodeConfig(obj.ampcode);
   if (ampcode) {
     config.ampcode = ampcode;
   }
 
-  const oauthExcluded = normalizeOauthExcluded(raw['oauth-excluded-models'] ?? raw.oauthExcludedModels);
+  const oauthExcluded = normalizeOauthExcluded(obj['oauth-excluded-models'] ?? obj.oauthExcludedModels);
   if (oauthExcluded) {
     config.oauthExcludedModels = oauthExcluded;
   }

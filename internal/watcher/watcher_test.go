@@ -311,7 +311,9 @@ func TestStartFailsWhenConfigMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create watcher: %v", err)
 	}
-	defer w.Stop()
+	defer func() {
+		_ = w.Stop()
+	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1251,7 +1253,9 @@ func TestStartFailsWhenAuthDirMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create watcher: %v", err)
 	}
-	defer w.Stop()
+	defer func() {
+		_ = w.Stop()
+	}()
 	w.SetConfig(&config.Config{AuthDir: authDir})
 
 	ctx, cancel := context.WithCancel(context.Background())
