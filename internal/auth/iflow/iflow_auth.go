@@ -128,6 +128,17 @@ func (ia *IFlowAuth) doTokenRequest(ctx context.Context, req *http.Request) (*IF
 		return nil, fmt.Errorf("iflow token: %d %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
+	// First try to parse as error response to check for API-level failures
+	var errorResp struct {
+		Success bool   `json:"success"`
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	}
+	if err = json.Unmarshal(body, &errorResp); err == nil && !errorResp.Success && errorResp.Message != "" {
+		log.Debugf("iflow token: API returned error: code=%s message=%s", errorResp.Code, errorResp.Message)
+		return nil, fmt.Errorf("iflow token: %s (code: %s)", errorResp.Message, errorResp.Code)
+	}
+
 	var tokenResp IFlowTokenResponse
 	if err = json.Unmarshal(body, &tokenResp); err != nil {
 		return nil, fmt.Errorf("iflow token: decode response failed: %w", err)
@@ -142,7 +153,7 @@ func (ia *IFlowAuth) doTokenRequest(ctx context.Context, req *http.Request) (*IF
 	}
 
 	if tokenResp.AccessToken == "" {
-		log.Debug(string(body))
+		log.Debugf("iflow token: missing access token, raw response: %s", string(body))
 		return nil, fmt.Errorf("iflow token: missing access token in response")
 	}
 

@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -43,14 +44,7 @@ export function OAuthPage() {
   // 检测是否为本地访问
   const isLocal = useMemo(() => isLocalhost(window.location.hostname), []);
 
-  useEffect(() => {
-    const currentTimers = timers.current;
-    return () => {
-      Object.values(currentTimers).forEach((timer) => window.clearInterval(timer));
-    };
-  }, []);
-
-  const startPolling = (provider: OAuthProvider, state: string) => {
+  const startPolling = useCallback((provider: OAuthProvider, state: string) => {
     if (timers.current[provider]) {
       clearInterval(timers.current[provider]);
     }
@@ -84,9 +78,9 @@ export function OAuthPage() {
       }
     }, 3000);
     timers.current[provider] = timer;
-  };
+  }, [showNotification, t]);
 
-  const startAuth = async (provider: OAuthProvider) => {
+  const startAuth = useCallback(async (provider: OAuthProvider) => {
     setStates((prev) => ({
       ...prev,
       [provider]: { ...prev[provider], status: 'waiting', polling: true, error: undefined }
@@ -107,7 +101,24 @@ export function OAuthPage() {
       }));
       showNotification(`${t('auth_login.codex_oauth_start_error')} ${(err as Error)?.message || ''}`, 'error');
     }
-  };
+  }, [showNotification, t, startPolling]);
+
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const providerParam = searchParams.get('provider');
+    if (providerParam) {
+      const match = PROVIDERS.find((p) => p.id === providerParam);
+      if (match) {
+        startAuth(match.id);
+      }
+    }
+
+    const currentTimers = timers.current;
+    return () => {
+      Object.values(currentTimers).forEach((timer) => window.clearInterval(timer));
+    };
+  }, [startAuth, searchParams]);
 
   const copyLink = async (url?: string) => {
     if (!url) return;

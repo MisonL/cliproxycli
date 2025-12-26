@@ -1,5 +1,5 @@
 /**
- * AI 提供商相关类型
+ * API 密钥配置相关类型
  * 基于原项目 src/modules/ai-providers.js
  */
 

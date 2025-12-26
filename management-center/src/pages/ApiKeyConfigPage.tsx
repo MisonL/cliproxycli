@@ -25,7 +25,7 @@ import type { KeyStats, KeyStatBucket } from '@/utils/usage';
 import type { ModelInfo } from '@/utils/models';
 import { headersToEntries, buildHeaderObject, type HeaderEntry } from '@/utils/headers';
 import { maskApiKey } from '@/utils/format';
-import styles from './AiProvidersPage.module.scss';
+import styles from './ApiKeyConfigPage.module.scss';
 
 type ProviderModal =
   | { type: 'gemini'; index: number | null }
@@ -181,7 +181,7 @@ const buildAmpcodeFormState = (ampcode?: AmpcodeConfig | null): AmpcodeFormState
   mappingEntries: ampcodeMappingsToEntries(ampcode?.modelMappings),
 });
 
-export function AiProvidersPage() {
+export function ApiKeyConfigPage() {
   const { t } = useTranslation();
   const { showNotification } = useNotificationStore();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);

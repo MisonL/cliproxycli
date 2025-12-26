@@ -86,12 +86,22 @@ func (s *FileSynthesizer) Synthesize(ctx *SynthesisContext) ([]*coreauth.Auth, e
 			}
 		}
 
+		status := coreauth.StatusActive
+		var statusMsg string
+		if s, ok := metadata["status"].(string); ok && s != "" {
+			status = coreauth.Status(s)
+		}
+		if msg, ok := metadata["status_message"].(string); ok {
+			statusMsg = msg
+		}
+
 		a := &coreauth.Auth{
-			ID:       id,
-			Provider: provider,
-			Label:    label,
-			Prefix:   prefix,
-			Status:   coreauth.StatusActive,
+			ID:            id,
+			Provider:      provider,
+			Label:         label,
+			Prefix:        prefix,
+			Status:        status,
+			StatusMessage: statusMsg,
 			Attributes: map[string]string{
 				"source": full,
 				"path":   full,

@@ -381,6 +381,9 @@ func (h *Handler) buildAuthFileEntry(auth *coreauth.Auth) gin.H {
 		"source":         "memory",
 		"size":           int64(0),
 	}
+	if auth.StatusMessage != "" {
+		log.Infof("API: Auth %s (%s) has status message: %s", name, auth.Provider, auth.StatusMessage)
+	}
 	if email := authEmail(auth); email != "" {
 		entry["email"] = email
 	}
@@ -1631,6 +1634,27 @@ func (h *Handler) RequestQwenToken(c *gin.Context) {
 			oauthStatus[state] = "Failed to save authentication tokens"
 			return
 		}
+
+		// Clean up old Qwen auth files to prevent duplicates
+		func() {
+			files, err := filepath.Glob(filepath.Join(h.cfg.AuthDir, "qwen-*.json"))
+			if err != nil {
+				log.Warnf("failed to list old qwen files for cleanup: %v", err)
+				return
+			}
+			for _, f := range files {
+				if f == savedPath {
+					continue
+				}
+				log.Infof("Cleaning up old Qwen auth file: %s", f)
+				if err := os.Remove(f); err != nil {
+					log.Warnf("failed to remove old qwen file %s: %v", f, err)
+				}
+				// Best effort to clean up internal state
+				_ = h.deleteTokenRecord(ctx, f)
+				h.disableAuth(ctx, f)
+			}
+		}()
 
 		fmt.Printf("Authentication successful! Token saved to %s\n", savedPath)
 		fmt.Println("You can now use Qwen services through this CLI")

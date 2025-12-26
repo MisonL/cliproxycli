@@ -73,17 +73,35 @@
     line-height: 1;
   }
 
-  &.success { 
-    &::before { background: var(--success-color); }
-    background: linear-gradient(135deg, rgba(var(--success-color-rgb), 0.05) 0%, rgba(var(--bg-card-rgb), 0.6) 100%);
+  &.success {
+    &::before {
+      background: var(--success-color);
+    }
+    background: linear-gradient(
+      135deg,
+      rgba(var(--success-color-rgb), 0.05) 0%,
+      rgba(var(--bg-card-rgb), 0.6) 100%
+    );
   }
-  &.pending { 
-    &::before { background: var(--primary-color); }
-    background: linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.05) 0%, rgba(var(--bg-card-rgb), 0.6) 100%);
+  &.pending {
+    &::before {
+      background: var(--primary-color);
+    }
+    background: linear-gradient(
+      135deg,
+      rgba(var(--primary-color-rgb), 0.05) 0%,
+      rgba(var(--bg-card-rgb), 0.6) 100%
+    );
   }
-  &.warning { 
-    &::before { background: var(--warning-color); }
-    background: linear-gradient(135deg, rgba(var(--warning-color-rgb), 0.05) 0%, rgba(var(--bg-card-rgb), 0.6) 100%);
+  &.warning {
+    &::before {
+      background: var(--warning-color);
+    }
+    background: linear-gradient(
+      135deg,
+      rgba(var(--warning-color-rgb), 0.05) 0%,
+      rgba(var(--bg-card-rgb), 0.6) 100%
+    );
   }
 }
 
@@ -188,7 +206,9 @@
   font-size: 13px;
   color: var(--text-secondary);
 
-  svg { color: var(--text-muted); }
+  svg {
+    color: var(--text-muted);
+  }
 }
 
 .modelBadge {
@@ -262,7 +282,7 @@
   gap: 8px;
 
   &::after {
-    content: "";
+    content: '';
     flex: 1;
     height: 1px;
     background: var(--border-color);
@@ -276,10 +296,16 @@
   align-items: center;
   margin-bottom: 20px;
 
-  h2 { font-size: 20px; font-weight: 600; margin: 0; }
+  h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+  }
 }
 
-.logSearchInput { width: 200px; }
+.logSearchInput {
+  width: 200px;
+}
 
 .logTableContainer {
   background: var(--bg-card);
@@ -308,13 +334,22 @@
     color: var(--text-primary);
   }
 
-  tr:last-child td { border-bottom: none; }
+  tr:last-child td {
+    border-bottom: none;
+  }
 
-  .statusSuccess { color: var(--success-color); font-weight: 500; }
-  .statusError { color: var(--error-color); font-weight: 500; }
+  .statusSuccess {
+    color: var(--success-color);
+    font-weight: 500;
+  }
+  .statusError {
+    color: var(--error-color);
+    font-weight: 500;
+  }
 }
 
-.badgeSuccess, .badgeError {
+.badgeSuccess,
+.badgeError {
   padding: 4px 10px;
   border-radius: 20px;
   font-size: 11px;
@@ -345,15 +380,42 @@
   cursor: pointer;
   color: var(--text-secondary);
 
-  &:hover { color: var(--primary-color); }
+  &:hover {
+    color: var(--primary-color);
+  }
 }
 
 /* Animations */
 @keyframes slideDown {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animateSlideDown {
   animation: slideDown 0.3s ease-out;
+}
+
+/* Log Pagination */
+.logPagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-hover);
+}
+
+.paginationInfo {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  min-width: 60px;
+  text-align: center;
 }

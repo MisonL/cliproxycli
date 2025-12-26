@@ -3,13 +3,14 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage } from '@/pages/LoginPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { ApiKeysPage } from '@/pages/ApiKeysPage';
-import { AiProvidersPage } from '@/pages/AiProvidersPage';
+import { ApiKeyConfigPage } from '@/pages/ApiKeyConfigPage';
 import { AuthFilesPage } from '@/pages/AuthFilesPage';
 import { OAuthPage } from '@/pages/OAuthPage';
 import { UsagePage } from '@/pages/UsagePage';
 import { ConfigPage } from '@/pages/ConfigPage';
 import { LogsPage } from '@/pages/LogsPage';
 import { SchedulerPage } from '@/pages/SchedulerPage';
+import { ModelPoolPage } from '@/pages/ModelPoolPage';
 import { SystemPage } from '@/pages/SystemPage';
 import { NotificationContainer } from '@/components/common/NotificationContainer';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -48,12 +49,13 @@ function App() {
           <Route index element={<Navigate to="/settings" replace />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="api-keys" element={<ApiKeysPage />} />
-          <Route path="ai-providers" element={<AiProvidersPage />} />
+          <Route path="ai-providers" element={<ApiKeyConfigPage />} />
           <Route path="auth-files" element={<AuthFilesPage />} />
           <Route path="oauth" element={<OAuthPage />} />
           <Route path="usage" element={<UsagePage />} />
           <Route path="config" element={<ConfigPage />} />
           <Route path="scheduler" element={<SchedulerPage />} />
+          <Route path="model-pool" element={<ModelPoolPage />} />
           <Route path="logs" element={<LogsPage />} />
           <Route path="system" element={<SystemPage />} />
           <Route path="*" element={<Navigate to="/settings" replace />} />

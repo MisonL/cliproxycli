@@ -67,7 +67,21 @@ func (s *FileTokenStore) Save(ctx context.Context, auth *cliproxyauth.Auth) (str
 			return "", err
 		}
 	case auth.Metadata != nil:
-		raw, errMarshal := json.Marshal(auth.Metadata)
+		// Create a copy of metadata to avoid mutating the original
+		toSave := make(map[string]any, len(auth.Metadata)+2)
+		for k, v := range auth.Metadata {
+			toSave[k] = v
+		}
+		// Inject status fields
+		if auth.Status != "" {
+			toSave["status"] = auth.Status
+		}
+		if auth.StatusMessage != "" {
+			toSave["status_message"] = auth.StatusMessage
+		}
+
+		raw, errMarshal := json.Marshal(toSave)
+
 		if errMarshal != nil {
 			return "", fmt.Errorf("auth filestore: marshal metadata failed: %w", errMarshal)
 		}
@@ -180,13 +194,26 @@ func (s *FileTokenStore) readAuthFile(path, baseDir string) (*cliproxyauth.Auth,
 	if err != nil {
 		return nil, fmt.Errorf("stat file: %w", err)
 	}
+
+	// Extract status fields
+	status := cliproxyauth.StatusActive
+	var statusMsg string
+
+	if s, ok := metadata["status"].(string); ok && s != "" {
+		status = cliproxyauth.Status(s)
+	}
+	if msg, ok := metadata["status_message"].(string); ok {
+		statusMsg = msg
+	}
+
 	id := s.idFor(path, baseDir)
 	auth := &cliproxyauth.Auth{
 		ID:               id,
 		Provider:         provider,
 		FileName:         id,
 		Label:            s.labelFor(metadata),
-		Status:           cliproxyauth.StatusActive,
+		Status:           status,
+		StatusMessage:    statusMsg,
 		Attributes:       map[string]string{"path": path},
 		Metadata:         metadata,
 		CreatedAt:        info.ModTime(),

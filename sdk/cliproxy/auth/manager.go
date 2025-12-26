@@ -1545,12 +1545,28 @@ func (m *Manager) refreshAuth(ctx context.Context, id string) {
 	now := time.Now()
 	if err != nil {
 		m.mu.Lock()
+		var toPersist *Auth
 		if current := m.auths[id]; current != nil {
+			log.Infof("Manager: refreshing auth %s (%s) failed with error: %v. Updating status.", current.ID, current.Provider, err)
 			current.NextRefreshAfter = now.Add(refreshFailureBackoff)
 			current.LastError = &Error{Message: err.Error()}
+			current.Status = StatusError
+			current.StatusMessage = err.Error()
+			current.UpdatedAt = now
 			m.auths[id] = current
+			toPersist = current.Clone()
+		} else {
+			log.Warnf("Manager: refreshing auth %s failed, but auth not found in map!", id)
 		}
 		m.mu.Unlock()
+		if toPersist != nil {
+			pErr := m.persist(ctx, toPersist)
+			if pErr != nil {
+				log.Errorf("Manager: failed to persist auth %s: %v", id, pErr)
+			} else {
+				log.Infof("Manager: successfully persisted auth %s error state", id)
+			}
+		}
 		return
 	}
 	if updated == nil {

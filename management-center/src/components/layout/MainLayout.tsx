@@ -12,7 +12,8 @@ import {
   IconSettings,
   IconShield,
   IconSlidersHorizontal,
-  IconTimer
+  IconTimer,
+  IconActivity
 } from '@/components/ui/icons';
 import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
 import { useAuthStore, useConfigStore, useLanguageStore, useNotificationStore, useThemeStore } from '@/stores';
@@ -29,6 +30,7 @@ const sidebarIcons: Record<string, ReactNode> = {
   config: <IconSettings size={18} />,
   logs: <IconScrollText size={18} />,
   scheduler: <IconTimer size={18} />,
+  modelPool: <IconActivity size={18} />,
   system: <IconInfo size={18} />
 };
 
@@ -241,6 +243,7 @@ export function MainLayout() {
     { path: '/usage', label: t('nav.usage_stats'), icon: sidebarIcons.usage },
     { path: '/config', label: t('nav.config_management'), icon: sidebarIcons.config },
     { path: '/scheduler', label: t('nav.scheduler', { defaultValue: 'Scheduler' }), icon: sidebarIcons.scheduler },
+    { path: '/model-pool', label: t('nav.model_pool'), icon: sidebarIcons.modelPool },
     ...(config?.loggingToFile ? [{ path: '/logs', label: t('nav.logs'), icon: sidebarIcons.logs }] : []),
     { path: '/system', label: t('nav.system_info'), icon: sidebarIcons.system }
   ];

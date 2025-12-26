@@ -671,12 +671,15 @@ func (s *Server) serveManagementControlPanel(c *gin.Context) {
 		return
 	}
 	filePath := managementasset.FilePath(s.configFilePath)
+	fmt.Printf("DEBUG: filePath=%s\n", filePath)
 	if strings.TrimSpace(filePath) == "" {
+		fmt.Println("DEBUG: filePath is empty")
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
 	if _, err := os.Stat(filePath); err != nil {
+		fmt.Printf("DEBUG: os.Stat failed: %v\n", err)
 		if os.IsNotExist(err) {
 			go managementasset.EnsureLatestManagementHTML(context.Background(), managementasset.StaticDir(s.configFilePath), cfg.ProxyURL, cfg.RemoteManagement.PanelGitHubRepository)
 			c.AbortWithStatus(http.StatusNotFound)

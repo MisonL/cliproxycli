@@ -12,3 +12,4 @@ export * from './scheduler';
 export * from './version';
 export * from './models';
 export * from './transformers';
+export * from './modelPool';

@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+// import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { IconBot, IconDownload, IconInfo, IconTrash2 } from '@/components/ui/icons';
+import { IconBot, IconDownload, IconInfo, IconTrash2, IconLayoutGrid, IconList, IconKey } from '@/components/ui/icons';
 import { useAuthStore, useNotificationStore, useThemeStore } from '@/stores';
-import { authFilesApi, usageApi } from '@/services/api';
+import { authFilesApi, usageApi, oauthApi } from '@/services/api';
 import { apiClient } from '@/services/api/client';
 import type { AuthFileItem } from '@/types';
 import type { KeyStats, KeyStatBucket } from '@/utils/usage';
+import type { OAuthProvider } from '@/services/api';
 import { formatFileSize } from '@/utils/format';
 import styles from './AuthFilesPage.module.scss';
 
@@ -61,6 +63,8 @@ const TYPE_COLORS: Record<string, TypeColorSet> = {
     dark: { bg: '#3a3a3a', text: '#aaaaaa', border: '1px dashed #666666' }
   }
 };
+
+const OAUTH_PROVIDERS = ['iflow', 'qwen', 'gemini-cli', 'antigravity', 'codex', 'claude'];
 
 interface ExcludedFormState {
   provider: string;
@@ -138,10 +142,29 @@ export function AuthFilesPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(9);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deletingAll, setDeletingAll] = useState(false);
   const [keyStats, setKeyStats] = useState<KeyStats>({ bySource: {}, byAuthIndex: {} });
+
+  const handleLoginRedirect = async (item: AuthFileItem) => {
+    const provider = (item.type || '').toLowerCase();
+    console.log(`Starting OAuth flow for provider: ${provider}`);
+    
+    try {
+      const response = await oauthApi.startAuth(provider as OAuthProvider);
+      if (response && response.url) {
+        window.open(response.url, '_blank');
+      } else {
+        console.error('Failed to get OAuth URL', response);
+        showNotification(t('auth_files.oauth_start_failed'), 'error');
+      }
+    } catch (error) {
+      console.error('Error starting OAuth flow:', error);
+      showNotification(t('auth_files.oauth_start_failed'), 'error');
+    }
+  };
 
   // 详情弹窗相关
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -234,6 +257,30 @@ export function AuthFilesPage() {
     loadFiles();
     loadKeyStats();
     loadExcluded();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('App became visible, refreshing auth files...');
+        loadFiles();
+        loadKeyStats();
+        loadExcluded();
+      }
+    };
+
+    const handleFocus = () => {
+      console.log('Window focused, refreshing auth files...');
+      loadFiles();
+      loadKeyStats();
+      loadExcluded();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [loadFiles, loadKeyStats, loadExcluded]);
 
   // 提取所有存在的类型
@@ -571,8 +618,12 @@ export function AuthFilesPage() {
 
   // 渲染单个认证文件卡片
   const renderFileCard = (item: AuthFileItem) => {
-      const fileStats = resolveAuthFileStats(item, keyStats);
+    const fileStats = resolveAuthFileStats(item, keyStats);
     const isRuntimeOnly = isRuntimeOnlyAuthFile(item);
+    const disableControls = loading || deleting === item.name;
+    const itemType = (item.type || '').toLowerCase();
+    
+    console.log(`Rendering card: ${item.name}, type: ${item.type}, lower: ${itemType}, isOAuth: ${OAUTH_PROVIDERS.includes(itemType)}`);
     const typeColor = getTypeColor(item.type || 'unknown');
 
     return (
@@ -595,6 +646,12 @@ export function AuthFilesPage() {
           <span>{t('auth_files.file_size')}: {item.size ? formatFileSize(item.size) : '-'}</span>
           <span>{t('auth_files.file_modified')}: {formatModified(item)}</span>
         </div>
+
+        {(item.status_message || item.status === 'error') && (
+          <div className={styles.errorMessage} title={item.status_message}>
+             {item.status_message || t('auth_files.status_error')}
+          </div>
+        )}
 
         <div className={styles.cardStats}>
           <span className={`${styles.statPill} ${styles.statSuccess}`}>
@@ -630,6 +687,18 @@ export function AuthFilesPage() {
               >
                 <IconInfo className={styles.actionIcon} size={16} />
               </Button>
+              {OAUTH_PROVIDERS.includes((item.type || '').toLowerCase()) && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleLoginRedirect(item)}
+                  className={styles.iconButton}
+                  title={t('auth_files.login_to_update')}
+                  disabled={disableControls}
+                >
+                  <IconKey className={styles.actionIcon} size={16} />
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 size="sm"
@@ -661,10 +730,101 @@ export function AuthFilesPage() {
     );
   };
 
+  // 渲染单个认证文件行（列表模式）
+  const renderFileRow = (item: AuthFileItem) => {
+    const fileStats = resolveAuthFileStats(item, keyStats);
+    const isRuntimeOnly = isRuntimeOnlyAuthFile(item);
+    const typeColor = getTypeColor(item.type || 'unknown');
+    const hasError = !!item.status_message || item.status === 'error';
+
+    return (
+      <div key={item.name} className={`${styles.fileRow} ${hasError ? styles.fileRowError : ''}`}>
+        <div className={styles.rowType}>
+          <span
+            className={styles.typeBadge}
+            style={{
+              backgroundColor: typeColor.bg,
+              color: typeColor.text,
+              ...(typeColor.border ? { border: typeColor.border } : {})
+            }}
+          >
+            {getTypeLabel(item.type || 'unknown')}
+          </span>
+        </div>
+        <div className={styles.rowName} title={item.name}>
+          {item.name}
+          {hasError && <div className={styles.rowErrorMsg}>{item.status_message}</div>}
+        </div>
+        <div className={styles.rowInfo}>
+          {item.size ? formatFileSize(item.size) : '-'}
+        </div>
+        <div className={styles.rowTime}>
+          {formatModified(item)}
+        </div>
+        <div className={styles.rowStats}>
+          <span className={styles.rowStatSuccess}>{fileStats.success}</span>
+          <span className={styles.rowStatDivider}>/</span>
+          <span className={styles.rowStatFailure}>{fileStats.failure}</span>
+        </div>
+        <div className={styles.rowActions}>
+          {isRuntimeOnly ? (
+            <span className={styles.virtualBadgeSmall}>{t('auth_files.type_virtual') || 'V'}</span>
+          ) : (
+            <>
+              {OAUTH_PROVIDERS.includes((item.type || '').toLowerCase()) && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleLoginRedirect(item)}
+                  title={t('auth_files.login_to_update')}
+                  disabled={disableControls}
+                >
+                  <IconKey size={14} />
+                </Button>
+              )}
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => showModels(item)}
+                title={t('auth_files.models_button')}
+                disabled={disableControls}
+              >
+                <IconBot size={14} />
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleDownload(item.name)}
+                title={t('auth_files.download_button')}
+                disabled={disableControls}
+              >
+                <IconDownload size={14} />
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => handleDelete(item.name)}
+                title={t('auth_files.delete_button')}
+                disabled={disableControls || deleting === item.name}
+              >
+                {deleting === item.name ? <LoadingSpinner size={12} /> : <IconTrash2 size={14} />}
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.pageHeader}>
-        <h1 className={styles.pageTitle}>{t('auth_files.title')}</h1>
+        <h1 className={styles.pageTitle}>
+          {t('auth_files.title')}
+          <span style={{ fontSize: '12px', verticalAlign: 'middle', marginLeft: '8px', opacity: 0.5, fontWeight: 'normal' }}>
+            v1.2-Enhanced
+          </span>
+        </h1>
         <p className={styles.description}>{t('auth_files.description')}</p>
       </div>
 
@@ -739,6 +899,26 @@ export function AuthFilesPage() {
                 {files.length} {t('auth_files.files_count')} · {formatFileSize(totalSize)}
               </div>
             </div>
+
+            <div className={styles.filterItem}>
+              <label>{t('theme.switch')}</label>
+              <div className={styles.viewToggle}>
+                <button
+                  className={`${styles.toggleBtn} ${viewMode === 'grid' ? styles.toggleBtnActive : ''}`}
+                  onClick={() => setViewMode('grid')}
+                  title={t('auth_files.view_grid')}
+                >
+                  <IconLayoutGrid size={18} />
+                </button>
+                <button
+                  className={`${styles.toggleBtn} ${viewMode === 'list' ? styles.toggleBtnActive : ''}`}
+                  onClick={() => setViewMode('list')}
+                  title={t('auth_files.view_list')}
+                >
+                  <IconList size={18} />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -747,9 +927,21 @@ export function AuthFilesPage() {
           <div className={styles.hint}>{t('common.loading')}</div>
         ) : pageItems.length === 0 ? (
           <EmptyState title={t('auth_files.search_empty_title')} description={t('auth_files.search_empty_desc')} />
-        ) : (
+        ) : viewMode === 'grid' ? (
           <div className={styles.fileGrid}>
             {pageItems.map(renderFileCard)}
+          </div>
+        ) : (
+          <div className={styles.fileList}>
+            <div className={styles.listHeader}>
+              <div className={styles.colType}>{t('nav.auth_files')}</div>
+              <div className={styles.colName}>{t('common.alias')}</div>
+              <div className={styles.colInfo}>{t('auth_files.file_size')}</div>
+              <div className={styles.colTime}>{t('auth_files.file_modified')}</div>
+              <div className={styles.colStats}>{t('usage_stats.title')}</div>
+              <div className={styles.colActions}>{t('common.save')}</div>
+            </div>
+            {pageItems.map(renderFileRow)}
           </div>
         )}
 
