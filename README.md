@@ -1,11 +1,11 @@
+<h1 align="center">🚀 CLI Proxy API</h1>
+
 <p align="center">
   <img src="https://img.shields.io/badge/Go-1.24-00ADD8?style=flat-square&logo=go" alt="Go Version">
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react" alt="React">
   <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker" alt="Docker">
   <img src="https://img.shields.io/github/license/MisonL/cliproxycli?style=flat-square" alt="License">
 </p>
-
-<h1 align="center">🚀 CLI Proxy API</h1>
 
 <p align="center">
   <strong>一个支持 OpenAI/Gemini/Claude 兼容 API 的智能代理服务器</strong><br>
