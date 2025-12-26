@@ -1,14 +1,28 @@
 # Binaries
 cli-proxy-api
+cliproxy-api
 *.exe
 
 # Configuration
 config.yaml
 .env
+*.local
+
+# JavaScript/Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+dist/
+dist-ssr/
+coverage/
 
 # Generated content
 bin/*
 logs/*
+*.log
 conv/*
 temp/*
 pgstore/*
@@ -16,6 +30,11 @@ gitstore/*
 objectstore/*
 static/*
 refs/*
+
+# Runtime Data
+data/*
+!data/.gitkeep
+usage.json
 
 # Authentication data
 auths/*
@@ -26,14 +45,21 @@ docs/*
 AGENTS.md
 CLAUDE.md
 GEMINI.md
+api.md
 
 # Tooling metadata
 .vscode/*
+.idea/
 .claude/*
 .serena/*
 .agent/*
 .bmad/*
 _bmad/*
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
 # macOS
 .DS_Store
@@ -41,12 +67,7 @@ _bmad/*
 # Local Development
 start.sh
 server.log
-bin/
-
-# Frontend
-management-center/node_modules
-management-center/dist
-management-center/coverage
+server
 
 # Temporary files
 *.bak
@@ -54,4 +75,3 @@ management-center/coverage
 *.old
 conversation-*.txt
 lint_report.txt
-server
