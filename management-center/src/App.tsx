@@ -4,6 +4,7 @@ import { LoginPage } from '@/pages/LoginPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { ApiKeysPage } from '@/pages/ApiKeysPage';
 import { ApiKeyConfigPage } from '@/pages/ApiKeyConfigPage';
+import CredentialsPage from '@/pages/CredentialsPage';
 import { AuthFilesPage } from '@/pages/AuthFilesPage';
 import { OAuthPage } from '@/pages/OAuthPage';
 import { UsagePage } from '@/pages/UsagePage';
@@ -48,6 +49,7 @@ function App() {
         >
           <Route index element={<Navigate to="/settings" replace />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="credentials" element={<CredentialsPage />} />
           <Route path="api-keys" element={<ApiKeysPage />} />
           <Route path="ai-providers" element={<ApiKeyConfigPage />} />
           <Route path="auth-files" element={<AuthFilesPage />} />

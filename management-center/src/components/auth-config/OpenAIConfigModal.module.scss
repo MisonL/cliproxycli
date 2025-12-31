@@ -1,0 +1,67 @@
+.openaiTestSelect {
+  flex: 1;
+}
+
+.openaiTestButton {
+  min-width: 80px;
+}
+
+.openaiTestButtonSuccess {
+  background-color: var(--success-color);
+  color: white;
+  border-color: var(--success-color);
+}
+
+.modelDiscoveryList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.modelDiscoveryRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: var(--hover-color);
+  }
+}
+
+.modelDiscoveryRowSelected {
+  background-color: var(--selected-bg-color);
+}
+
+.modelDiscoveryMeta {
+  flex: 1;
+}
+
+.modelDiscoveryName {
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modelDiscoveryAlias {
+  font-size: 0.8em;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.modelDiscoveryDesc {
+  font-size: 0.9em;
+  color: var(--text-muted);
+  margin-top: 4px;
+}

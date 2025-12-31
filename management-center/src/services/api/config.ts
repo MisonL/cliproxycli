@@ -4,6 +4,7 @@
 
 import { apiClient } from './client';
 import type { Config } from '@/types';
+import type { SchedulingConfig, UnifiedProvider } from '@/types/unified';
 import { normalizeConfigResponse } from './transformers';
 
 export const configApi = {
@@ -71,5 +72,14 @@ export const configApi = {
   /**
    * WebSocket 鉴权开关
    */
+  /**
+   * WebSocket 鉴权开关
+   */
   updateWsAuth: (enabled: boolean) => apiClient.put('/ws-auth', { value: enabled }),
+
+  updateScheduling: (config: SchedulingConfig) => apiClient.put('/scheduling', config),
+
+  getUnifiedProviders: () => apiClient.get<UnifiedProvider[]>('/unified-providers'),
+
+  updateUnifiedProviders: (providers: UnifiedProvider[]) => apiClient.put('/unified-providers', providers),
 };

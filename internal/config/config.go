@@ -104,6 +104,12 @@ type Config struct {
 	// Routing defines the intelligent model routing and load balancing configuration.
 	Routing RoutingConfig `yaml:"routing" json:"routing"`
 
+	// Scheduling defines the global request scheduling strategy.
+	Scheduling SchedulingConfig `yaml:"scheduling" json:"scheduling"`
+
+	// Providers is the unified list of all AI service providers.
+	Providers []UnifiedProvider `yaml:"providers" json:"providers"`
+
 	legacyMigrationPending bool `yaml:"-" json:"-"`
 }
 
@@ -503,6 +509,9 @@ func LoadConfigOptional(configFile string, optional bool) (*Config, error) {
 
 	// Sanitize routing configuration
 	cfg.SanitizeRoutingConfig()
+
+	// Sanitize Unified Providers configuration
+	cfg.SanitizeProviders()
 
 	// Normalize OAuth provider model exclusion map.
 	cfg.OAuthExcludedModels = NormalizeOAuthExcludedModels(cfg.OAuthExcludedModels)

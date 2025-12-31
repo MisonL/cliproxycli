@@ -1637,3 +1637,15 @@ func (m *Manager) InjectCredentials(req *http.Request, authID string) error {
 	}
 	return nil
 }
+
+// SetSelectionStrategy updates the scheduling strategy of the underlying selector
+// if it supports dynamic configuration (e.g. UnifiedSelector).
+func (m *Manager) SetSelectionStrategy(strategy string) {
+	if m == nil || m.selector == nil {
+		return
+	}
+	// Check if selector supports SetStrategy
+	if s, ok := m.selector.(interface{ SetStrategy(string) }); ok {
+		s.SetStrategy(strategy)
+	}
+}

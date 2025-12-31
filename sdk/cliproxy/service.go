@@ -320,6 +320,13 @@ func (s *Service) applyRetryConfig(cfg *config.Config) {
 	s.coreManager.SetRetryConfig(cfg.RequestRetry, maxInterval)
 }
 
+func (s *Service) applySchedulingConfig(cfg *config.Config) {
+	if s == nil || s.coreManager == nil || cfg == nil {
+		return
+	}
+	s.coreManager.SetSelectionStrategy(cfg.Scheduling.Strategy)
+}
+
 func openAICompatInfoFromAuth(a *coreauth.Auth) (providerKey string, compatName string, ok bool) {
 	if a == nil {
 		return "", "", false
@@ -438,6 +445,7 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 
 	s.applyRetryConfig(s.cfg)
+	s.applySchedulingConfig(s.cfg)
 
 	if s.coreManager != nil {
 		if errLoad := s.coreManager.Load(ctx); errLoad != nil {
@@ -506,6 +514,7 @@ func (s *Service) Run(ctx context.Context) error {
 			return
 		}
 		s.applyRetryConfig(newCfg)
+		s.applySchedulingConfig(newCfg)
 		if s.server != nil {
 			s.server.UpdateClients(newCfg)
 		}

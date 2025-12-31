@@ -1,111 +1,40 @@
-import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Modal } from '@/components/ui/Modal';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { HeaderInputList } from '@/components/ui/HeaderInputList';
-import { ModelInputList } from '@/components/ui/ModelInputList';
-import { modelsToEntries, entriesToModels } from '@/utils/models';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
-import { IconCheck, IconX } from '@/components/ui/icons';
 import { useAuthStore, useConfigStore, useNotificationStore } from '@/stores';
-import { ampcodeApi, modelsApi, providersApi, usageApi } from '@/services/api';
+import { ampcodeApi, providersApi, usageApi } from '@/services/api';
+import { AmpcodeConfigModal } from '@/components/auth-config/AmpcodeConfigModal';
+import { GeminiConfigModal } from '@/components/auth-config/GeminiConfigModal';
+import { OpenAIConfigModal } from '@/components/auth-config/OpenAIConfigModal';
+import { CodexConfigModal } from '@/components/auth-config/CodexConfigModal';
+import { ClaudeConfigModal } from '@/components/auth-config/ClaudeConfigModal';
+import {
+  IconCheck,
+  IconX,
+} from '@/components/ui/icons';
+import {
+  hasDisableAllModelsRule,
+  withDisableAllModelsRule,
+  withoutDisableAllModelsRule,
+} from '@/utils/auth-config';
+import type {
+  ProviderModalType,
+} from '@/components/auth-config/types';
 import type {
   GeminiKeyConfig,
   ProviderKeyConfig,
   OpenAIProviderConfig,
   ApiKeyEntry,
-  AmpcodeConfig,
-  AmpcodeModelMapping,
   Config,
 } from '@/types';
 import type { KeyStats, KeyStatBucket } from '@/utils/usage';
-import type { ModelInfo } from '@/utils/models';
-import { headersToEntries, buildHeaderObject, type HeaderEntry } from '@/utils/headers';
 import { maskApiKey } from '@/utils/format';
 import styles from './ApiKeyConfigPage.module.scss';
 
-type ProviderModal =
-  | { type: 'gemini'; index: number | null }
-  | { type: 'codex'; index: number | null }
-  | { type: 'claude'; index: number | null }
-  | { type: 'ampcode'; index: null }
-  | { type: 'openai'; index: number | null };
 
-interface ModelEntry {
-  name: string;
-  alias: string;
-}
-
-interface OpenAIFormState {
-  name: string;
-  baseUrl: string;
-  headers: HeaderEntry[];
-  testModel?: string;
-  modelEntries: ModelEntry[];
-  apiKeyEntries: ApiKeyEntry[];
-}
-
-interface AmpcodeFormState {
-  upstreamUrl: string;
-  upstreamApiKey: string;
-  restrictManagementToLocalhost: boolean;
-  forceModelMappings: boolean;
-  mappingEntries: ModelEntry[];
-}
-
-const DISABLE_ALL_MODELS_RULE = '*';
-
-const hasDisableAllModelsRule = (models?: string[]) =>
-  Array.isArray(models) &&
-  models.some((model) => String(model ?? '').trim() === DISABLE_ALL_MODELS_RULE);
-
-const stripDisableAllModelsRule = (models?: string[]) =>
-  Array.isArray(models)
-    ? models.filter((model) => String(model ?? '').trim() !== DISABLE_ALL_MODELS_RULE)
-    : [];
-
-const withDisableAllModelsRule = (models?: string[]) => {
-  const base = stripDisableAllModelsRule(models);
-  return [...base, DISABLE_ALL_MODELS_RULE];
-};
-
-const withoutDisableAllModelsRule = (models?: string[]) => {
-  const base = stripDisableAllModelsRule(models);
-  return base;
-};
-
-const parseExcludedModels = (text: string): string[] =>
-  text
-    .split(/[\n,]+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-const excludedModelsToText = (models?: string[]) =>
-  Array.isArray(models) ? models.join('\n') : '';
-
-const buildOpenAIModelsEndpoint = (baseUrl: string): string => {
-  const trimmed = String(baseUrl || '')
-    .trim()
-    .replace(/\/+$/g, '');
-  if (!trimmed) return '';
-  return trimmed.endsWith('/v1') ? `${trimmed}/models` : `${trimmed}/v1/models`;
-};
-
-const buildOpenAIChatCompletionsEndpoint = (baseUrl: string): string => {
-  const trimmed = String(baseUrl || '')
-    .trim()
-    .replace(/\/+$/g, '');
-  if (!trimmed) return '';
-  if (trimmed.endsWith('/chat/completions')) {
-    return trimmed;
-  }
-  return trimmed.endsWith('/v1') ? `${trimmed}/chat/completions` : `${trimmed}/v1/chat/completions`;
-};
-
-const OPENAI_TEST_TIMEOUT_MS = 30_000;
 
 // 根据 source (apiKey) 获取统计数据 - 与旧版逻辑一致
 const getStatsBySource = (
@@ -140,46 +69,6 @@ const getOpenAIProviderStats = (
   return { success: totalSuccess, failure: totalFailure };
 };
 
-const buildApiKeyEntry = (input?: Partial<ApiKeyEntry>): ApiKeyEntry => ({
-  apiKey: input?.apiKey ?? '',
-  proxyUrl: input?.proxyUrl ?? '',
-  headers: input?.headers ?? {},
-});
-
-const ampcodeMappingsToEntries = (mappings?: AmpcodeModelMapping[]): ModelEntry[] => {
-  if (!Array.isArray(mappings) || mappings.length === 0) {
-    return [{ name: '', alias: '' }];
-  }
-  return mappings.map((mapping) => ({
-    name: mapping.from ?? '',
-    alias: mapping.to ?? '',
-  }));
-};
-
-const entriesToAmpcodeMappings = (entries: ModelEntry[]): AmpcodeModelMapping[] => {
-  const seen = new Set<string>();
-  const mappings: AmpcodeModelMapping[] = [];
-
-  entries.forEach((entry) => {
-    const from = entry.name.trim();
-    const to = entry.alias.trim();
-    if (!from || !to) return;
-    const key = from.toLowerCase();
-    if (seen.has(key)) return;
-    seen.add(key);
-    mappings.push({ from, to });
-  });
-
-  return mappings;
-};
-
-const buildAmpcodeFormState = (ampcode?: AmpcodeConfig | null): AmpcodeFormState => ({
-  upstreamUrl: ampcode?.upstreamUrl ?? '',
-  upstreamApiKey: '',
-  restrictManagementToLocalhost: ampcode?.restrictManagementToLocalhost ?? true,
-  forceModelMappings: ampcode?.forceModelMappings ?? false,
-  mappingEntries: ampcodeMappingsToEntries(ampcode?.modelMappings),
-});
 
 export function ApiKeyConfigPage() {
   const { t } = useTranslation();
@@ -200,72 +89,15 @@ export function ApiKeyConfigPage() {
   const [openaiProviders, setOpenaiProviders] = useState<OpenAIProviderConfig[]>([]);
   const [keyStats, setKeyStats] = useState<KeyStats>({ bySource: {}, byAuthIndex: {} });
 
-  const [modal, setModal] = useState<ProviderModal | null>(null);
-
-  const [geminiForm, setGeminiForm] = useState<GeminiKeyConfig & { excludedText: string }>({
-    apiKey: '',
-    baseUrl: '',
-    headers: {},
-    excludedModels: [],
-    excludedText: '',
-  });
-  const [providerForm, setProviderForm] = useState<
-    ProviderKeyConfig & { modelEntries: ModelEntry[]; excludedText: string }
-  >({
-    apiKey: '',
-    baseUrl: '',
-    proxyUrl: '',
-    headers: {},
-    models: [],
-    excludedModels: [],
-    modelEntries: [{ name: '', alias: '' }],
-    excludedText: '',
-  });
-  const [openaiForm, setOpenaiForm] = useState<OpenAIFormState>({
-    name: '',
-    baseUrl: '',
-    headers: [],
-    apiKeyEntries: [buildApiKeyEntry()],
-    modelEntries: [{ name: '', alias: '' }],
-  });
-  const [ampcodeForm, setAmpcodeForm] = useState<AmpcodeFormState>(() =>
-    buildAmpcodeFormState(null)
-  );
-  const [ampcodeModalLoading, setAmpcodeModalLoading] = useState(false);
-  const [ampcodeLoaded, setAmpcodeLoaded] = useState(false);
-  const [ampcodeMappingsDirty, setAmpcodeMappingsDirty] = useState(false);
-  const [ampcodeModalError, setAmpcodeModalError] = useState('');
-  const [ampcodeSaving, setAmpcodeSaving] = useState(false);
-  const [openaiDiscoveryOpen, setOpenaiDiscoveryOpen] = useState(false);
-  const [openaiDiscoveryEndpoint, setOpenaiDiscoveryEndpoint] = useState('');
-  const [openaiDiscoveryModels, setOpenaiDiscoveryModels] = useState<ModelInfo[]>([]);
-  const [openaiDiscoveryLoading, setOpenaiDiscoveryLoading] = useState(false);
-  const [openaiDiscoveryError, setOpenaiDiscoveryError] = useState('');
-  const [openaiDiscoverySearch, setOpenaiDiscoverySearch] = useState('');
-  const [openaiDiscoverySelected, setOpenaiDiscoverySelected] = useState<Set<string>>(new Set());
-  const [openaiTestModel, setOpenaiTestModel] = useState('');
-  const [openaiTestStatus, setOpenaiTestStatus] = useState<
-    'idle' | 'loading' | 'success' | 'error'
-  >('idle');
-  const [openaiTestMessage, setOpenaiTestMessage] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [modal, setModal] = useState<ProviderModalType | null>(null);
   const [configSwitchingKey, setConfigSwitchingKey] = useState<string | null>(null);
 
-  const disableControls = useMemo(() => connectionStatus !== 'connected', [connectionStatus]);
-  const filteredOpenaiDiscoveryModels = useMemo(() => {
-    const filter = openaiDiscoverySearch.trim().toLowerCase();
-    if (!filter) return openaiDiscoveryModels;
-    return openaiDiscoveryModels.filter((model) => {
-      const name = (model.name || '').toLowerCase();
-      const alias = (model.alias || '').toLowerCase();
-      const desc = (model.description || '').toLowerCase();
-      return name.includes(filter) || alias.includes(filter) || desc.includes(filter);
-    });
-  }, [openaiDiscoveryModels, openaiDiscoverySearch]);
-  const openaiAvailableModels = useMemo(
-    () => openaiForm.modelEntries.map((entry) => entry.name.trim()).filter(Boolean),
-    [openaiForm.modelEntries]
-  );
+  const disableControls = connectionStatus !== 'connected';
+
+  const openAmpcodeModal = () => {
+    setModal({ type: 'ampcode', index: null });
+  };
+
 
   // 加载 key 统计
   const loadKeyStats = useCallback(async () => {
@@ -321,469 +153,22 @@ export function ApiKeyConfigPage() {
 
   const closeModal = () => {
     setModal(null);
-    setGeminiForm({
-      apiKey: '',
-      baseUrl: '',
-      headers: {},
-      excludedModels: [],
-      excludedText: '',
-    });
-    setProviderForm({
-      apiKey: '',
-      baseUrl: '',
-      proxyUrl: '',
-      headers: {},
-      models: [],
-      excludedModels: [],
-      modelEntries: [{ name: '', alias: '' }],
-      excludedText: '',
-    });
-    setOpenaiForm({
-      name: '',
-      baseUrl: '',
-      headers: [],
-      apiKeyEntries: [buildApiKeyEntry()],
-      modelEntries: [{ name: '', alias: '' }],
-      testModel: undefined,
-    });
-    setAmpcodeForm(buildAmpcodeFormState(null));
-    setAmpcodeModalLoading(false);
-    setAmpcodeLoaded(false);
-    setAmpcodeMappingsDirty(false);
-    setAmpcodeModalError('');
-    setAmpcodeSaving(false);
-    setOpenaiDiscoveryOpen(false);
-    setOpenaiDiscoveryModels([]);
-    setOpenaiDiscoverySelected(new Set());
-    setOpenaiDiscoverySearch('');
-    setOpenaiDiscoveryError('');
-    setOpenaiDiscoveryEndpoint('');
-    setOpenaiTestModel('');
-    setOpenaiTestStatus('idle');
-    setOpenaiTestMessage('');
   };
 
   const openGeminiModal = (index: number | null) => {
-    if (index !== null) {
-      const entry = geminiKeys[index];
-      setGeminiForm({
-        ...entry,
-        excludedText: excludedModelsToText(entry?.excludedModels),
-      });
-    }
     setModal({ type: 'gemini', index });
   };
 
   const openProviderModal = (type: 'codex' | 'claude', index: number | null) => {
-    const source = type === 'codex' ? codexConfigs : claudeConfigs;
-    if (index !== null) {
-      const entry = source[index];
-      setProviderForm({
-        ...entry,
-        modelEntries: modelsToEntries(entry?.models),
-        excludedText: excludedModelsToText(entry?.excludedModels),
-      });
-    }
     setModal({ type, index });
   };
 
-  const openAmpcodeModal = () => {
-    setAmpcodeModalLoading(true);
-    setAmpcodeLoaded(false);
-    setAmpcodeMappingsDirty(false);
-    setAmpcodeModalError('');
-    setAmpcodeForm(buildAmpcodeFormState(config?.ampcode ?? null));
-    setModal({ type: 'ampcode', index: null });
-
-    void (async () => {
-      try {
-        const ampcode = await ampcodeApi.getAmpcode();
-        setAmpcodeLoaded(true);
-        updateConfigValue('ampcode', ampcode);
-        clearCache('ampcode');
-        setAmpcodeForm(buildAmpcodeFormState(ampcode));
-      } catch (err: unknown) {
-        setAmpcodeModalError((err as Error)?.message || t('notification.refresh_failed'));
-      } finally {
-        setAmpcodeModalLoading(false);
-      }
-    })();
-  };
 
   const openOpenaiModal = (index: number | null) => {
-    if (index !== null) {
-      const entry = openaiProviders[index];
-      const modelEntries = modelsToEntries(entry.models);
-      setOpenaiForm({
-        name: entry.name,
-        baseUrl: entry.baseUrl,
-        headers: headersToEntries(entry.headers),
-        testModel: entry.testModel,
-        modelEntries,
-        apiKeyEntries: entry.apiKeyEntries?.length ? entry.apiKeyEntries : [buildApiKeyEntry()],
-      });
-      const available = modelEntries.map((m) => m.name.trim()).filter(Boolean);
-      const initialModel =
-        entry.testModel && available.includes(entry.testModel)
-          ? entry.testModel
-          : available[0] || '';
-      setOpenaiTestModel(initialModel);
-    } else {
-      setOpenaiTestModel('');
-    }
-    setOpenaiTestStatus('idle');
-    setOpenaiTestMessage('');
     setModal({ type: 'openai', index });
   };
 
-  const closeOpenaiModelDiscovery = () => {
-    setOpenaiDiscoveryOpen(false);
-    setOpenaiDiscoveryModels([]);
-    setOpenaiDiscoverySelected(new Set());
-    setOpenaiDiscoverySearch('');
-    setOpenaiDiscoveryError('');
-  };
 
-  const fetchOpenaiModelDiscovery = async ({
-    allowFallback = true,
-  }: { allowFallback?: boolean } = {}) => {
-    const baseUrl = openaiForm.baseUrl.trim();
-    if (!baseUrl) return;
-
-    setOpenaiDiscoveryLoading(true);
-    setOpenaiDiscoveryError('');
-    try {
-      const headers = buildHeaderObject(openaiForm.headers);
-      const firstKey = openaiForm.apiKeyEntries
-        .find((entry) => entry.apiKey?.trim())
-        ?.apiKey?.trim();
-      const hasAuthHeader = Boolean(headers.Authorization || headers['authorization']);
-      const list = await modelsApi.fetchModels(
-        baseUrl,
-        hasAuthHeader ? undefined : firstKey,
-        headers
-      );
-      setOpenaiDiscoveryModels(list);
-    } catch (err: unknown) {
-      if (allowFallback) {
-        try {
-          const list = await modelsApi.fetchModels(baseUrl);
-          setOpenaiDiscoveryModels(list);
-          return;
-        } catch (fallbackErr: unknown) {
-          const message = (fallbackErr as Error)?.message || (err as Error)?.message || '';
-          setOpenaiDiscoveryModels([]);
-          setOpenaiDiscoveryError(`${t('ai_providers.openai_models_fetch_error')}: ${message}`);
-        }
-      } else {
-        setOpenaiDiscoveryModels([]);
-        setOpenaiDiscoveryError(
-          `${t('ai_providers.openai_models_fetch_error')}: ${(err as Error)?.message || ''}`
-        );
-      }
-    } finally {
-      setOpenaiDiscoveryLoading(false);
-    }
-  };
-
-  const openOpenaiModelDiscovery = () => {
-    const baseUrl = openaiForm.baseUrl.trim();
-    if (!baseUrl) {
-      showNotification(t('ai_providers.openai_models_fetch_invalid_url'), 'error');
-      return;
-    }
-
-    setOpenaiDiscoveryEndpoint(buildOpenAIModelsEndpoint(baseUrl));
-    setOpenaiDiscoveryModels([]);
-    setOpenaiDiscoverySearch('');
-    setOpenaiDiscoverySelected(new Set());
-    setOpenaiDiscoveryError('');
-    setOpenaiDiscoveryOpen(true);
-    void fetchOpenaiModelDiscovery();
-  };
-
-  const toggleOpenaiModelSelection = (name: string) => {
-    setOpenaiDiscoverySelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) {
-        next.delete(name);
-      } else {
-        next.add(name);
-      }
-      return next;
-    });
-  };
-
-  const applyOpenaiModelDiscoverySelection = () => {
-    const selectedModels = openaiDiscoveryModels.filter((model) =>
-      openaiDiscoverySelected.has(model.name)
-    );
-    if (!selectedModels.length) {
-      closeOpenaiModelDiscovery();
-      return;
-    }
-
-    const mergedMap = new Map<string, ModelEntry>();
-    openaiForm.modelEntries.forEach((entry) => {
-      const name = entry.name.trim();
-      if (!name) return;
-      mergedMap.set(name, { name, alias: entry.alias?.trim() || '' });
-    });
-
-    let addedCount = 0;
-    selectedModels.forEach((model) => {
-      const name = model.name.trim();
-      if (!name || mergedMap.has(name)) return;
-      mergedMap.set(name, { name, alias: model.alias ?? '' });
-      addedCount += 1;
-    });
-
-    const mergedEntries = Array.from(mergedMap.values());
-    setOpenaiForm((prev) => ({
-      ...prev,
-      modelEntries: mergedEntries.length ? mergedEntries : [{ name: '', alias: '' }],
-    }));
-
-    closeOpenaiModelDiscovery();
-    if (addedCount > 0) {
-      showNotification(
-        t('ai_providers.openai_models_fetch_added', { count: addedCount }),
-        'success'
-      );
-    }
-  };
-
-  useEffect(() => {
-    if (modal?.type !== 'openai') return;
-    if (openaiAvailableModels.length === 0) {
-      if (openaiTestModel) {
-        setOpenaiTestModel('');
-        setOpenaiTestStatus('idle');
-        setOpenaiTestMessage('');
-      }
-      return;
-    }
-
-    if (!openaiTestModel || !openaiAvailableModels.includes(openaiTestModel)) {
-      setOpenaiTestModel(openaiAvailableModels[0]);
-      setOpenaiTestStatus('idle');
-      setOpenaiTestMessage('');
-    }
-  }, [modal?.type, openaiAvailableModels, openaiTestModel]);
-
-  const testOpenaiProviderConnection = async () => {
-    const baseUrl = openaiForm.baseUrl.trim();
-    if (!baseUrl) {
-      const message = t('notification.openai_test_url_required');
-      setOpenaiTestStatus('error');
-      setOpenaiTestMessage(message);
-      showNotification(message, 'error');
-      return;
-    }
-
-    const endpoint = buildOpenAIChatCompletionsEndpoint(baseUrl);
-    if (!endpoint) {
-      const message = t('notification.openai_test_url_required');
-      setOpenaiTestStatus('error');
-      setOpenaiTestMessage(message);
-      showNotification(message, 'error');
-      return;
-    }
-
-    const firstKeyEntry = openaiForm.apiKeyEntries.find((entry) => entry.apiKey?.trim());
-    if (!firstKeyEntry) {
-      const message = t('notification.openai_test_key_required');
-      setOpenaiTestStatus('error');
-      setOpenaiTestMessage(message);
-      showNotification(message, 'error');
-      return;
-    }
-
-    const modelName = openaiTestModel.trim() || openaiAvailableModels[0] || '';
-    if (!modelName) {
-      const message = t('notification.openai_test_model_required');
-      setOpenaiTestStatus('error');
-      setOpenaiTestMessage(message);
-      showNotification(message, 'error');
-      return;
-    }
-
-    const customHeaders = buildHeaderObject(openaiForm.headers);
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...customHeaders,
-    };
-    if (!headers.Authorization && !headers['authorization']) {
-      headers.Authorization = `Bearer ${firstKeyEntry.apiKey.trim()}`;
-    }
-
-    setOpenaiTestStatus('loading');
-    setOpenaiTestMessage(t('ai_providers.openai_test_running'));
-
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), OPENAI_TEST_TIMEOUT_MS);
-    try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers,
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: modelName,
-          messages: [{ role: 'user', content: 'Hi' }],
-          stream: false,
-          max_tokens: 5,
-        }),
-      });
-      const rawText = await response.text();
-
-      if (!response.ok) {
-        let errorMessage = `${response.status} ${response.statusText}`;
-        try {
-          const parsed = rawText ? JSON.parse(rawText) : null;
-          errorMessage = parsed?.error?.message || parsed?.message || errorMessage;
-        } catch {
-          if (rawText) {
-            errorMessage = rawText;
-          }
-        }
-        throw new Error(errorMessage);
-      }
-
-      setOpenaiTestStatus('success');
-      setOpenaiTestMessage(t('ai_providers.openai_test_success'));
-    } catch (err: unknown) {
-      setOpenaiTestStatus('error');
-      if ((err as Error)?.name === 'AbortError') {
-        setOpenaiTestMessage(
-          t('ai_providers.openai_test_timeout', { seconds: OPENAI_TEST_TIMEOUT_MS / 1000 })
-        );
-      } else {
-        setOpenaiTestMessage(`${t('ai_providers.openai_test_failed')}: ${(err as Error)?.message || ''}`);
-      }
-    } finally {
-      window.clearTimeout(timeoutId);
-    }
-  };
-
-  const clearAmpcodeUpstreamApiKey = async () => {
-    if (!window.confirm(t('ai_providers.ampcode_clear_upstream_api_key_confirm'))) return;
-    setAmpcodeSaving(true);
-    setAmpcodeModalError('');
-    try {
-      await ampcodeApi.clearUpstreamApiKey();
-      const next: AmpcodeConfig = { ...(config?.ampcode || {} as AmpcodeConfig) };
-      delete (next as Partial<AmpcodeConfig>).upstreamApiKey;
-      updateConfigValue('ampcode', next);
-      clearCache('ampcode');
-      showNotification(t('notification.ampcode_upstream_api_key_cleared'), 'success');
-    } catch (err: unknown) {
-      const message = (err as Error)?.message || '';
-      setAmpcodeModalError(message);
-      showNotification(`${t('notification.update_failed')}: ${message}`, 'error');
-    } finally {
-      setAmpcodeSaving(false);
-    }
-  };
-
-  const saveAmpcode = async () => {
-    if (!ampcodeLoaded && ampcodeMappingsDirty) {
-      const confirmed = window.confirm(t('ai_providers.ampcode_mappings_overwrite_confirm'));
-      if (!confirmed) return;
-    }
-
-    setAmpcodeSaving(true);
-    setAmpcodeModalError('');
-    try {
-      const upstreamUrl = ampcodeForm.upstreamUrl.trim();
-      const overrideKey = ampcodeForm.upstreamApiKey.trim();
-      const modelMappings = entriesToAmpcodeMappings(ampcodeForm.mappingEntries);
-
-      if (upstreamUrl) {
-        await ampcodeApi.updateUpstreamUrl(upstreamUrl);
-      } else {
-        await ampcodeApi.clearUpstreamUrl();
-      }
-
-      await ampcodeApi.updateRestrictManagementToLocalhost(
-        ampcodeForm.restrictManagementToLocalhost
-      );
-      await ampcodeApi.updateForceModelMappings(ampcodeForm.forceModelMappings);
-
-      if (ampcodeLoaded || ampcodeMappingsDirty) {
-        if (modelMappings.length) {
-          await ampcodeApi.saveModelMappings(modelMappings);
-        } else {
-          await ampcodeApi.clearModelMappings();
-        }
-      }
-
-      if (overrideKey) {
-        await ampcodeApi.updateUpstreamApiKey(overrideKey);
-      }
-
-      const previous = config?.ampcode ?? {};
-      const next: AmpcodeConfig = {
-        ...previous,
-        upstreamUrl: upstreamUrl || undefined,
-        restrictManagementToLocalhost: ampcodeForm.restrictManagementToLocalhost,
-        forceModelMappings: ampcodeForm.forceModelMappings,
-      };
-
-      if (overrideKey) {
-        next.upstreamApiKey = overrideKey;
-      }
-
-      if (ampcodeLoaded || ampcodeMappingsDirty) {
-        if (modelMappings.length) {
-          next.modelMappings = modelMappings;
-        } else {
-          delete (next as Partial<AmpcodeConfig>).modelMappings;
-        }
-      }
-
-      updateConfigValue('ampcode', next);
-      clearCache('ampcode');
-      showNotification(t('notification.ampcode_updated'), 'success');
-      closeModal();
-    } catch (err: unknown) {
-      const message = (err as Error)?.message || '';
-      setAmpcodeModalError(message);
-      showNotification(`${t('notification.update_failed')}: ${message}`, 'error');
-    } finally {
-      setAmpcodeSaving(false);
-    }
-  };
-
-  const saveGemini = async () => {
-    setSaving(true);
-    try {
-      const payload: GeminiKeyConfig = {
-        apiKey: geminiForm.apiKey.trim(),
-        baseUrl: geminiForm.baseUrl?.trim() || undefined,
-        headers: buildHeaderObject(headersToEntries(geminiForm.headers as Record<string, string>)),
-        excludedModels: parseExcludedModels(geminiForm.excludedText),
-      };
-      const nextList =
-        modal?.type === 'gemini' && modal.index !== null
-          ? geminiKeys.map((item, idx) => (idx === modal.index ? payload : item))
-          : [...geminiKeys, payload];
-
-      await providersApi.saveGeminiKeys(nextList);
-      setGeminiKeys(nextList);
-      updateConfigValue('gemini-api-key', nextList);
-      clearCache('gemini-api-key');
-      const message =
-        modal?.index !== null
-          ? t('notification.gemini_key_updated')
-          : t('notification.gemini_key_added');
-      showNotification(message, 'success');
-      closeModal();
-    } catch (err: unknown) {
-      showNotification(`${t('notification.update_failed')}: ${(err as Error)?.message || ''}`, 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const deleteGemini = async (apiKey: string) => {
     if (!window.confirm(t('ai_providers.gemini_delete_confirm'))) return;
@@ -889,60 +274,6 @@ export function ApiKeyConfigPage() {
     }
   };
 
-  const saveProvider = async (type: 'codex' | 'claude') => {
-    const baseUrl = (providerForm.baseUrl ?? '').trim();
-    if (!baseUrl) {
-      showNotification(t('codex_base_url_required'), 'error');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const source = type === 'codex' ? codexConfigs : claudeConfigs;
-
-      const payload: ProviderKeyConfig = {
-        apiKey: providerForm.apiKey.trim(),
-        baseUrl,
-        proxyUrl: providerForm.proxyUrl?.trim() || undefined,
-        headers: buildHeaderObject(headersToEntries(providerForm.headers as Record<string, string>)),
-        models: entriesToModels(providerForm.modelEntries),
-        excludedModels: parseExcludedModels(providerForm.excludedText),
-      };
-
-      const nextList =
-        modal?.type === type && modal.index !== null
-          ? source.map((item, idx) => (idx === modal.index ? payload : item))
-          : [...source, payload];
-
-      if (type === 'codex') {
-        await providersApi.saveCodexConfigs(nextList);
-        setCodexConfigs(nextList);
-        updateConfigValue('codex-api-key', nextList);
-        clearCache('codex-api-key');
-        const message =
-          modal?.index !== null
-            ? t('notification.codex_config_updated')
-            : t('notification.codex_config_added');
-        showNotification(message, 'success');
-      } else {
-        await providersApi.saveClaudeConfigs(nextList);
-        setClaudeConfigs(nextList);
-        updateConfigValue('claude-api-key', nextList);
-        clearCache('claude-api-key');
-        const message =
-          modal?.index !== null
-            ? t('notification.claude_config_updated')
-            : t('notification.claude_config_added');
-        showNotification(message, 'success');
-      }
-
-      closeModal();
-    } catch (err: unknown) {
-      showNotification(`${t('notification.update_failed')}: ${(err as Error)?.message || ''}`, 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const deleteProviderEntry = async (type: 'codex' | 'claude', apiKey: string) => {
     const confirmKey = type === 'codex' ? 'ai_providers.codex_delete_confirm' : 'ai_providers.claude_delete_confirm';
@@ -968,44 +299,6 @@ export function ApiKeyConfigPage() {
     }
   };
 
-  const saveOpenai = async () => {
-    setSaving(true);
-    try {
-      const payload: OpenAIProviderConfig = {
-        name: openaiForm.name.trim(),
-        baseUrl: openaiForm.baseUrl.trim(),
-        headers: buildHeaderObject(openaiForm.headers),
-        apiKeyEntries: openaiForm.apiKeyEntries.map((entry) => ({
-          apiKey: entry.apiKey.trim(),
-          proxyUrl: entry.proxyUrl?.trim() || undefined,
-          headers: entry.headers,
-        })),
-      };
-      if (openaiForm.testModel) payload.testModel = openaiForm.testModel.trim();
-      const models = entriesToModels(openaiForm.modelEntries);
-      if (models.length) payload.models = models;
-
-      const nextList =
-        modal?.type === 'openai' && modal.index !== null
-          ? openaiProviders.map((item, idx) => (idx === modal.index ? payload : item))
-          : [...openaiProviders, payload];
-
-      await providersApi.saveOpenAIProviders(nextList);
-      setOpenaiProviders(nextList);
-      updateConfigValue('openai-compatibility', nextList);
-      clearCache('openai-compatibility');
-      const message =
-        modal?.index !== null
-          ? t('notification.openai_provider_updated')
-          : t('notification.openai_provider_added');
-      showNotification(message, 'success');
-      closeModal();
-    } catch (err: unknown) {
-      showNotification(`${t('notification.update_failed')}: ${(err as Error)?.message || ''}`, 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const deleteOpenai = async (name: string) => {
     if (!window.confirm(t('ai_providers.openai_delete_confirm'))) return;
@@ -1021,59 +314,6 @@ export function ApiKeyConfigPage() {
     }
   };
 
-  const renderKeyEntries = (entries: ApiKeyEntry[]) => {
-    const list = entries.length ? entries : [buildApiKeyEntry()];
-    const updateEntry = (idx: number, field: keyof ApiKeyEntry, value: string) => {
-      const next = list.map((entry, i) => (i === idx ? { ...entry, [field]: value } : entry));
-      setOpenaiForm((prev) => ({ ...prev, apiKeyEntries: next }));
-    };
-
-    const removeEntry = (idx: number) => {
-      const next = list.filter((_, i) => i !== idx);
-      setOpenaiForm((prev) => ({
-        ...prev,
-        apiKeyEntries: next.length ? next : [buildApiKeyEntry()],
-      }));
-    };
-
-    const addEntry = () => {
-      setOpenaiForm((prev) => ({ ...prev, apiKeyEntries: [...list, buildApiKeyEntry()] }));
-    };
-
-    return (
-      <div className="stack">
-        {list.map((entry, index) => (
-          <div key={index} className="item-row">
-            <div className="item-meta">
-              <Input
-                label={`${t('common.api_key')} #${index + 1}`}
-                value={entry.apiKey}
-                onChange={(e) => updateEntry(index, 'apiKey', e.target.value)}
-              />
-              <Input
-                label={t('common.proxy_url')}
-                value={entry.proxyUrl ?? ''}
-                onChange={(e) => updateEntry(index, 'proxyUrl', e.target.value)}
-              />
-            </div>
-            <div className="item-actions">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => removeEntry(index)}
-                disabled={list.length <= 1 || saving}
-              >
-                {t('common.delete')}
-              </Button>
-            </div>
-          </div>
-        ))}
-        <Button variant="secondary" size="sm" onClick={addEntry} disabled={saving}>
-          {t('ai_providers.openai_keys_add_btn')}
-        </Button>
-      </div>
-    );
-  };
 
   const renderList = <T,>(
     items: T[],
@@ -1122,7 +362,7 @@ export function ApiKeyConfigPage() {
                   variant="secondary"
                   size="sm"
                   onClick={() => onEdit(index)}
-                  disabled={disableControls || saving || Boolean(configSwitchingKey)}
+                  disabled={disableControls || Boolean(configSwitchingKey)}
                 >
                   {t('common.edit')}
                 </Button>
@@ -1130,7 +370,7 @@ export function ApiKeyConfigPage() {
                   variant="danger"
                   size="sm"
                   onClick={() => onDelete(item)}
-                  disabled={disableControls || saving || Boolean(configSwitchingKey)}
+                  disabled={disableControls || Boolean(configSwitchingKey)}
                 >
                   {deleteLabel || t('common.delete')}
                 </Button>
@@ -1155,7 +395,7 @@ export function ApiKeyConfigPage() {
             <Button
               size="sm"
               onClick={() => openGeminiModal(null)}
-              disabled={disableControls || saving || Boolean(configSwitchingKey)}
+              disabled={disableControls || Boolean(configSwitchingKey)}
             >
               {t('ai_providers.gemini_add_button')}
             </Button>
@@ -1241,7 +481,7 @@ export function ApiKeyConfigPage() {
                 <ToggleSwitch
                   label={t('ai_providers.config_toggle_label')}
                   checked={!hasDisableAllModelsRule(item.excludedModels)}
-                  disabled={disableControls || loading || saving || Boolean(configSwitchingKey)}
+                  disabled={disableControls || loading || Boolean(configSwitchingKey)}
                   onChange={(value) => void setConfigEnabled('gemini', index, value)}
                 />
               ),
@@ -1255,7 +495,7 @@ export function ApiKeyConfigPage() {
             <Button
               size="sm"
               onClick={() => openProviderModal('codex', null)}
-              disabled={disableControls || saving || Boolean(configSwitchingKey)}
+              disabled={disableControls || Boolean(configSwitchingKey)}
             >
               {t('ai_providers.codex_add_button')}
             </Button>
@@ -1346,7 +586,7 @@ export function ApiKeyConfigPage() {
                 <ToggleSwitch
                   label={t('ai_providers.config_toggle_label')}
                   checked={!hasDisableAllModelsRule(item.excludedModels)}
-                  disabled={disableControls || loading || saving || Boolean(configSwitchingKey)}
+                  disabled={disableControls || loading || Boolean(configSwitchingKey)}
                   onChange={(value) => void setConfigEnabled('codex', index, value)}
                 />
               ),
@@ -1360,7 +600,7 @@ export function ApiKeyConfigPage() {
             <Button
               size="sm"
               onClick={() => openProviderModal('claude', null)}
-              disabled={disableControls || saving || Boolean(configSwitchingKey)}
+              disabled={disableControls || Boolean(configSwitchingKey)}
             >
               {t('ai_providers.claude_add_button')}
             </Button>
@@ -1467,7 +707,7 @@ export function ApiKeyConfigPage() {
                 <ToggleSwitch
                   label={t('ai_providers.config_toggle_label')}
                   checked={!hasDisableAllModelsRule(item.excludedModels)}
-                  disabled={disableControls || loading || saving || Boolean(configSwitchingKey)}
+                  disabled={disableControls || loading || Boolean(configSwitchingKey)}
                   onChange={(value) => void setConfigEnabled('claude', index, value)}
                 />
               ),
@@ -1481,7 +721,7 @@ export function ApiKeyConfigPage() {
             <Button
               size="sm"
               onClick={openAmpcodeModal}
-              disabled={disableControls || saving || ampcodeSaving || Boolean(configSwitchingKey)}
+              disabled={disableControls || Boolean(configSwitchingKey)}
             >
               {t('common.edit')}
             </Button>
@@ -1564,7 +804,7 @@ export function ApiKeyConfigPage() {
             <Button
               size="sm"
               onClick={() => openOpenaiModal(null)}
-              disabled={disableControls || saving || Boolean(configSwitchingKey)}
+              disabled={disableControls || Boolean(configSwitchingKey)}
             >
               {t('ai_providers.openai_add_button')}
             </Button>
@@ -1677,470 +917,65 @@ export function ApiKeyConfigPage() {
         </Card>
 
         {/* Ampcode Modal */}
-        <Modal
+        {/* Ampcode Modal */}
+        <AmpcodeConfigModal
           open={modal?.type === 'ampcode'}
           onClose={closeModal}
-          title={t('ai_providers.ampcode_modal_title')}
-          footer={
-            <>
-              <Button variant="secondary" onClick={closeModal} disabled={ampcodeSaving}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                onClick={saveAmpcode}
-                loading={ampcodeSaving}
-                disabled={disableControls || ampcodeModalLoading}
-              >
-                {t('common.save')}
-              </Button>
-            </>
-          }
-        >
-          {ampcodeModalError && <div className="error-box">{ampcodeModalError}</div>}
-          <Input
-            label={t('ai_providers.ampcode_upstream_url_label')}
-            placeholder={t('ai_providers.ampcode_upstream_url_placeholder')}
-            value={ampcodeForm.upstreamUrl}
-            onChange={(e) => setAmpcodeForm((prev) => ({ ...prev, upstreamUrl: e.target.value }))}
-            disabled={ampcodeModalLoading || ampcodeSaving}
-            hint={t('ai_providers.ampcode_upstream_url_hint')}
-          />
-          <Input
-            label={t('ai_providers.ampcode_upstream_api_key_label')}
-            placeholder={t('ai_providers.ampcode_upstream_api_key_placeholder')}
-            type="password"
-            value={ampcodeForm.upstreamApiKey}
-            onChange={(e) =>
-              setAmpcodeForm((prev) => ({ ...prev, upstreamApiKey: e.target.value }))
-            }
-            disabled={ampcodeModalLoading || ampcodeSaving}
-            hint={t('ai_providers.ampcode_upstream_api_key_hint')}
-          />
-          <div
-            style={{
-              display: 'flex',
-              gap: 8,
-              alignItems: 'center',
-              marginTop: -8,
-              marginBottom: 12,
-              flexWrap: 'wrap',
-            }}
-          >
-            <div className="hint" style={{ margin: 0 }}>
-              {t('ai_providers.ampcode_upstream_api_key_current', {
-                key: config?.ampcode?.upstreamApiKey
-                  ? maskApiKey(config.ampcode.upstreamApiKey)
-                  : t('common.not_set'),
-              })}
-            </div>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={clearAmpcodeUpstreamApiKey}
-              disabled={ampcodeModalLoading || ampcodeSaving || !config?.ampcode?.upstreamApiKey}
-            >
-              {t('ai_providers.ampcode_clear_upstream_api_key')}
-            </Button>
-          </div>
-
-          <div className="form-group">
-            <ToggleSwitch
-              label={t('ai_providers.ampcode_restrict_management_label')}
-              checked={ampcodeForm.restrictManagementToLocalhost}
-              onChange={(value) =>
-                setAmpcodeForm((prev) => ({ ...prev, restrictManagementToLocalhost: value }))
-              }
-              disabled={ampcodeModalLoading || ampcodeSaving}
-            />
-            <div className="hint">{t('ai_providers.ampcode_restrict_management_hint')}</div>
-          </div>
-
-          <div className="form-group">
-            <ToggleSwitch
-              label={t('ai_providers.ampcode_force_model_mappings_label')}
-              checked={ampcodeForm.forceModelMappings}
-              onChange={(value) =>
-                setAmpcodeForm((prev) => ({ ...prev, forceModelMappings: value }))
-              }
-              disabled={ampcodeModalLoading || ampcodeSaving}
-            />
-            <div className="hint">{t('ai_providers.ampcode_force_model_mappings_hint')}</div>
-          </div>
-
-          <div className="form-group">
-            <label>{t('ai_providers.ampcode_model_mappings_label')}</label>
-            <ModelInputList
-              entries={ampcodeForm.mappingEntries}
-              onChange={(entries) => {
-                setAmpcodeMappingsDirty(true);
-                setAmpcodeForm((prev) => ({ ...prev, mappingEntries: entries }));
-              }}
-              addLabel={t('ai_providers.ampcode_model_mappings_add_btn')}
-              namePlaceholder={t('ai_providers.ampcode_model_mappings_from_placeholder')}
-              aliasPlaceholder={t('ai_providers.ampcode_model_mappings_to_placeholder')}
-              disabled={ampcodeModalLoading || ampcodeSaving}
-            />
-            <div className="hint">{t('ai_providers.ampcode_model_mappings_hint')}</div>
-          </div>
-        </Modal>
+          config={config?.ampcode}
+        />
 
         {/* Gemini Modal */}
-        <Modal
+        {/* Gemini Modal */}
+        <GeminiConfigModal
           open={modal?.type === 'gemini'}
           onClose={closeModal}
-          title={
-            modal?.index !== null
-              ? t('ai_providers.gemini_edit_modal_title')
-              : t('ai_providers.gemini_add_modal_title')
+          index={modal?.index ?? null}
+          initialData={
+            modal?.type === 'gemini' && modal?.index !== null
+              ? geminiKeys[modal.index]
+              : undefined
           }
-          footer={
-            <>
-              <Button variant="secondary" onClick={closeModal} disabled={saving}>
-                {t('common.cancel')}
-              </Button>
-              <Button onClick={saveGemini} loading={saving}>
-                {t('common.save')}
-              </Button>
-            </>
-          }
-        >
-          <Input
-            label={t('ai_providers.gemini_add_modal_key_label')}
-            placeholder={t('ai_providers.gemini_add_modal_key_placeholder')}
-            value={geminiForm.apiKey}
-            onChange={(e) => setGeminiForm((prev) => ({ ...prev, apiKey: e.target.value }))}
-          />
-          <Input
-            label={t('ai_providers.gemini_base_url_label')}
-            placeholder={t('ai_providers.gemini_base_url_placeholder')}
-            value={geminiForm.baseUrl ?? ''}
-            onChange={(e) => setGeminiForm((prev) => ({ ...prev, baseUrl: e.target.value }))}
-          />
-          <HeaderInputList
-            entries={headersToEntries(geminiForm.headers as Record<string, string>)}
-            onChange={(entries) =>
-              setGeminiForm((prev) => ({ ...prev, headers: buildHeaderObject(entries) }))
-            }
-            addLabel={t('common.custom_headers_add')}
-            keyPlaceholder={t('common.custom_headers_key_placeholder')}
-            valuePlaceholder={t('common.custom_headers_value_placeholder')}
-          />
-          <div className="form-group">
-            <label>{t('ai_providers.excluded_models_label')}</label>
-            <textarea
-              className="input"
-              placeholder={t('ai_providers.excluded_models_placeholder')}
-              value={geminiForm.excludedText}
-              onChange={(e) => setGeminiForm((prev) => ({ ...prev, excludedText: e.target.value }))}
-              rows={4}
-            />
-            <div className="hint">{t('ai_providers.excluded_models_hint')}</div>
-          </div>
-        </Modal>
+          existingKeys={geminiKeys}
+        />
 
-        {/* Codex / Claude Modal */}
-        <Modal
-          open={modal?.type === 'codex' || modal?.type === 'claude'}
+        {/* Codex Config Modal */}
+        <CodexConfigModal
+          open={modal?.type === 'codex'}
           onClose={closeModal}
-          title={
-            modal?.type === 'codex'
-              ? modal.index !== null
-                ? t('ai_providers.codex_edit_modal_title')
-                : t('ai_providers.codex_add_modal_title')
-              : modal?.type === 'claude' && modal.index !== null
-                ? t('ai_providers.claude_edit_modal_title')
-                : t('ai_providers.claude_add_modal_title')
+          initialData={
+            modal?.type === 'codex' && modal?.index !== null
+              ? codexConfigs[modal.index]
+              : undefined
           }
-          footer={
-            <>
-              <Button variant="secondary" onClick={closeModal} disabled={saving}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                onClick={() => saveProvider(modal?.type as 'codex' | 'claude')}
-                loading={saving}
-              >
-                {t('common.save')}
-              </Button>
-            </>
+          index={modal?.index ?? null}
+          existingConfigs={codexConfigs}
+        />
+
+        {/* Claude Config Modal */}
+        <ClaudeConfigModal
+          open={modal?.type === 'claude'}
+          onClose={closeModal}
+          initialData={
+            modal?.type === 'claude' && modal?.index !== null
+              ? claudeConfigs[modal.index]
+              : undefined
           }
-        >
-          <Input
-            label={
-              modal?.type === 'codex'
-                ? t('ai_providers.codex_add_modal_key_label')
-                : t('ai_providers.claude_add_modal_key_label')
-            }
-            value={providerForm.apiKey}
-            onChange={(e) => setProviderForm((prev) => ({ ...prev, apiKey: e.target.value }))}
-          />
-          <Input
-            label={
-              modal?.type === 'codex'
-                ? t('ai_providers.codex_add_modal_url_label')
-                : t('ai_providers.claude_add_modal_url_label')
-            }
-            value={providerForm.baseUrl ?? ''}
-            onChange={(e) => setProviderForm((prev) => ({ ...prev, baseUrl: e.target.value }))}
-          />
-          <Input
-            label={
-              modal?.type === 'codex'
-                ? t('ai_providers.codex_add_modal_proxy_label')
-                : t('ai_providers.claude_add_modal_proxy_label')
-            }
-            value={providerForm.proxyUrl ?? ''}
-            onChange={(e) => setProviderForm((prev) => ({ ...prev, proxyUrl: e.target.value }))}
-          />
-          <HeaderInputList
-            entries={headersToEntries(providerForm.headers as Record<string, string>)}
-            onChange={(entries) =>
-              setProviderForm((prev) => ({ ...prev, headers: buildHeaderObject(entries) }))
-            }
-            addLabel={t('common.custom_headers_add')}
-            keyPlaceholder={t('common.custom_headers_key_placeholder')}
-            valuePlaceholder={t('common.custom_headers_value_placeholder')}
-          />
-          <div className="form-group">
-            <label>{t('ai_providers.claude_models_label')}</label>
-            <ModelInputList
-              entries={providerForm.modelEntries}
-              onChange={(entries) =>
-                setProviderForm((prev) => ({ ...prev, modelEntries: entries }))
-              }
-              addLabel={t('ai_providers.claude_models_add_btn')}
-              namePlaceholder={t('common.model_name_placeholder')}
-              aliasPlaceholder={t('common.model_alias_placeholder')}
-              disabled={saving}
-            />
-          </div>
-          <div className="form-group">
-            <label>{t('ai_providers.excluded_models_label')}</label>
-            <textarea
-              className="input"
-              placeholder={t('ai_providers.excluded_models_placeholder')}
-              value={providerForm.excludedText}
-              onChange={(e) =>
-                setProviderForm((prev) => ({ ...prev, excludedText: e.target.value }))
-              }
-              rows={4}
-            />
-            <div className="hint">{t('ai_providers.excluded_models_hint')}</div>
-          </div>
-        </Modal>
+          index={modal?.index ?? null}
+          existingConfigs={claudeConfigs}
+        />
 
         {/* OpenAI Modal */}
-        <Modal
+        <OpenAIConfigModal
           open={modal?.type === 'openai'}
           onClose={closeModal}
-          title={
-            modal?.index !== null
-              ? t('ai_providers.openai_edit_modal_title')
-              : t('ai_providers.openai_add_modal_title')
+          initialData={
+            modal?.type === 'openai' && modal?.index !== null
+              ? openaiProviders[modal.index]
+              : undefined
           }
-          footer={
-            <>
-              <Button variant="secondary" onClick={closeModal} disabled={saving}>
-                {t('common.cancel')}
-              </Button>
-              <Button onClick={saveOpenai} loading={saving}>
-                {t('common.save')}
-              </Button>
-            </>
-          }
-        >
-          <Input
-            label={t('ai_providers.openai_add_modal_name_label')}
-            value={openaiForm.name}
-            onChange={(e) => setOpenaiForm((prev) => ({ ...prev, name: e.target.value }))}
-          />
-          <Input
-            label={t('ai_providers.openai_add_modal_url_label')}
-            value={openaiForm.baseUrl}
-            onChange={(e) => setOpenaiForm((prev) => ({ ...prev, baseUrl: e.target.value }))}
-          />
-
-          <HeaderInputList
-            entries={openaiForm.headers}
-            onChange={(entries) => setOpenaiForm((prev) => ({ ...prev, headers: entries }))}
-            addLabel={t('common.custom_headers_add')}
-            keyPlaceholder={t('common.custom_headers_key_placeholder')}
-            valuePlaceholder={t('common.custom_headers_value_placeholder')}
-          />
-
-          <div className="form-group">
-            <label>
-              {modal?.index !== null
-                ? t('ai_providers.openai_edit_modal_models_label')
-                : t('ai_providers.openai_add_modal_models_label')}
-            </label>
-            <div className="hint">{t('ai_providers.openai_models_hint')}</div>
-            <ModelInputList
-              entries={openaiForm.modelEntries}
-              onChange={(entries) => setOpenaiForm((prev) => ({ ...prev, modelEntries: entries }))}
-              addLabel={t('ai_providers.openai_models_add_btn')}
-              namePlaceholder={t('common.model_name_placeholder')}
-              aliasPlaceholder={t('common.model_alias_placeholder')}
-              disabled={saving}
-            />
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={openOpenaiModelDiscovery}
-              disabled={saving}
-            >
-              {t('ai_providers.openai_models_fetch_button')}
-            </Button>
-          </div>
-
-          <div className="form-group">
-            <label>{t('ai_providers.openai_test_title')}</label>
-            <div className="hint">{t('ai_providers.openai_test_hint')}</div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <select
-                className={`input ${styles.openaiTestSelect}`}
-                value={openaiTestModel}
-                onChange={(e) => {
-                  setOpenaiTestModel(e.target.value);
-                  setOpenaiTestStatus('idle');
-                  setOpenaiTestMessage('');
-                }}
-                disabled={saving || openaiAvailableModels.length === 0}
-              >
-                <option value="">
-                  {openaiAvailableModels.length
-                    ? t('ai_providers.openai_test_select_placeholder')
-                    : t('ai_providers.openai_test_select_empty')}
-                </option>
-                {openaiForm.modelEntries
-                  .filter((entry) => entry.name.trim())
-                  .map((entry, idx) => {
-                    const name = entry.name.trim();
-                    const alias = entry.alias.trim();
-                    const label = alias && alias !== name ? `${name} (${alias})` : name;
-                    return (
-                      <option key={`${name}-${idx}`} value={name}>
-                        {label}
-                      </option>
-                    );
-                  })}
-              </select>
-              <Button
-                variant={openaiTestStatus === 'error' ? 'danger' : 'secondary'}
-                className={`${styles.openaiTestButton} ${openaiTestStatus === 'success' ? styles.openaiTestButtonSuccess : ''}`}
-                onClick={testOpenaiProviderConnection}
-                loading={openaiTestStatus === 'loading'}
-                disabled={saving || openaiAvailableModels.length === 0}
-              >
-                {t('ai_providers.openai_test_action')}
-              </Button>
-            </div>
-            {openaiTestMessage && (
-              <div
-                className={`status-badge ${
-                  openaiTestStatus === 'error'
-                    ? 'error'
-                    : openaiTestStatus === 'success'
-                      ? 'success'
-                      : 'muted'
-                }`}
-              >
-                {openaiTestMessage}
-              </div>
-            )}
-          </div>
-
-          <div className="form-group">
-            <label>{t('ai_providers.openai_add_modal_keys_label')}</label>
-            {renderKeyEntries(openaiForm.apiKeyEntries)}
-          </div>
-        </Modal>
-
-        {/* OpenAI Models Discovery Modal */}
-        <Modal
-          open={openaiDiscoveryOpen}
-          onClose={closeOpenaiModelDiscovery}
-          title={t('ai_providers.openai_models_fetch_title')}
-          width={720}
-          footer={
-            <>
-              <Button
-                variant="secondary"
-                onClick={closeOpenaiModelDiscovery}
-                disabled={openaiDiscoveryLoading}
-              >
-                {t('ai_providers.openai_models_fetch_back')}
-              </Button>
-              <Button
-                onClick={applyOpenaiModelDiscoverySelection}
-                disabled={openaiDiscoveryLoading}
-              >
-                {t('ai_providers.openai_models_fetch_apply')}
-              </Button>
-            </>
-          }
-        >
-          <div className="hint" style={{ marginBottom: 8 }}>
-            {t('ai_providers.openai_models_fetch_hint')}
-          </div>
-          <div className="form-group">
-            <label>{t('ai_providers.openai_models_fetch_url_label')}</label>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input className="input" readOnly value={openaiDiscoveryEndpoint} />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => fetchOpenaiModelDiscovery({ allowFallback: true })}
-                loading={openaiDiscoveryLoading}
-              >
-                {t('ai_providers.openai_models_fetch_refresh')}
-              </Button>
-            </div>
-          </div>
-          <Input
-            label={t('ai_providers.openai_models_search_label')}
-            placeholder={t('ai_providers.openai_models_search_placeholder')}
-            value={openaiDiscoverySearch}
-            onChange={(e) => setOpenaiDiscoverySearch(e.target.value)}
-          />
-          {openaiDiscoveryError && <div className="error-box">{openaiDiscoveryError}</div>}
-          {openaiDiscoveryLoading ? (
-            <div className="hint">{t('ai_providers.openai_models_fetch_loading')}</div>
-          ) : openaiDiscoveryModels.length === 0 ? (
-            <div className="hint">{t('ai_providers.openai_models_fetch_empty')}</div>
-          ) : filteredOpenaiDiscoveryModels.length === 0 ? (
-            <div className="hint">{t('ai_providers.openai_models_search_empty')}</div>
-          ) : (
-            <div className={styles.modelDiscoveryList}>
-              {filteredOpenaiDiscoveryModels.map((model) => {
-                const checked = openaiDiscoverySelected.has(model.name);
-                return (
-                  <label
-                    key={model.name}
-                    className={`${styles.modelDiscoveryRow} ${checked ? styles.modelDiscoveryRowSelected : ''}`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleOpenaiModelSelection(model.name)}
-                    />
-                    <div className={styles.modelDiscoveryMeta}>
-                      <div className={styles.modelDiscoveryName}>
-                        {model.name}
-                        {model.alias && (
-                          <span className={styles.modelDiscoveryAlias}>{model.alias}</span>
-                        )}
-                      </div>
-                      {model.description && (
-                        <div className={styles.modelDiscoveryDesc}>{model.description}</div>
-                      )}
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-          )}
-        </Modal>
+          index={modal?.index ?? null}
+          existingProviders={openaiProviders}
+        />
       </div>
     </div>
   );

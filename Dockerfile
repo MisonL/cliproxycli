@@ -1,17 +1,18 @@
 ARG VERSION=dev
 ARG COMMIT=none
 ARG BUILD_DATE=unknown
+ARG GO_VERSION=1.24
 
 FROM oven/bun:1 AS frontend-builder
 WORKDIR /app
 COPY management-center/package.json ./
 RUN bun install --frozen-lockfile || (echo "Retrying without lockfile..." && rm bun.lockb && bun install)
 COPY management-center/ ./
-RUN bun add react-chartjs-2 chart.js
 RUN bunx vite build
 RUN ls -la dist/ || echo "dist still missing"
 
-FROM golang:1.24-alpine AS builder
+
+FROM golang:${GO_VERSION}-alpine AS builder
 
 WORKDIR /app
 
@@ -26,6 +27,7 @@ ARG COMMIT
 ARG BUILD_DATE
 
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X 'main.Version=${VERSION}' -X 'main.Commit=${COMMIT}' -X 'main.BuildDate=${BUILD_DATE}'" -o ./CLIProxyAPI ./cmd/server/
+
 
 FROM alpine:3.22.0
 

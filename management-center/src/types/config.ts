@@ -5,6 +5,7 @@
 
 import type { GeminiKeyConfig, ProviderKeyConfig, OpenAIProviderConfig } from './provider';
 import type { AmpcodeConfig } from './ampcode';
+import type { SchedulingConfig, UnifiedProvider } from './unified';
 
 export interface QuotaExceededConfig {
   switchProject?: boolean;
@@ -28,6 +29,8 @@ export interface Config {
   openaiCompatibility?: OpenAIProviderConfig[];
   oauthExcludedModels?: Record<string, string[]>;
   raw?: Record<string, unknown>;
+  scheduling?: SchedulingConfig;
+  providers?: UnifiedProvider[];
 }
 
 export type RawConfigSection =

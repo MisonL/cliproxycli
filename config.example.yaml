@@ -65,6 +65,78 @@ quota-exceeded:
 # When true, enable authentication for the WebSocket API (/v1/ws).
 ws-auth: false
 
+# Unified Credential Pool Configuration
+# This provides a unified way to manage credentials with advanced scheduling strategies.
+# Supports: API keys, OAuth tokens, and any provider type.
+scheduling:
+  # Strategy for selecting credentials: priority, load-balance, round-robin, sticky
+  # - priority: Use credentials with lowest priority first, fallback to next if failed
+  # - load-balance: Distribute traffic based on weight (higher weight = more traffic)
+  # - round-robin: Rotate through credentials evenly
+  # - sticky: Bind same session/user to same credential (requires session-id in context)
+  strategy: "priority"
+  # Number of retries before switching to next credential
+  retry: 3
+  # Automatic failover to next available credential
+  fallback: true
+
+# Unified providers configuration
+# Each provider can have: API key, OAuth token, proxy settings, model filters, etc.
+providers:
+  # Example: Gemini API key with priority
+  - id: "gemini-primary"
+    type: "gemini"
+    enabled: true
+    priority: 1        # Lower number = higher priority
+    weight: 100        # Used for load-balance strategy
+    tags: ["production"]
+    prefix: "gem"      # Route "gem/*" requests to this provider
+    credentials:
+      api_key: "AIzaSy...01"
+    models:
+      include:
+        - "gemini-2.5-pro"
+        - "gemini-2.5-flash"
+      exclude:
+        - "gemini-1.5-*"
+
+  # Example: Claude API key with different priority
+  - id: "claude-secondary"
+    type: "claude"
+    enabled: true
+    priority: 2
+    weight: 50
+    tags: ["backup"]
+    credentials:
+      api_key: "sk-atSM..."
+    proxy-url: "socks5://proxy.example.com:1080"
+
+  # Example: OpenAI compatible provider
+  - id: "openrouter"
+    type: "openai-compatibility"
+    enabled: true
+    priority: 10
+    weight: 100
+    credentials:
+      api_key: "sk-or-v1-...b780"
+      base_url: "https://openrouter.ai/api/v1"
+    models:
+      alias:
+        "moonshotai/kimi-k2:free": "kimi-k2"
+
+  # Example: Vertex AI with custom endpoint
+  - id: "vertex-custom"
+    type: "vertex"
+    enabled: true
+    priority: 5
+    weight: 75
+    credentials:
+      api_key: "vk-123..."
+      base_url: "https://example.com/api"
+    models:
+      alias:
+        "gemini-2.0-flash": "vertex-flash"
+
 # Gemini API keys
 # gemini-api-key:
 #   - api-key: "AIzaSy...01"

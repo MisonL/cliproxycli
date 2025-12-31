@@ -40,5 +40,22 @@ export const modelsApi = {
     const data = response.data;
     const payload = data?.data ?? data?.models ?? data;
     return normalizeModelList(payload as unknown[], { dedupe: true });
+  },
+
+  async chatCompletions(
+    url: string,
+    apiKey: string,
+    headers: Record<string, string>,
+    data: unknown
+  ): Promise<void> {
+    const resolvedHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...headers,
+    };
+    if (apiKey) {
+      resolvedHeaders.Authorization = `Bearer ${apiKey}`;
+    }
+
+    await axios.post(url, data, { headers: resolvedHeaders, timeout: 10000 });
   }
 };

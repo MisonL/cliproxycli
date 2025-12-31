@@ -619,6 +619,12 @@ func (s *Server) registerManagementRoutes() {
 		mgmt.PATCH("/oauth-excluded-models", s.mgmt.PatchOAuthExcludedModels)
 		mgmt.DELETE("/oauth-excluded-models", s.mgmt.DeleteOAuthExcludedModels)
 
+		// Unified Configuration
+		mgmt.GET("/scheduling", s.mgmt.GetSchedulingConfig)
+		mgmt.PUT("/scheduling", s.mgmt.PutSchedulingConfig)
+		mgmt.GET("/unified-providers", s.mgmt.GetUnifiedProviders)
+		mgmt.PUT("/unified-providers", s.mgmt.PutUnifiedProviders)
+
 		mgmt.GET("/auth-files", s.mgmt.ListAuthFiles)
 		mgmt.GET("/auth-files/models", s.mgmt.GetAuthFileModels)
 		mgmt.GET("/auth-files/download", s.mgmt.DownloadAuthFile)

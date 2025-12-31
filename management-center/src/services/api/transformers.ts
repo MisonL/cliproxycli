@@ -8,6 +8,7 @@ import type {
   AmpcodeModelMapping
 } from '@/types';
 import type { Config } from '@/types/config';
+import type { SchedulingConfig, UnifiedProvider, UnifiedModelConfig } from '@/types/unified';
 import { buildHeaderObject } from '@/utils/headers';
 
 const normalizeBoolean = (value: unknown): boolean | undefined => {
@@ -258,6 +259,47 @@ const normalizeAmpcodeConfig = (payload: unknown): AmpcodeConfig | undefined => 
   return config;
 };
 
+const normalizeSchedulingConfig = (val: unknown): SchedulingConfig | undefined => {
+  if (!val || typeof val !== 'object') return undefined;
+  const obj = val as Record<string, unknown>;
+  return {
+    strategy: String(obj.strategy || 'priority') as any,
+    retry: Number(obj.retry || 0),
+    fallback: normalizeBoolean(obj.fallback)
+  };
+};
+
+const normalizeModelConfig = (val: unknown): UnifiedModelConfig | undefined => {
+  if (!val || typeof val !== 'object') return undefined;
+  const obj = val as Record<string, unknown>;
+  return {
+    include: Array.isArray(obj.include) ? obj.include.map(String) : [],
+    exclude: Array.isArray(obj.exclude) ? obj.exclude.map(String) : [],
+    alias: (obj.alias as Record<string, string>) || {}
+  };
+};
+
+const normalizeUnifiedProvider = (val: unknown): UnifiedProvider | null => {
+  if (!val || typeof val !== 'object') return null;
+  const obj = val as Record<string, unknown>;
+  const id = String(obj.id || '').trim();
+  const type = String(obj.type || '').trim();
+  if (!id || !type) return null;
+
+  return {
+    id,
+    type,
+    enabled: normalizeBoolean(obj.enabled) ?? true, // Default to true, matching backend behavior
+    priority: Number(obj.priority || 0),
+    weight: Number(obj.weight || 0),
+    tags: Array.isArray(obj.tags) ? obj.tags.map(String) : [],
+    prefix: String(obj.prefix || ''),
+    credentials: (obj.credentials as Record<string, string>) || {},
+    proxyUrl: String(obj['proxy-url'] || obj.proxyUrl || ''),
+    models: normalizeModelConfig(obj.models)
+  };
+};
+
 /**
  * 规范化 /config 返回值
  */
@@ -328,6 +370,14 @@ export const normalizeConfigResponse = (raw: unknown): Config => {
     config.oauthExcludedModels = oauthExcluded;
   }
 
+  config.scheduling = normalizeSchedulingConfig(obj.scheduling);
+  
+  if (Array.isArray(obj.providers)) {
+    config.providers = obj.providers
+      .map((p: unknown) => normalizeUnifiedProvider(p))
+      .filter(Boolean) as UnifiedProvider[];
+  }
+
   return config;
 };
 
@@ -340,5 +390,8 @@ export {
   normalizeHeaders,
   normalizeExcludedModels,
   normalizeAmpcodeConfig,
-  normalizeAmpcodeModelMappings
+  normalizeAmpcodeModelMappings,
+  normalizeSchedulingConfig,
+  normalizeUnifiedProvider,
+  normalizeModelConfig
 };

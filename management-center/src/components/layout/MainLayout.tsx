@@ -13,7 +13,8 @@ import {
   IconShield,
   IconSlidersHorizontal,
   IconTimer,
-  IconActivity
+  IconActivity,
+  IconPlug
 } from '@/components/ui/icons';
 import { INLINE_LOGO_JPEG } from '@/assets/logoInline';
 import { useAuthStore, useConfigStore, useLanguageStore, useNotificationStore, useThemeStore } from '@/stores';
@@ -24,6 +25,7 @@ const sidebarIcons: Record<string, ReactNode> = {
   settings: <IconSlidersHorizontal size={18} />,
   apiKeys: <IconKey size={18} />,
   aiProviders: <IconBot size={18} />,
+  credentials: <IconPlug size={18} />,
   authFiles: <IconFileText size={18} />,
   oauth: <IconShield size={18} />,
   usage: <IconChartLine size={18} />,
@@ -236,6 +238,7 @@ export function MainLayout() {
 
   const navItems = [
     { path: '/settings', label: t('nav.basic_settings'), icon: sidebarIcons.settings },
+    { path: '/credentials', label: t('nav.credentials', { defaultValue: 'Unified Credentials' }), icon: sidebarIcons.credentials },
     { path: '/api-keys', label: t('nav.api_keys'), icon: sidebarIcons.apiKeys },
     { path: '/ai-providers', label: t('nav.ai_providers'), icon: sidebarIcons.aiProviders },
     { path: '/auth-files', label: t('nav.auth_files'), icon: sidebarIcons.authFiles },

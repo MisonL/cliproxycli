@@ -461,9 +461,16 @@ export function IconList({ size = 20, ...props }: IconProps) {
       <line x1="8" x2="21" y1="6" y2="6" />
       <line x1="8" x2="21" y1="12" y2="12" />
       <line x1="8" x2="21" y1="18" y2="18" />
-      <line x1="3" x2="3.01" y1="6" y2="6" />
-      <line x1="3" x2="3.01" y1="12" y2="12" />
       <line x1="3" x2="3.01" y1="18" y2="18" />
+    </svg>
+  );
+}
+
+export function IconEdit({ size = 20, ...props }: IconProps) {
+  return (
+    <svg {...baseSvgProps} width={size} height={size} {...props}>
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+      <path d="m15 5 4 4" />
     </svg>
   );
 }

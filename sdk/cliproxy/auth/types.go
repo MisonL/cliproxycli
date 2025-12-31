@@ -41,6 +41,14 @@ type Auth struct {
 	Attributes map[string]string `json:"attributes,omitempty"`
 	// Metadata stores runtime mutable provider state (e.g. tokens, cookies).
 	Metadata map[string]any `json:"metadata,omitempty"`
+
+	// Priority determines the order of selection (lower value = higher priority).
+	Priority int `json:"priority,omitempty"`
+	// Weight determines the traffic distribution (higher value = more traffic).
+	Weight int `json:"weight,omitempty"`
+	// Tags are arbitrary labels used for routing.
+	Tags []string `json:"tags,omitempty"`
+
 	// Quota captures recent quota information for load balancers.
 	Quota QuotaState `json:"quota"`
 	// LastError stores the last failure encountered while executing or refreshing.
@@ -125,6 +133,12 @@ func (a *Auth) Clone() *Auth {
 		}
 	}
 	copyAuth.Runtime = a.Runtime
+	copyAuth.Priority = a.Priority
+	copyAuth.Weight = a.Weight
+	if len(a.Tags) > 0 {
+		copyAuth.Tags = make([]string, len(a.Tags))
+		copy(copyAuth.Tags, a.Tags)
+	}
 	return &copyAuth
 }
 

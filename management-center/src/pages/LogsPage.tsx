@@ -1,4 +1,5 @@
-import { useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -28,16 +29,8 @@ interface ErrorLogItem {
 
 type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 
-type LogState = {
-  buffer: string[];
-  visibleFrom: number;
-};
-
-// 初始只渲染最近 100 行，滚动到顶部再逐步加载更多（避免一次性渲染过多导致卡顿）
-const INITIAL_DISPLAY_LINES = 100;
-const LOAD_MORE_LINES = 200;
+// Keep buffer limit
 const MAX_BUFFER_LINES = 10000;
-const LOAD_MORE_THRESHOLD_PX = 72;
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'] as const;
 type HttpMethod = (typeof HTTP_METHODS)[number];
@@ -324,7 +317,7 @@ export function LogsPage() {
   const { showNotification } = useNotificationStore();
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
 
-  const [logState, setLogState] = useState<LogState>({ buffer: [], visibleFrom: 0 });
+  const [logBuffer, setLogBuffer] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(false);
@@ -334,26 +327,12 @@ export function LogsPage() {
   const [errorLogs, setErrorLogs] = useState<ErrorLogItem[]>([]);
   const [loadingErrors, setLoadingErrors] = useState(false);
 
-  const logViewerRef = useRef<HTMLDivElement | null>(null);
-  const pendingScrollToBottomRef = useRef(false);
-  const pendingPrependScrollRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
+  const virtuosoRef = useRef<VirtuosoHandle>(null);
 
   // 保存最新时间戳用于增量获取
   const latestTimestampRef = useRef<number>(0);
 
   const disableControls = connectionStatus !== 'connected';
-
-  const isNearBottom = (node: HTMLDivElement | null) => {
-    if (!node) return true;
-    const threshold = 24;
-    return node.scrollHeight - node.scrollTop - node.clientHeight <= threshold;
-  };
-
-  const scrollToBottom = () => {
-    const node = logViewerRef.current;
-    if (!node) return;
-    node.scrollTop = node.scrollHeight;
-  };
 
   const loadLogs = async (incremental = false) => {
     if (connectionStatus !== 'connected') {
@@ -367,8 +346,6 @@ export function LogsPage() {
     setError('');
 
     try {
-      pendingScrollToBottomRef.current = !incremental || isNearBottom(logViewerRef.current);
-
       const params =
         incremental && latestTimestampRef.current > 0 ? { after: latestTimestampRef.current } : {};
       const data = await logsApi.fetchLogs(params);
@@ -381,26 +358,15 @@ export function LogsPage() {
       const newLines = Array.isArray(data.lines) ? data.lines : [];
 
       if (incremental && newLines.length > 0) {
-        // 增量更新：追加新日志并限制缓冲区大小（避免内存与渲染膨胀）
-        setLogState((prev) => {
-          const prevRenderedCount = prev.buffer.length - prev.visibleFrom;
-          const combined = [...prev.buffer, ...newLines];
+        // 增量更新：追加新日志并限制缓冲区大小
+        setLogBuffer((prev) => {
+          const combined = [...prev, ...newLines];
           const dropCount = Math.max(combined.length - MAX_BUFFER_LINES, 0);
-          const buffer = dropCount > 0 ? combined.slice(dropCount) : combined;
-          let visibleFrom = Math.max(prev.visibleFrom - dropCount, 0);
-
-          // 若用户停留在底部（跟随最新日志），则保持“渲染窗口”大小不变，避免无限增长
-          if (pendingScrollToBottomRef.current) {
-            visibleFrom = Math.max(buffer.length - prevRenderedCount, 0);
-          }
-
-          return { buffer, visibleFrom };
+          return dropCount > 0 ? combined.slice(dropCount) : combined;
         });
       } else if (!incremental) {
-        // 全量加载：默认只渲染最后 100 行，向上滚动再展开更多
-        const buffer = newLines.slice(-MAX_BUFFER_LINES);
-        const visibleFrom = Math.max(buffer.length - INITIAL_DISPLAY_LINES, 0);
-        setLogState({ buffer, visibleFrom });
+        // 全量加载
+        setLogBuffer(newLines.slice(-MAX_BUFFER_LINES));
       }
     } catch (err: unknown) {
       console.error('Failed to load logs:', err);
@@ -418,7 +384,7 @@ export function LogsPage() {
     if (!window.confirm(t('logs.clear_confirm'))) return;
     try {
       await logsApi.clearLogs();
-      setLogState({ buffer: [], visibleFrom: 0 });
+      setLogBuffer([]);
       latestTimestampRef.current = 0;
       showNotification(t('logs.clear_success'), 'success');
     } catch (err: unknown) {
@@ -431,7 +397,7 @@ export function LogsPage() {
   };
 
   const downloadLogs = () => {
-    const text = logState.buffer.join('\n');
+    const text = logBuffer.join('\n');
     const blob = new Blob([text], { type: 'text/plain' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -502,26 +468,10 @@ export function LogsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRefresh, connectionStatus]);
 
-  useEffect(() => {
-    if (!pendingScrollToBottomRef.current) return;
-    if (loading) return;
-    if (!logViewerRef.current) return;
-
-    scrollToBottom();
-    pendingScrollToBottomRef.current = false;
-  }, [loading, logState.buffer, logState.visibleFrom]);
-
-  const visibleLines = useMemo(
-    () => logState.buffer.slice(logState.visibleFrom),
-    [logState.buffer, logState.visibleFrom]
-  );
-
   const trimmedSearchQuery = deferredSearchQuery.trim();
-  const isSearching = trimmedSearchQuery.length > 0;
-  const baseLines = isSearching ? logState.buffer : visibleLines;
 
   const { filteredLines, removedCount } = useMemo(() => {
-    let working = baseLines;
+    let working = logBuffer;
     let removed = 0;
 
     if (hideManagementLogs) {
@@ -550,42 +500,7 @@ export function LogsPage() {
     }
 
     return { filteredLines: working, removedCount: removed };
-  }, [baseLines, hideManagementLogs, trimmedSearchQuery]);
-
-  const parsedVisibleLines = useMemo(
-    () => filteredLines.map((line) => parseLogLine(line)),
-    [filteredLines]
-  );
-
-  const canLoadMore = !isSearching && logState.visibleFrom > 0;
-
-  const handleLogScroll = () => {
-    const node = logViewerRef.current;
-    if (!node) return;
-    if (isSearching) return;
-    if (!canLoadMore) return;
-    if (pendingPrependScrollRef.current) return;
-    if (node.scrollTop > LOAD_MORE_THRESHOLD_PX) return;
-
-    pendingPrependScrollRef.current = {
-      scrollHeight: node.scrollHeight,
-      scrollTop: node.scrollTop,
-    };
-    setLogState((prev) => ({
-      ...prev,
-      visibleFrom: Math.max(prev.visibleFrom - LOAD_MORE_LINES, 0),
-    }));
-  };
-
-  useLayoutEffect(() => {
-    const node = logViewerRef.current;
-    const pending = pendingPrependScrollRef.current;
-    if (!node || !pending) return;
-
-    const delta = node.scrollHeight - pending.scrollHeight;
-    node.scrollTop = pending.scrollTop + delta;
-    pendingPrependScrollRef.current = null;
-  }, [logState.visibleFrom]);
+  }, [logBuffer, hideManagementLogs, trimmedSearchQuery]);
 
   const copyLogLine = async (raw: string) => {
     const ok = await copyToClipboard(raw);
@@ -631,7 +546,7 @@ export function LogsPage() {
                 variant="secondary"
                 size="sm"
                 onClick={downloadLogs}
-                disabled={logState.buffer.length === 0}
+                disabled={logBuffer.length === 0}
                 className={styles.actionButton}
               >
                 <span className={styles.buttonContent}>
@@ -694,7 +609,7 @@ export function LogsPage() {
 
             <div className={styles.filterStats}>
               <span>
-                {parsedVisibleLines.length} {t('logs.lines')}
+                {filteredLines.length} {t('logs.lines')}
               </span>
               {removedCount > 0 && (
                 <span className={styles.removedCount}>
@@ -706,101 +621,95 @@ export function LogsPage() {
 
           {loading ? (
             <div className="hint">{t('logs.loading')}</div>
-          ) : logState.buffer.length > 0 && parsedVisibleLines.length > 0 ? (
-            <div ref={logViewerRef} className={styles.logPanel} onScroll={handleLogScroll}>
-              {canLoadMore && (
-                <div className={styles.loadMoreBanner}>
-                  <span>{t('logs.load_more_hint')}</span>
-                  <span className={styles.loadMoreCount}>
-                    {t('logs.hidden_lines', { count: logState.visibleFrom })}
-                  </span>
-                </div>
-              )}
-              <div className={styles.logList}>
-                {parsedVisibleLines.map((line, index) => {
-                  const rowClassNames = [styles.logRow];
-                  if (line.level === 'warn') rowClassNames.push(styles.rowWarn);
-                  if (line.level === 'error' || line.level === 'fatal')
-                    rowClassNames.push(styles.rowError);
-                  return (
-                    <div
-                      key={`${logState.visibleFrom + index}-${line.raw}`}
-                      className={rowClassNames.join(' ')}
-                      onDoubleClick={() => {
-                        void copyLogLine(line.raw);
-                      }}
-                      title={t('logs.double_click_copy_hint', {
-                        defaultValue: 'Double-click to copy',
-                      })}
-                    >
-                      <div className={styles.timestamp}>{line.timestamp || ''}</div>
-                      <div className={styles.rowMain}>
-                        <div className={styles.rowMeta}>
-                          {line.level && (
-                            <span
-                              className={[
-                                styles.badge,
-                                line.level === 'info' ? styles.levelInfo : '',
-                                line.level === 'warn' ? styles.levelWarn : '',
-                                line.level === 'error' || line.level === 'fatal'
-                                  ? styles.levelError
-                                  : '',
-                                line.level === 'debug' ? styles.levelDebug : '',
-                                line.level === 'trace' ? styles.levelTrace : '',
-                              ]
-                                .filter(Boolean)
-                                .join(' ')}
-                            >
-                              {line.level.toUpperCase()}
-                            </span>
-                          )}
+          ) : logBuffer.length > 0 && filteredLines.length > 0 ? (
+           <Virtuoso
+              ref={virtuosoRef}
+              data={filteredLines}
+              className={styles.logPanel}
+              followOutput="auto"
+              itemContent={(_, rawLine) => {
+                const line = parseLogLine(rawLine);
+                const rowClassNames = [styles.logRow];
+                if (line.level === 'warn') rowClassNames.push(styles.rowWarn);
+                if (line.level === 'error' || line.level === 'fatal')
+                  rowClassNames.push(styles.rowError);
+                return (
+                  <div
+                    className={rowClassNames.join(' ')}
+                    onDoubleClick={() => {
+                      void copyLogLine(line.raw);
+                    }}
+                    title={t('logs.double_click_copy_hint', {
+                       defaultValue: 'Double-click to copy',
+                    })}
+                  >
+                    <div className={styles.timestamp}>{line.timestamp || ''}</div>
+                    <div className={styles.rowMain}>
+                       <div className={styles.rowMeta}>
+                         {line.level && (
+                           <span
+                            className={[
+                              styles.badge,
+                              line.level === 'info' ? styles.levelInfo : '',
+                              line.level === 'warn' ? styles.levelWarn : '',
+                              line.level === 'error' || line.level === 'fatal'
+                                ? styles.levelError
+                                : '',
+                              line.level === 'debug' ? styles.levelDebug : '',
+                              line.level === 'trace' ? styles.levelTrace : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' ')}
+                          >
+                             {line.level.toUpperCase()}
+                           </span>
+                         )}
 
-                          {line.source && (
-                            <span className={styles.source} title={line.source}>
-                              {line.source}
-                            </span>
-                          )}
+                         {line.source && (
+                           <span className={styles.source} title={line.source}>
+                             {line.source}
+                           </span>
+                         )}
 
-                          {typeof line.statusCode === 'number' && (
-                            <span
-                              className={[
-                                styles.badge,
-                                styles.statusBadge,
-                                line.statusCode >= 200 && line.statusCode < 300
-                                  ? styles.statusSuccess
-                                  : line.statusCode >= 300 && line.statusCode < 400
-                                    ? styles.statusInfo
-                                    : line.statusCode >= 400 && line.statusCode < 500
-                                      ? styles.statusWarn
-                                      : styles.statusError,
-                              ].join(' ')}
-                            >
-                              {line.statusCode}
-                            </span>
-                          )}
+                         {typeof line.statusCode === 'number' && (
+                           <span
+                             className={[
+                               styles.badge,
+                               styles.statusBadge,
+                               line.statusCode >= 200 && line.statusCode < 300
+                                 ? styles.statusSuccess
+                                 : line.statusCode >= 300 && line.statusCode < 400
+                                   ? styles.statusInfo
+                                   : line.statusCode >= 400 && line.statusCode < 500
+                                     ? styles.statusWarn
+                                     : styles.statusError,
+                            ].join(' ')}
+                          >
+                             {line.statusCode}
+                           </span>
+                         )}
 
-                          {line.latency && <span className={styles.pill}>{line.latency}</span>}
-                          {line.ip && <span className={styles.pill}>{line.ip}</span>}
+                         {line.latency && <span className={styles.pill}>{line.latency}</span>}
+                         {line.ip && <span className={styles.pill}>{line.ip}</span>}
 
-                          {line.method && (
-                            <span className={[styles.badge, styles.methodBadge].join(' ')}>
-                              {line.method}
-                            </span>
-                          )}
-                          {line.path && (
-                            <span className={styles.path} title={line.path}>
-                              {line.path}
-                            </span>
-                          )}
-                        </div>
-                        {line.message && <div className={styles.message}>{line.message}</div>}
-                      </div>
+                         {line.method && (
+                           <span className={[styles.badge, styles.methodBadge].join(' ')}>
+                             {line.method}
+                           </span>
+                         )}
+                         {line.path && (
+                           <span className={styles.path} title={line.path}>
+                             {line.path}
+                           </span>
+                         )}
+                       </div>
+                       {line.message && <div className={styles.message}>{line.message}</div>}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : logState.buffer.length > 0 ? (
+                  </div>
+                );
+              }}
+           />
+          ) : logBuffer.length > 0 ? (
             <EmptyState
               title={t('logs.search_empty_title')}
               description={t('logs.search_empty_desc')}

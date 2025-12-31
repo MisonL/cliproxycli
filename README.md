@@ -79,6 +79,9 @@
 <td>间隔/定时/每日循环</td>
 <td>可配置模型与参数</td>
 </tr>
+<tr>
+<td colspan="4">⚡️ <strong>高性能日志</strong>: 采用虚拟列表技术，流畅渲染数万条请求记录</td>
+</tr>
 </table>
 
 ---
@@ -143,6 +146,15 @@ openai-providers:
       - name: anthropic/claude-3.5-sonnet
         alias: claude-sonnet
 ```
+
+---
+
+## 💻 开发与贡献
+
+欢迎提交 Pull Request 或 Issue！
+
+- **开发指南**: 请阅读 [docs/DEV_GUIDE.md](docs/DEV_GUIDE.md) 了解环境搭建与测试流程。
+- **同步指南**: [docs/SYNC_GUIDE.md](docs/SYNC_GUIDE.md) (保持与上游同步)
 
 ---
 
