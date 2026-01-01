@@ -5,67 +5,95 @@
 // 浅色主题（默认）
 :root {
   --bg-primary: #ffffff;
-  --bg-secondary: #f3f4f6;
-  --bg-tertiary: #e5e7eb;
+  --bg-primary-rgb: 255, 255, 255;
+  --bg-secondary: #f8fafc; // Slate-50
+  --bg-tertiary: #f1f5f9;   // Slate-100
+  --bg-glass: rgba(255, 255, 255, 0.7);
 
-  --text-primary: #1f2937;
-  --text-secondary: #6b7280;
-  --text-tertiary: #9ca3af;
+  --text-primary: #0f172a;  // Slate-900
+  --text-primary-rgb: 15, 23, 42;
+  --text-secondary: #475569; // Slate-600
+  --text-tertiary: #94a3b8;  // Slate-400
+  --text-inverse: #ffffff;
 
-  --border-color: #e5e7eb;
-  --border-hover: #d1d5db;
+  --border-color: #e2e8f0;  // Slate-200
+  --border-hover: #cbd5e1;  // Slate-300
+  --border-light: rgba(0, 0, 0, 0.05);
 
   --primary-color: #3b82f6;
   --primary-hover: #2563eb;
   --primary-active: #1d4ed8;
+  --primary-rgb: 59, 130, 246;
 
   --success-color: #10b981;
   --warning-color: #f59e0b;
   --error-color: #ef4444;
-  --info-color: #3b82f6;
+  --info-color: #0ea5e9;
 
-  --success-badge-bg: #d1fae5;
-  --success-badge-text: #065f46;
-  --success-badge-border: #6ee7b7;
+  --success-badge-bg: #ecfdf5;
+  --success-badge-text: #047857;
+  --success-badge-border: #a7f3d0;
 
-  --failure-badge-bg: #fee2e2;
-  --failure-badge-text: #991b1b;
-  --failure-badge-border: #fca5a5;
+  --failure-badge-bg: #fef2f2;
+  --failure-badge-text: #b91c1c;
+  --failure-badge-border: #fecaca;
 
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  --warning-badge-bg: #fffbeb;
+  --warning-badge-text: #b45309;
+  --warning-badge-border: #fde68a;
+
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08);
+  --shadow-color: 0, 0, 0;
+
+  --glass-border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
-// 深色主题（#191919）
+// 深色主题
 [data-theme='dark'] {
-  --bg-primary: #202020;
-  --bg-secondary: #191919;
-  --bg-tertiary: #262626;
+  --bg-primary: #0f172a;    // Slate-900 (Premium Dark)
+  --bg-primary-rgb: 15, 23, 42;
+  --bg-secondary: #1e293b;  // Slate-800
+  --bg-tertiary: #334155;   // Slate-700
+  --bg-glass: rgba(15, 23, 42, 0.7);
 
-  --text-primary: #fafafa;
-  --text-secondary: #a3a3a3;
-  --text-tertiary: #737373;
+  --text-primary: #f8fafc;  // Slate-50
+  --text-primary-rgb: 248, 250, 252;
+  --text-secondary: #94a3b8; // Slate-400
+  --text-tertiary: #64748b;  // Slate-500
+  --text-inverse: #0f172a;
 
-  --border-color: #3f3f46;  // 提升对比度 (从 #262626 改为更亮的灰色)
-  --border-hover: #52525b;  // 悬停时更明显
+  --border-color: #1e293b; // Slate-800
+  --border-hover: #334155; // Slate-700
+  --border-light: rgba(255, 255, 255, 0.05);
 
   --primary-color: #3b82f6;
   --primary-hover: #60a5fa;
   --primary-active: #93c5fd;
+  --primary-rgb: 59, 130, 246;
 
   --success-color: #10b981;
   --warning-color: #f59e0b;
   --error-color: #ef4444;
-  --info-color: #3b82f6;
+  --info-color: #0ea5e9;
 
-  --success-badge-bg: rgba(6, 78, 59, 0.3);
-  --success-badge-text: #6ee7b7;
-  --success-badge-border: #059669;
+  --success-badge-bg: rgba(16, 185, 129, 0.1);
+  --success-badge-text: #34d399;
+  --success-badge-border: rgba(16, 185, 129, 0.2);
 
-  --failure-badge-bg: rgba(153, 27, 27, 0.3);
-  --failure-badge-text: #fca5a5;
-  --failure-badge-border: #dc2626;
+  --failure-badge-bg: rgba(239, 68, 68, 0.1);
+  --failure-badge-text: #f87171;
+  --failure-badge-border: rgba(239, 68, 68, 0.2);
 
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3);
+  --warning-badge-bg: rgba(245, 158, 11, 0.1);
+  --warning-badge-text: #fbbf24;
+  --warning-badge-border: rgba(245, 158, 11, 0.2);
+
+  --shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 25px 35px -10px rgba(0, 0, 0, 0.5);
+  --shadow-color: 0, 0, 0;
+
+  --glass-border: 1px solid rgba(255, 255, 255, 0.14);
+  --glass-inner-glow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --glass-bg-accent: rgba(30, 41, 59, 0.6);
 }

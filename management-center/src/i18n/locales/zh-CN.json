@@ -863,5 +863,27 @@
     "health_ok": "检测通过 (耗时: {{duration}}ms)",
     "health_fail": "检测失败: {{error}}",
     "health_error": "检测过程出错"
+  },
+  "credentials": {
+    "title": "统一凭证管理池",
+    "subtitle": "工业级 AI 凭证调度系统，支持多租户隔离、动态负载均衡与自动故障转移。集成智能缓存与敏感数据加密存储，确保您的 AI 应用始终稳定在线。",
+    "badge": "企业级就绪",
+    "feature_1": "智能权重调度",
+    "feature_2": "毫秒级故障切换",
+    "feature_3": "全协议透明代理",
+    "scheduling_title": "调度策略管理",
+    "scheduling_desc": "智能全局请求分流算法，修改后系统秒级响应",
+    "strategy_priority": "优先级模式",
+    "strategy_priority_desc": "数值越小优先级越高，失败后自动降级",
+    "strategy_lb": "负载均衡",
+    "strategy_lb_desc": "根据权重分配流量，均衡负载",
+    "strategy_rr": "轮询模式",
+    "strategy_rr_desc": "依次轮流使用，确保公平分配",
+    "strategy_sticky": "粘性会话",
+    "strategy_sticky_desc": "同一会话固定使用同一凭证",
+    "pool_title": "凭证池列表",
+    "pool_desc": "管理分布在不同区域与提供商的 API 访问凭据",
+    "add_provider": "新增凭证",
+    "delete_confirm": "确定要删除此凭证吗？此操作不可恢复。"
   }
 }

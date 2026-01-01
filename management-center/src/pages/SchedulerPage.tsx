@@ -6,7 +6,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { useNotificationStore } from '@/stores';
 import { schedulerApi, SchedulerTask, SchedulerLog } from '@/services/api';
-import styles from './SchedulerPage.module.scss';
+// Remove local module styles import
+// import styles from './SchedulerPage.module.scss';
 import { Input } from '@/components/ui/Input';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { TimePicker } from '@/components/ui/TimePicker';
@@ -302,274 +303,381 @@ export function SchedulerPage() {
   };
 
   return (
-    <div className={styles.container}>
-      <div className={styles.headerSection}>
-        <h1 className={styles.pageTitle}>{t('scheduler.page_title')}</h1>
-        <Button onClick={handleCreate} className={styles.createBtn}>
-          <IconPlus size={18} /> {t('scheduler.create_task_button')}
-        </Button>
-      </div>
-
-      {/* Stats Overview */}
-      <div className={styles.statsBar}>
-        <div className={`${styles.statCard} ${styles.pending}`}>
-          <span className={styles.statLabel}>
-            {t('common.total_tasks', { defaultValue: 'Total Tasks' })}
-          </span>
-          <span className={styles.statValue}>{stats.total}</span>
-        </div>
-        <div className={`${styles.statCard} ${styles.success}`}>
-          <span className={styles.statLabel}>{t('scheduler.form.status_active')}</span>
-          <span className={styles.statValue}>{stats.active}</span>
-        </div>
-        <div className={`${styles.statCard} ${styles.warning}`}>
-          <span className={styles.statLabel}>{t('scheduler.form.status_paused')}</span>
-          <span className={styles.statValue}>{stats.paused}</span>
-        </div>
-        <div className={`${styles.statCard} ${styles.success}`}>
-          <span className={styles.statLabel}>
-            {t('scheduler.success_rate', { defaultValue: '24h Success Rate' })}
-          </span>
-          <span className={styles.statValue}>{stats.successRate}%</span>
-        </div>
-      </div>
-
-      {/* Toolbar */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <Input
-            className={styles.searchInput}
-            placeholder={t('scheduler.search_placeholder')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            rightElement={<IconSearch size={16} />}
-          />
-          <div style={{ position: 'relative' }}>
-            <IconFilter
-              size={16}
-              style={{
-                position: 'absolute',
-                left: 12,
-                top: 11,
-                pointerEvents: 'none',
-                color: 'var(--text-secondary)',
-              }}
-            />
-            <select
-              className={styles.filterSelect}
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as 'all' | 'interval' | 'fixed_time')}
-            >
-              <option value="all">{t('scheduler.filter_all')}</option>
-              <option value="interval">{t('scheduler.form.type_interval')}</option>
-              <option value="fixed_time">{t('scheduler.form.type_fixed')}</option>
-            </select>
+    <div className="flex-column">
+      <div className="hero-wrapper">
+        <div className="hero-content flex-row justify-between items-center">
+          <div className="flex-column gap-xs">
+            <h1 className="hero-title">{t('scheduler.page_title')}</h1>
+            <p className="hero-subtitle">自动化任务调度与日志监控中心</p>
           </div>
-        </div>
-
-        <div className={styles.actions}>
-          {selectedTasks.size > 0 && (
-            <div className={styles.batchActions}>
-              <Button size="sm" variant="secondary" onClick={() => handleBatchStatus('paused')}>
-                <IconPause size={14} />
-              </Button>
-              <Button size="sm" variant="secondary" onClick={() => handleBatchStatus('active')}>
-                <IconPlay size={14} />
-              </Button>
-              <Button size="sm" variant="danger" onClick={handleBatchDelete}>
-                <IconTrash2 size={14} />
-              </Button>
-            </div>
-          )}
-          <Button variant="secondary" size="sm" onClick={loadData}>
-            <IconRefreshCw size={16} />
+          <Button onClick={handleCreate} className="btn-glass">
+            <IconPlus size={18} /> {t('scheduler.create_task_button')}
           </Button>
         </div>
       </div>
 
-      <div className={styles.taskSection}>
-        {loading && tasks.length === 0 ? (
-          <div className="flex-center" style={{ padding: '60px' }}>
-            <LoadingSpinner />
+      <div style={{ padding: '0 40px 80px', marginTop: '-60px' }} className="flex-column gap-xl">
+
+        {/* 顶部统计面板 - 全新水晶风格 */}
+        <div className="grid cols-4" style={{ gap: '24px' }}>
+          <div className="card-glass flex-row items-center gap-md" style={{ padding: '24px', borderRadius: '20px' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba($primary-color, 0.15) 0%, rgba($primary-color, 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba($primary-color, 0.1)' }}>
+              <IconScrollText size={24} style={{ color: 'var(--primary-color)' }} />
+            </div>
+            <div className="flex-column">
+              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{t('common.total_tasks', { defaultValue: '任务总数' })}</span>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.2 }}>{stats.total}</span>
+            </div>
           </div>
-        ) : filteredTasks.length === 0 ? (
-          <EmptyState
-            title={t('scheduler.no_tasks_title')}
-            description={t('scheduler.no_tasks_desc')}
-            action={<Button onClick={handleCreate}>{t('scheduler.create_task_button')}</Button>}
-          />
-        ) : (
-          <div className={styles.taskGrid}>
-            {filteredTasks.map((task) => (
-              <div
-                key={task.id}
-                className={`${styles.taskCard} ${selectedTasks.has(task.id) ? styles.selected : ''}`}
-              >
-                <div className={styles.cardHeader}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedTasks.has(task.id)}
-                      onChange={(e) => handleSelectTask(task.id, e.target.checked)}
-                    />
-                    <h3>{task.name}</h3>
-                  </div>
-                  <ToggleSwitch
-                    checked={task.status === 'active'}
-                    onChange={(checked) =>
-                      handleStatusChange(task.id, checked ? 'active' : 'paused')
-                    }
-                  />
-                </div>
-
-                <div className={styles.cardBody}>
-                  <div className={styles.metaRow}>
-                    <IconClock size={14} />
-                    <span>
-                      {task.type === 'interval'
-                        ? `${t('scheduler.meta.every')} ${task.interval}`
-                        : task.type === 'daily'
-                          ? `${t('scheduler.meta.daily_at')} ${task.daily_time}`
-                          : `${t('scheduler.meta.at')} ${new Date(task.fixed_time || '').toLocaleString()}`}
-                    </span>
-                  </div>
-                  <div className={styles.metaRow}>
-                    <IconCpu size={14} />
-                    <span className={styles.modelBadge}>{task.model}</span>
-                  </div>
-                  <div className={styles.metaRow}>
-                    <IconCalendar size={14} />
-                    <span>
-                      {t('scheduler.meta.next_run')}:{' '}
-                      {task.next_run_at ? new Date(task.next_run_at).toLocaleString() : '-'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className={styles.cardFooter}>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => handleRunTask(task.id, e)}
-                      title={t('scheduler.run_now')}
-                    >
-                      <IconPlay size={16} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleViewTaskLogs(task.id)}
-                      title={t('scheduler.view_logs')}
-                    >
-                      <IconScrollText size={16} />
-                    </Button>
-                  </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <Button variant="secondary" size="sm" onClick={() => handleEdit(task)}>
-                      {t('scheduler.edit')}
-                    </Button>
-                    <Button variant="danger" size="sm" onClick={() => handleDelete(task.id)}>
-                      <IconTrash2 size={16} />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
+          
+          <div className="card-glass flex-row items-center gap-md" style={{ padding: '24px', borderRadius: '20px' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(16, 185, 129, 0.1)' }}>
+              <IconActivity size={24} style={{ color: 'var(--success-color)' }} />
+            </div>
+            <div className="flex-column">
+              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 600 }}>运行中</span>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--success-color)', lineHeight: 1.2 }}>{stats.active}</span>
+            </div>
           </div>
-        )}
-      </div>
 
-      <div className={styles.logsSection}>
-        <div className={styles.logsHeader}>
-          <h2>{t('scheduler.execution_logs_title')}</h2>
-          <div className={styles.toolbarLeft}>
-            <Input
-              placeholder={t('scheduler.search_logs')}
-              value={logSearchQuery}
-              onChange={(e) => setLogSearchQuery(e.target.value)}
-              className={styles.logSearchInput}
-              rightElement={<IconSearch size={14} />}
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClearLogs}
-              disabled={logs.length === 0}
-            >
-              <IconTrash2 size={16} />
-            </Button>
+          <div className="card-glass flex-row items-center gap-md" style={{ padding: '24px', borderRadius: '20px' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(245, 158, 11, 0.1)' }}>
+              <IconPause size={24} style={{ color: 'var(--warning-color)' }} />
+            </div>
+            <div className="flex-column">
+              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 600 }}>已暂停</span>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--warning-color)', lineHeight: 1.2 }}>{stats.paused}</span>
+            </div>
+          </div>
+
+          <div className="card-glass flex-row items-center gap-md" style={{ padding: '24px', borderRadius: '20px' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(59, 130, 246, 0.1)' }}>
+              <IconActivity size={24} style={{ color: 'var(--primary-color)', filter: 'hue-rotate(45deg)' }} />
+            </div>
+            <div className="flex-column">
+              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 600 }}>24H 成功率</span>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--primary-color)', lineHeight: 1.2 }}>{stats.successRate}%</span>
+            </div>
           </div>
         </div>
 
-        <div className={styles.logTableContainer}>
-          <table className={styles.logTable}>
-            <thead>
-              <tr>
-                <th>{t('common.time', { defaultValue: 'Time' })}</th>
-                <th>{t('common.task', { defaultValue: 'Task' })}</th>
-                <th>{t('scheduler.duration', { defaultValue: 'Duration' })}</th>
-                <th>{t('common.status', { defaultValue: 'Status' })}</th>
-                <th>{t('common.output', { defaultValue: 'Output' })}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredLogs.slice(logPage * logPageSize, (logPage + 1) * logPageSize).map((log) => (
-                <tr key={log.id}>
-                  <td>{new Date(log.executed_at).toLocaleString()}</td>
-                  <td>{log.task_name}</td>
-                  <td>{formatDuration(log.duration_ms)}</td>
-                  <td className={log.success ? styles.statusSuccess : styles.statusError}>
-                    <span className={log.success ? styles.badgeSuccess : styles.badgeError}>
-                      {log.success ? t('scheduler.log_success') : t('scheduler.log_failed')}
-                    </span>
-                  </td>
-                  <td
-                    className={styles.logOutputCell}
-                    title={log.output}
-                    onClick={() => {
-                      setLogTaskFilter(log.task_id);
-                      setTaskLogModalOpen(true);
-                    }}
-                  >
-                    {log.output.substring(0, 100)}
-                    {log.output.length > 100 ? '...' : ''}
-                  </td>
-                </tr>
-              ))}
-              {filteredLogs.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={5}
-                    style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)' }}
-                  >
-                    {t('scheduler.no_logs')}
-                  </td>
-                </tr>
+        {/* 工具栏与主列表 */}
+        <div className="flex-column gap-lg">
+          <div className="card-glass flex-row justify-between items-center" style={{ padding: '20px 28px', borderRadius: '20px' }}>
+            <div className="flex-row items-center gap-md flex-1">
+              <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
+                <Input
+                  className="input-premium"
+                  style={{ paddingLeft: '44px', width: '100%' }}
+                  placeholder={t('scheduler.search_placeholder')}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <IconSearch size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
+              </div>
+              
+              <div className="flex-row items-center gap-sm card-glass" style={{ padding: '0 16px', height: '44px', background: 'rgba(var(--bg-primary-rgb), 0.3)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                <IconFilter size={16} style={{ color: 'var(--text-tertiary)' }} />
+                <select
+                  className="input-premium"
+                  style={{ border: 'none', background: 'transparent', padding: '0 8px', width: '130px', height: '40px', fontWeight: 600 }}
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value as 'all' | 'interval' | 'fixed_time')}
+                >
+                  <option value="all">{t('scheduler.filter_all')}</option>
+                  <option value="interval">{t('scheduler.form.type_interval')}</option>
+                  <option value="fixed_time">{t('scheduler.form.type_fixed')}</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex-row items-center gap-md">
+              {selectedTasks.size > 0 && (
+                <div className="flex-row items-center gap-sm card-glass p-xs rounded-lg" style={{ background: 'rgba(var(--bg-primary-rgb), 0.4)', padding: '6px 12px', border: '1px solid var(--border-light)' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 800, marginRight: '8px', color: 'var(--primary-color)' }}>
+                    已选中 {selectedTasks.size}
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={() => handleBatchStatus('paused')} title={t('scheduler.form.status_paused')}>
+                    <IconPause size={16} />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => handleBatchStatus('active')} title={t('scheduler.form.status_active')}>
+                    <IconPlay size={16} />
+                  </Button>
+                  <div style={{ width: '1px', height: '20px', background: 'var(--border-color)', margin: '0 8px' }} />
+                  <Button size="sm" variant="ghost" className="text-error" onClick={handleBatchDelete} title={t('common.delete')}>
+                    <IconTrash2 size={16} />
+                  </Button>
+                </div>
               )}
-            </tbody>
-          </table>
+              <Button variant="secondary" size="sm" onClick={loadData} className="btn-glass" style={{ width: '44px', height: '44px', padding: 0 }}>
+                <IconRefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+              </Button>
+            </div>
+          </div>
+
+          {loading && tasks.length === 0 ? (
+            <div className="flex-center" style={{ padding: '80px' }}>
+              <LoadingSpinner />
+            </div>
+          ) : filteredTasks.length === 0 ? (
+            <div className="card-glass" style={{ padding: '80px', borderRadius: '24px' }}>
+              <EmptyState
+                title={t('scheduler.no_tasks_title')}
+                description={t('scheduler.no_tasks_desc')}
+                action={<Button onClick={handleCreate} className="btn-glass">{t('scheduler.create_task_button')}</Button>}
+              />
+            </div>
+          ) : (
+            <div className="grid cols-3" style={{ gap: '24px' }}>
+              {filteredTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className={`card-glass flex-column card-hover ${selectedTasks.has(task.id) ? 'active-selection' : ''}`}
+                  style={{ 
+                    padding: '24px', 
+                    borderRadius: '24px',
+                    border: selectedTasks.has(task.id) ? '2px solid var(--primary-color)' : '1px solid var(--glass-border-color)',
+                    background: selectedTasks.has(task.id) ? 'linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.1) 0%, rgba(var(--primary-color-rgb), 0.02) 100%)' : 'var(--glass-bg)',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}
+                >
+                  {/* 背景装饰线 */}
+                  <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: task.status === 'active' ? 'var(--success-color)' : 'var(--border-color)', opacity: 0.6 }} />
+
+                  <div className="flex-row justify-between items-start mb-lg">
+                    <div className="flex-column gap-xs">
+                      <div className="flex-row items-center gap-sm">
+                        <input
+                          type="checkbox"
+                          className="checkbox-premium"
+                          checked={selectedTasks.has(task.id)}
+                          onChange={(e) => handleSelectTask(task.id, e.target.checked)}
+                        />
+                        <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 850, letterSpacing: '-0.01em' }}>{task.name}</h3>
+                      </div>
+                      <div className="flex-row items-center gap-xs">
+                         <span className={`badge ${task.status === 'active' ? 'badge-success' : 'badge-secondary'}`} style={{ fontSize: '10px', padding: '2px 8px' }}>
+                           {task.status === 'active' ? '运行中' : '已暂停'}
+                         </span>
+                         <span className="badge badge-primary-light" style={{ fontSize: '10px', padding: '2px 8px' }}>{task.type.toUpperCase()}</span>
+                      </div>
+                    </div>
+                    <ToggleSwitch
+                      checked={task.status === 'active'}
+                      onChange={(checked) =>
+                        handleStatusChange(task.id, checked ? 'active' : 'paused')
+                      }
+                    />
+                  </div>
+
+                  <div className="flex-column gap-md mb-xl" style={{ flex: 1 }}>
+                    <div className="flex-row items-center gap-md" style={{ background: 'rgba(var(--bg-primary-rgb), 0.4)', padding: '12px', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                      <IconClock size={16} style={{ color: 'var(--primary-color)', opacity: 0.8 }} />
+                      <div className="flex-column">
+                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>执行周期</span>
+                        <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 600 }}>
+                          {task.type === 'interval'
+                            ? `每隔 ${task.interval}`
+                            : task.type === 'daily'
+                              ? `每天 ${task.daily_time}`
+                              : `预定于 ${new Date(task.fixed_time || '').toLocaleString()}`}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex-row items-center gap-md" style={{ padding: '0 4px' }}>
+                      <IconCpu size={16} style={{ color: 'var(--text-tertiary)' }} />
+                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>模型：<b style={{ color: 'var(--text-primary)' }}>{task.model}</b></span>
+                    </div>
+
+                    <div className="flex-row items-center gap-md" style={{ padding: '0 4px' }}>
+                      <IconCalendar size={16} style={{ color: 'var(--text-tertiary)' }} />
+                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                        下次运行：
+                        <span style={{ fontWeight: 600, color: task.status === 'active' ? 'var(--text-primary)' : 'var(--text-tertiary)' }}>
+                          {task.next_run_at ? new Date(task.next_run_at).toLocaleString() : '-'}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex-row justify-between items-center pt-lg" style={{ borderTop: '1px dashed var(--border-light)' }}>
+                    <div className="flex-row gap-sm">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={(e) => handleRunTask(task.id, e)}
+                        className="btn-glass"
+                        style={{ width: '36px', height: '36px', padding: 0 }}
+                      >
+                        <IconPlay size={18} />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleViewTaskLogs(task.id)}
+                        className="btn-glass"
+                        style={{ width: '36px', height: '36px', padding: 0 }}
+                      >
+                        <IconScrollText size={18} />
+                      </Button>
+                    </div>
+                    <div className="flex-row gap-xs">
+                      <Button variant="secondary" size="sm" onClick={() => handleEdit(task)} className="btn-glass" style={{ fontSize: '12px', padding: '6px 12px' }}>
+                         编辑
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(task.id)} className="text-error" style={{ width: '36px', height: '36px', padding: 0 }}>
+                        <IconTrash2 size={18} />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 执行日志面板 - 专业表格设计 */}
+        <div className="card-glass flex-column" style={{ padding: '0', borderRadius: '24px', overflow: 'hidden' }}>
+          <div className="flex-row justify-between items-center" style={{ padding: '24px 32px', background: 'linear-gradient(to right, rgba(var(--bg-primary-rgb), 0.6), rgba(var(--bg-primary-rgb), 0.2))', borderBottom: '1px solid var(--border-light)' }}>
+            <div className="flex-row items-center gap-md">
+              <div style={{ width: '12px', height: '24px', background: 'var(--primary-color)', borderRadius: '4px' }} />
+              <h2 style={{ margin: 0, fontSize: '19px', fontWeight: 900, letterSpacing: '-0.02em' }}>{t('scheduler.execution_logs_title')}</h2>
+              <span className="badge badge-secondary" style={{ fontSize: '11px' }}>最近 {logs.length} 条记录</span>
+            </div>
+            <div className="flex-row items-center gap-md">
+              <div style={{ position: 'relative' }}>
+                <Input
+                  className="input-premium"
+                  placeholder={t('scheduler.search_logs')}
+                  value={logSearchQuery}
+                  onChange={(e) => setLogSearchQuery(e.target.value)}
+                  style={{ minWidth: '280px', paddingLeft: '40px' }}
+                />
+                <IconSearch size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearLogs}
+                disabled={logs.length === 0}
+                className="text-error btn-glass"
+                style={{ width: '40px', height: '40px', padding: 0 }}
+              >
+                <IconTrash2 size={20} />
+              </Button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="table-premium" style={{ margin: 0, width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+              <thead>
+                <tr style={{ background: 'rgba(var(--bg-primary-rgb), 0.5)' }}>
+                  <th style={{ padding: '16px 32px', textAlign: 'left', fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 800 }}>执行时间</th>
+                  <th style={{ padding: '16px 16px', textAlign: 'left', fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 800 }}>任务名称</th>
+                  <th style={{ padding: '16px 16px', textAlign: 'left', fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 800 }}>耗时</th>
+                  <th style={{ padding: '16px 16px', textAlign: 'left', fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 800 }}>状态</th>
+                  <th style={{ padding: '16px 32px', textAlign: 'left', fontSize: '12px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 800 }}>执行输出</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredLogs.slice(logPage * logPageSize, (logPage + 1) * logPageSize).map((log, idx) => (
+                  <tr key={log.id} style={{ transition: 'background 0.2s ease', borderBottom: idx === filteredLogs.length - 1 ? 'none' : '1px solid var(--border-light)' }}>
+                    <td style={{ padding: '16px 32px', fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>{new Date(log.executed_at).toLocaleString()}</td>
+                    <td style={{ padding: '16px 16px', fontWeight: 800, color: 'var(--text-primary)' }}>{log.task_name}</td>
+                    <td style={{ padding: '16px 16px' }}>
+                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '6px' }}>
+                        {formatDuration(log.duration_ms)}
+                      </span>
+                    </td>
+                    <td style={{ padding: '16px 16px' }}>
+                      <div className="flex-row items-center gap-xs">
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: log.success ? 'var(--success-color)' : 'var(--error-color)', boxShadow: `0 0 8px ${log.success ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}` }} />
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: log.success ? 'var(--success-color)' : 'var(--error-color)' }}>
+                          {log.success ? '成功' : '失败'}
+                        </span>
+                      </div>
+                    </td>
+                    <td
+                      style={{ 
+                        padding: '16px 32px', 
+                        fontSize: '13px', 
+                        color: 'var(--text-tertiary)', 
+                        maxWidth: '400px', 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis', 
+                        whiteSpace: 'nowrap',
+                        cursor: 'pointer',
+                        fontFamily: 'monospace'
+                      }}
+                      title={log.output}
+                      onClick={() => {
+                        setLogTaskFilter(log.task_id);
+                        setTaskLogModalOpen(true);
+                      }}
+                    >
+                      {log.output || <span style={{ opacity: 0.3 }}>(无内容)</span>}
+                    </td>
+                  </tr>
+                ))}
+                {filteredLogs.length === 0 && (
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: 'center', padding: '100px 32px' }}>
+                       <div className="flex-column items-center gap-md" style={{ opacity: 0.4 }}>
+                         <IconScrollText size={48} />
+                         <span style={{ fontWeight: 600 }}>暂无历史执行记录</span>
+                       </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          
           {filteredLogs.length > logPageSize && (
-            <div className={styles.logPagination}>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={logPage === 0}
-                onClick={() => setLogPage((p) => Math.max(0, p - 1))}
-              >
-                <IconChevronLeft size={16} />
-              </Button>
-              <span className={styles.paginationInfo}>
-                {logPage + 1} / {Math.ceil(filteredLogs.length / logPageSize)}
+            <div className="flex-row justify-between items-center" style={{ padding: '20px 32px', borderTop: '1px solid var(--border-light)', background: 'rgba(var(--bg-primary-rgb), 0.2)' }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>
+                显示第 {logPage * logPageSize + 1} 至 {Math.min((logPage + 1) * logPageSize, filteredLogs.length)} 条，共 {filteredLogs.length} 条
               </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={(logPage + 1) * logPageSize >= filteredLogs.length}
-                onClick={() => setLogPage((p) => p + 1)}
-              >
-                <IconChevronRight size={16} />
-              </Button>
+              <div className="flex-row items-center gap-md">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="btn-glass"
+                  disabled={logPage === 0}
+                  onClick={() => setLogPage((p) => Math.max(0, p - 1))}
+                  style={{ width: '36px', height: '36px', padding: 0 }}
+                >
+                  <IconChevronLeft size={18} />
+                </Button>
+                <div className="flex-row gap-xs">
+                  {Array.from({ length: Math.ceil(filteredLogs.length / logPageSize) }).map((_, i) => (
+                    <div 
+                      key={i} 
+                      onClick={() => setLogPage(i)}
+                      style={{ 
+                        width: '8px', 
+                        height: '8px', 
+                        borderRadius: '50%', 
+                        background: i === logPage ? 'var(--primary-color)' : 'var(--border-color)',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease'
+                      }} 
+                    />
+                  ))}
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="btn-glass"
+                  disabled={(logPage + 1) * logPageSize >= filteredLogs.length}
+                  onClick={() => setLogPage((p) => p + 1)}
+                  style={{ width: '36px', height: '36px', padding: 0 }}
+                >
+                  <IconChevronRight size={18} />
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -581,57 +689,62 @@ export function SchedulerPage() {
         title={editingTask.id ? t('scheduler.modal_title_edit') : t('scheduler.modal_title_create')}
         width={640}
         footer={
-          <>
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>
+          <div className="flex-row justify-end gap-md">
+            <Button variant="ghost" onClick={() => setModalOpen(false)}>
               {t('scheduler.cancel')}
             </Button>
-            <Button onClick={handleSave} loading={saving}>
+            <Button onClick={handleSave} loading={saving} className="btn-glass" style={{ minWidth: '100px' }}>
               {t('scheduler.save')}
             </Button>
-          </>
+          </div>
         }
       >
-        <div className={styles.typeTabs}>
+        <div className="flex-row bg-secondary p-xs rounded-lg mb-xl" style={{ background: 'rgba(var(--bg-primary-rgb), 0.5)', padding: '4px', border: '1px solid var(--border-color)' }}>
           <div
-            className={`${styles.tabItem} ${formData.type === 'interval' ? styles.active : ''}`}
+            className={`flex-1 text-center py-sm rounded-md cursor-pointer transition-all ${formData.type === 'interval' ? 'bg-primary text-white shadow-sm' : 'text-secondary hover:bg-hover'}`}
+            style={{ fontWeight: 600, fontSize: '13px' }}
             onClick={() => setFormData({ ...formData, type: 'interval' })}
           >
             {t('scheduler.form.type_interval')}
           </div>
           <div
-            className={`${styles.tabItem} ${formData.type === 'fixed_time' ? styles.active : ''}`}
+            className={`flex-1 text-center py-sm rounded-md cursor-pointer transition-all ${formData.type === 'fixed_time' ? 'bg-primary text-white shadow-sm' : 'text-secondary hover:bg-hover'}`}
+            style={{ fontWeight: 600, fontSize: '13px' }}
             onClick={() => setFormData({ ...formData, type: 'fixed_time' })}
           >
             {t('scheduler.form.type_fixed')}
           </div>
           <div
-            className={`${styles.tabItem} ${formData.type === 'daily' ? styles.active : ''}`}
+            className={`flex-1 text-center py-sm rounded-md cursor-pointer transition-all ${formData.type === 'daily' ? 'bg-primary text-white shadow-sm' : 'text-secondary hover:bg-hover'}`}
+            style={{ fontWeight: 600, fontSize: '13px' }}
             onClick={() => setFormData({ ...formData, type: 'daily' })}
           >
             {t('scheduler.form.type_daily')}
           </div>
         </div>
 
-        <div className={styles.formGrid}>
-          <div className={styles.fullWidth}>
-            <div className={styles.formSectionTitle}>
-              <IconActivity size={14} />{' '}
-              {t('common.basic_info', { defaultValue: 'Basic Information' })}
+        <div className="flex-column gap-xl">
+          <div className="flex-column gap-md">
+            <div className="flex-row items-center gap-sm" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--primary-color)', opacity: 0.9 }}>
+              <IconActivity size={16} />
+              <span>{t('common.basic_info', { defaultValue: 'Basic Information' })}</span>
             </div>
             <Input
               label={t('scheduler.form.name')}
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.target.name"
               autoFocus
             />
           </div>
 
-          <div className={styles.fullWidth}>
-            <div className={styles.formSectionTitle}>
-              <IconClock size={14} /> {t('scheduler.scheduling', { defaultValue: 'Scheduling' })}
+          <div className="flex-column gap-md">
+            <div className="flex-row items-center gap-sm" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--primary-color)', opacity: 0.9 }}>
+              <IconClock size={16} />
+              <span>{t('scheduler.scheduling', { defaultValue: 'Scheduling' })}</span>
             </div>
             {formData.type === 'interval' ? (
-              <div className={styles.intervalInputGroup}>
+              <div className="grid cols-2" style={{ gap: '16px' }}>
                 <Input
                   type="number"
                   label={t('scheduler.form.interval_label')}
@@ -639,11 +752,10 @@ export function SchedulerPage() {
                   min={1}
                   onChange={(e) => setFormData({ ...formData, interval_value: e.target.value })}
                 />
-                <div className="form-group">
-                  <label>{t('common.unit', { defaultValue: 'Unit' })}</label>
+                <div className="flex-column gap-xs">
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('common.unit', { defaultValue: 'Unit' })}</label>
                   <select
-                    className={styles.filterSelect}
-                    style={{ width: '100%', paddingLeft: 12 }}
+                    className="input-premium"
                     value={formData.interval_unit}
                     onChange={(e) => setFormData({ ...formData, interval_unit: e.target.value })}
                   >
@@ -654,8 +766,8 @@ export function SchedulerPage() {
                 </div>
               </div>
             ) : formData.type === 'daily' ? (
-              <div className={styles.fullWidth}>
-                <div className={styles.intervalInputGroup} style={{ alignItems: 'flex-end' }}>
+              <div className="flex-column gap-md">
+                <div className="flex-row items-end gap-md">
                   <div style={{ flex: 1 }}>
                     <TimePicker
                       label={t('scheduler.form.daily_time_label')}
@@ -665,7 +777,8 @@ export function SchedulerPage() {
                   </div>
                   <Button
                     variant="primary"
-                    style={{ padding: '0 16px', height: '36px', whiteSpace: 'nowrap' }}
+                    style={{ height: '42px' }}
+                    className="btn-glass"
                     onClick={() => {
                       if (tempTimePoint && !formData.daily_time.includes(tempTimePoint)) {
                         setFormData({
@@ -675,27 +788,19 @@ export function SchedulerPage() {
                       }
                     }}
                   >
-                    {t('scheduler.form.add_time_point')}
+                    <IconPlus size={18} />
                   </Button>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+                <div className="flex-row flex-wrap gap-sm">
                   {formData.daily_time.map((time) => (
                     <span
                       key={time}
-                      style={{
-                        background: 'var(--bg-hover)',
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        fontSize: '13px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        border: '1px solid var(--border-color)',
-                      }}
+                      className="badge badge-secondary flex-row items-center gap-xs"
+                      style={{ padding: '6px 12px', borderRadius: '8px' }}
                     >
-                      {time}
+                      <span style={{ fontWeight: 600 }}>{time}</span>
                       <IconTrash2
-                        size={12}
+                        size={14}
                         style={{ cursor: 'pointer', color: 'var(--error-color)' }}
                         onClick={() =>
                           setFormData({
@@ -707,7 +812,7 @@ export function SchedulerPage() {
                     </span>
                   ))}
                   {formData.daily_time.length === 0 && (
-                    <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
                       No time points added
                     </span>
                   )}
@@ -723,30 +828,36 @@ export function SchedulerPage() {
             )}
           </div>
 
-          <div className={styles.fullWidth}>
-            <div className={styles.formSectionTitle}>
-              <IconCpu size={14} /> {t('scheduler.ai_config', { defaultValue: 'AI Configuration' })}
+          <div className="flex-column gap-md">
+            <div className="flex-row items-center gap-sm" style={{ fontSize: '14px', fontWeight: 700, color: 'var(--primary-color)', opacity: 0.9 }}>
+              <IconCpu size={16} />
+              <span>{t('scheduler.ai_config', { defaultValue: 'AI Configuration' })}</span>
             </div>
-          </div>
-
-          <ModelSelector
-            label={t('scheduler.form.model')}
-            value={formData.model}
-            onChange={(val) => setFormData({ ...formData, model: val })}
-          />
-          <Input
-            label={t('scheduler.form.webhook_url')}
-            value={formData.webhook_url}
-            onChange={(e) => setFormData({ ...formData, webhook_url: e.target.value })}
-          />
-          <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-            <label>{t('scheduler.form.prompt')}</label>
-            <textarea
-              rows={4}
-              value={formData.prompt}
-              onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
-              style={{ borderRadius: '8px', padding: '12px' }}
-            />
+            
+            <div className="grid cols-2" style={{ gap: '16px' }}>
+              <ModelSelector
+                label={t('scheduler.form.model')}
+                value={formData.model}
+                onChange={(val) => setFormData({ ...formData, model: val })}
+              />
+              <Input
+                label={t('scheduler.form.webhook_url')}
+                value={formData.webhook_url}
+                onChange={(e) => setFormData({ ...formData, webhook_url: e.target.value })}
+                placeholder="https://..."
+              />
+            </div>
+            
+            <div className="flex-column gap-xs">
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('scheduler.form.prompt')}</label>
+              <textarea
+                rows={4}
+                value={formData.prompt}
+                onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
+                className="input-premium"
+                style={{ borderRadius: '12px', padding: '12px', height: '120px', resize: 'none' }}
+              />
+            </div>
           </div>
         </div>
       </Modal>
@@ -757,49 +868,45 @@ export function SchedulerPage() {
         title={t('scheduler.log_detail_title')}
         width={720}
       >
-        <div style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+        <div style={{ maxHeight: '70vh', overflowY: 'auto' }} className="flex-column gap-md">
           {logs.filter((l) => l.task_id === logTaskFilter).length === 0 ? (
-            <p style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+            <div className="flex-center" style={{ padding: '60px', color: 'var(--text-tertiary)' }}>
               {t('scheduler.no_history_for_task')}
-            </p>
+            </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="flex-column gap-md">
               {logs
                 .filter((l) => l.task_id === logTaskFilter)
                 .map((log) => (
                   <div
                     key={log.id}
+                    className="card-glass"
                     style={{
-                      padding: '16px',
-                      background: 'var(--bg-hover)',
-                      borderRadius: '10px',
-                      border: '1px solid var(--border-color)',
+                      padding: '20px',
+                      background: 'rgba(var(--bg-primary-rgb), 0.3)',
+                      border: '1px solid var(--border-color)'
                     }}
                   >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        marginBottom: 8,
-                        fontSize: '13px',
-                        fontWeight: 500,
-                      }}
-                    >
-                      <span style={{ color: 'var(--text-secondary)' }}>
+                    <div className="flex-row justify-between items-center mb-md pb-sm" style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>
                         {new Date(log.executed_at).toLocaleString()}
                       </span>
-                      <span className={log.success ? styles.statusSuccess : styles.statusError}>
-                        {log.success ? t('scheduler.log_success') : t('scheduler.log_failed')} (
-                        {formatDuration(log.duration_ms)})
-                      </span>
+                      <div className="flex-row items-center gap-md">
+                        <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{formatDuration(log.duration_ms)}</span>
+                        <span className={`badge ${log.success ? 'badge-success' : 'badge-error'}`} style={{ fontSize: '11px' }}>
+                          {log.success ? t('scheduler.log_success') : t('scheduler.log_failed')}
+                        </span>
+                      </div>
                     </div>
                     <pre
                       style={{
                         margin: 0,
                         whiteSpace: 'pre-wrap',
                         fontSize: '13px',
-                        lineHeight: 1.5,
-                        opacity: 0.9,
+                        lineHeight: 1.6,
+                        color: 'var(--text-primary)',
+                        fontFamily: 'var(--font-mono)',
+                        opacity: 0.95
                       }}
                     >
                       {log.output}

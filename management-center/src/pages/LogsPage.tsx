@@ -1,8 +1,8 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { useTranslation } from 'react-i18next';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Input } from '@/components/ui/Input';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
@@ -13,13 +13,11 @@ import {
   IconSearch,
   IconTimer,
   IconTrash2,
-  IconX,
 } from '@/components/ui/icons';
 import { useNotificationStore, useAuthStore } from '@/stores';
 import { logsApi } from '@/services/api/logs';
 import { MANAGEMENT_API_PREFIX } from '@/utils/constants';
 import { formatUnixTimestamp } from '@/utils/format';
-import styles from './LogsPage.module.scss';
 
 interface ErrorLogItem {
   name: string;
@@ -319,13 +317,11 @@ export function LogsPage() {
 
   const [logBuffer, setLogBuffer] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [hideManagementLogs, setHideManagementLogs] = useState(false);
   const [errorLogs, setErrorLogs] = useState<ErrorLogItem[]>([]);
-  const [loadingErrors, setLoadingErrors] = useState(false);
 
   const virtuosoRef = useRef<VirtuosoHandle>(null);
 
@@ -334,16 +330,12 @@ export function LogsPage() {
 
   const disableControls = connectionStatus !== 'connected';
 
-  const loadLogs = async (incremental = false) => {
-    if (connectionStatus !== 'connected') {
-      setLoading(false);
-      return;
-    }
+  const loadLogs = async (incremental: boolean = true) => {
+    if (incremental && loading) return;
 
     if (!incremental) {
       setLoading(true);
     }
-    setError('');
 
     try {
       const params =
@@ -370,9 +362,6 @@ export function LogsPage() {
       }
     } catch (err: unknown) {
       console.error('Failed to load logs:', err);
-      if (!incremental) {
-        setError(getErrorMessage(err) || t('logs.load_error'));
-      }
     } finally {
       if (!incremental) {
         setLoading(false);
@@ -397,6 +386,7 @@ export function LogsPage() {
   };
 
   const downloadLogs = () => {
+    // ... download logs implementation ...
     const text = logBuffer.join('\n');
     const blob = new Blob([text], { type: 'text/plain' });
     const url = window.URL.createObjectURL(blob);
@@ -410,11 +400,9 @@ export function LogsPage() {
 
   const loadErrorLogs = async () => {
     if (connectionStatus !== 'connected') {
-      setLoadingErrors(false);
       return;
     }
 
-    setLoadingErrors(true);
     try {
       const res = await logsApi.fetchErrorLogs();
       // API 返回 { files: [...] }
@@ -423,8 +411,6 @@ export function LogsPage() {
       console.error('Failed to load error logs:', err);
       // 静默失败,不影响主日志显示
       setErrorLogs([]);
-    } finally {
-      setLoadingErrors(false);
     }
   };
 
@@ -512,248 +498,212 @@ export function LogsPage() {
   };
 
   return (
-    <div className={styles.container}>
-      <h1 className={styles.pageTitle}>{t('logs.title')}</h1>
-      <div className={styles.content}>
-        <Card
-          title={t('logs.log_content')}
-          extra={
-            <div className={styles.toolbar}>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => loadLogs(false)}
-                disabled={disableControls || loading}
-                className={styles.actionButton}
-              >
-                <span className={styles.buttonContent}>
-                  <IconRefreshCw size={16} />
-                  {t('logs.refresh_button')}
-                </span>
-              </Button>
-              <ToggleSwitch
-                checked={autoRefresh}
-                onChange={(value) => setAutoRefresh(value)}
-                disabled={disableControls}
-                label={
-                  <span className={styles.switchLabel}>
-                    <IconTimer size={16} />
-                    {t('logs.auto_refresh')}
-                  </span>
-                }
-              />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={downloadLogs}
-                disabled={logBuffer.length === 0}
-                className={styles.actionButton}
-              >
-                <span className={styles.buttonContent}>
-                  <IconDownload size={16} />
-                  {t('logs.download_button')}
-                </span>
-              </Button>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={clearLogs}
-                disabled={disableControls}
-                className={styles.actionButton}
-              >
-                <span className={styles.buttonContent}>
-                  <IconTrash2 size={16} />
-                  {t('logs.clear_button')}
-                </span>
-              </Button>
+    <div className="flex-column">
+      <header className="hero-wrapper">
+        <div className="hero-content flex-row justify-between items-center">
+          <div className="flex-column gap-xs">
+            <div className="badge badge-primary" style={{ marginBottom: '8px', width: 'fit-content' }}>
+               Real-time Stream
             </div>
-          }
-        >
-          {error && <div className="error-box">{error}</div>}
+            <h1 className="hero-title">{t('logs.title')}</h1>
+            <p className="hero-subtitle">{t('logs.description') || '系统运行轨迹，支持多维过滤、实时流监控与历史溯源。'}</p>
+          </div>
+          <div className="flex-row gap-md">
+            <Button variant="secondary" onClick={() => loadLogs(false)} disabled={disableControls || loading} className="btn-glass" style={{ height: '48px', padding: '0 20px' }}>
+              <IconRefreshCw size={18} className={loading ? 'animate-spin' : ''} /> <span style={{ marginLeft: '8px' }}>{t('logs.refresh_button')}</span>
+            </Button>
+            <Button onClick={downloadLogs} disabled={logBuffer.length === 0} className="btn-glass" style={{ height: '48px', padding: '0 20px' }}>
+              <IconDownload size={18} /> <span style={{ marginLeft: '8px' }}>{t('logs.download_button')}</span>
+            </Button>
+            <Button variant="ghost" onClick={clearLogs} disabled={disableControls} className="text-error" style={{ height: '48px' }}>
+              <IconTrash2 size={18} />
+            </Button>
+          </div>
+        </div>
+      </header>
 
-          <div className={styles.filters}>
-            <div className={styles.searchWrapper}>
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={t('logs.search_placeholder')}
-                className={styles.searchInput}
-                rightElement={
-                  searchQuery ? (
-                    <button
-                      type="button"
-                      className={styles.searchClear}
-                      onClick={() => setSearchQuery('')}
-                      title="Clear"
-                      aria-label="Clear"
-                    >
-                      <IconX size={16} />
-                    </button>
-                  ) : (
-                    <IconSearch size={16} className={styles.searchIcon} />
-                  )
-                }
-              />
+      <div style={{ padding: '0 40px 80px', marginTop: '-40px' }} className="flex-column gap-xl">
+        <div className="card-glass flex-column overflow-hidden" style={{ borderRadius: '24px', border: '1px solid var(--border-light)', minHeight: '600px' }}>
+          {/* 日志筛选栏 */}
+          <div className="flex-row justify-between items-center" style={{ padding: '20px 28px', background: 'linear-gradient(to right, rgba(var(--bg-primary-rgb), 0.6), rgba(var(--bg-primary-rgb), 0.2))', borderBottom: '1px solid var(--border-light)' }}>
+            <div className="flex-row items-center gap-xl flex-1">
+              <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
+                <Input
+                   className="input-premium"
+                   style={{ paddingLeft: '44px', width: '100%' }}
+                   value={searchQuery}
+                   onChange={(e) => setSearchQuery(e.target.value)}
+                   placeholder={t('logs.search_placeholder')}
+                />
+                <IconSearch size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
+              </div>
+
+              <div className="flex-row items-center gap-md">
+                <div className="flex-row items-center gap-sm card-glass" style={{ padding: '4px 12px', borderRadius: '12px', background: 'rgba(var(--bg-primary-rgb), 0.3)' }}>
+                  <IconTimer size={16} style={{ color: 'var(--primary-color)' }} />
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)' }}>{t('logs.auto_refresh')}</span>
+                  <ToggleSwitch checked={autoRefresh} onChange={setAutoRefresh} disabled={disableControls} />
+                </div>
+
+                <div className="flex-row items-center gap-sm card-glass" style={{ padding: '4px 12px', borderRadius: '12px', background: 'rgba(var(--bg-primary-rgb), 0.3)' }}>
+                  <IconEyeOff size={16} style={{ color: 'var(--text-tertiary)' }} />
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)' }}>{t('logs.hide_management_logs', { prefix: 'API' })}</span>
+                  <ToggleSwitch checked={hideManagementLogs} onChange={setHideManagementLogs} />
+                </div>
+              </div>
             </div>
 
-            <ToggleSwitch
-              checked={hideManagementLogs}
-              onChange={setHideManagementLogs}
-              label={
-                <span className={styles.switchLabel}>
-                  <IconEyeOff size={16} />
-                  {t('logs.hide_management_logs', { prefix: MANAGEMENT_API_PREFIX })}
-                </span>
-              }
-            />
-
-            <div className={styles.filterStats}>
-              <span>
-                {filteredLines.length} {t('logs.lines')}
-              </span>
-              {removedCount > 0 && (
-                <span className={styles.removedCount}>
-                  {t('logs.removed')} {removedCount}
-                </span>
-              )}
+            <div className="flex-row items-center gap-md ml-xl">
+               <div className="flex-column items-end">
+                 <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--primary-color)' }}>{filteredLines.length}</span>
+                 <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Lines</span>
+               </div>
+               {removedCount > 0 && (
+                 <>
+                   <div style={{ width: '1px', height: '24px', background: 'var(--border-light)' }} />
+                   <div className="flex-column items-end">
+                     <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--text-tertiary)' }}>{removedCount}</span>
+                     <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Hidden</span>
+                   </div>
+                 </>
+               )}
             </div>
           </div>
 
-          {loading ? (
-            <div className="hint">{t('logs.loading')}</div>
-          ) : logBuffer.length > 0 && filteredLines.length > 0 ? (
-           <Virtuoso
-              ref={virtuosoRef}
-              data={filteredLines}
-              className={styles.logPanel}
-              followOutput="auto"
-              itemContent={(_, rawLine) => {
-                const line = parseLogLine(rawLine);
-                const rowClassNames = [styles.logRow];
-                if (line.level === 'warn') rowClassNames.push(styles.rowWarn);
-                if (line.level === 'error' || line.level === 'fatal')
-                  rowClassNames.push(styles.rowError);
-                return (
-                  <div
-                    className={rowClassNames.join(' ')}
-                    onDoubleClick={() => {
-                      void copyLogLine(line.raw);
-                    }}
-                    title={t('logs.double_click_copy_hint', {
-                       defaultValue: 'Double-click to copy',
-                    })}
-                  >
-                    <div className={styles.timestamp}>{line.timestamp || ''}</div>
-                    <div className={styles.rowMain}>
-                       <div className={styles.rowMeta}>
-                         {line.level && (
-                           <span
-                            className={[
-                              styles.badge,
-                              line.level === 'info' ? styles.levelInfo : '',
-                              line.level === 'warn' ? styles.levelWarn : '',
-                              line.level === 'error' || line.level === 'fatal'
-                                ? styles.levelError
-                                : '',
-                              line.level === 'debug' ? styles.levelDebug : '',
-                              line.level === 'trace' ? styles.levelTrace : '',
-                            ]
-                              .filter(Boolean)
-                              .join(' ')}
-                          >
-                             {line.level.toUpperCase()}
-                           </span>
-                         )}
+          {/* 日志显示区 */}
+          <div style={{ flex: 1, position: 'relative', background: 'rgba(0,0,0,0.02)' }}>
+            {loading ? (
+              <div className="flex-center" style={{ height: '500px' }}>
+                <LoadingSpinner />
+              </div>
+            ) : logBuffer.length > 0 && filteredLines.length > 0 ? (
+              <Virtuoso
+                ref={virtuosoRef}
+                data={filteredLines}
+                style={{ height: '600px' }}
+                followOutput="auto"
+                itemContent={(_, rawLine) => {
+                  const line = parseLogLine(rawLine);
+                  let levelColor = 'var(--text-tertiary)';
+                  let rowBg = 'transparent';
+                  if (line.level === 'warn') {
+                    levelColor = 'var(--warning-color)';
+                    rowBg = 'rgba(var(--warning-color-rgb), 0.03)';
+                  }
+                  if (line.level === 'error' || line.level === 'fatal') {
+                    levelColor = 'var(--error-color)';
+                    rowBg = 'rgba(var(--error-color-rgb), 0.05)';
+                  }
 
-                         {line.source && (
-                           <span className={styles.source} title={line.source}>
-                             {line.source}
-                           </span>
-                         )}
-
-                         {typeof line.statusCode === 'number' && (
-                           <span
-                             className={[
-                               styles.badge,
-                               styles.statusBadge,
-                               line.statusCode >= 200 && line.statusCode < 300
-                                 ? styles.statusSuccess
-                                 : line.statusCode >= 300 && line.statusCode < 400
-                                   ? styles.statusInfo
-                                   : line.statusCode >= 400 && line.statusCode < 500
-                                     ? styles.statusWarn
-                                     : styles.statusError,
-                            ].join(' ')}
-                          >
-                             {line.statusCode}
-                           </span>
-                         )}
-
-                         {line.latency && <span className={styles.pill}>{line.latency}</span>}
-                         {line.ip && <span className={styles.pill}>{line.ip}</span>}
-
-                         {line.method && (
-                           <span className={[styles.badge, styles.methodBadge].join(' ')}>
-                             {line.method}
-                           </span>
-                         )}
-                         {line.path && (
-                           <span className={styles.path} title={line.path}>
-                             {line.path}
-                           </span>
-                         )}
-                       </div>
-                       {line.message && <div className={styles.message}>{line.message}</div>}
-                    </div>
-                  </div>
-                );
-              }}
-           />
-          ) : logBuffer.length > 0 ? (
-            <EmptyState
-              title={t('logs.search_empty_title')}
-              description={t('logs.search_empty_desc')}
-            />
-          ) : (
-            <EmptyState title={t('logs.empty_title')} description={t('logs.empty_desc')} />
-          )}
-        </Card>
-
-        <Card
-          title={t('logs.error_logs_modal_title')}
-          extra={
-            <Button variant="secondary" size="sm" onClick={loadErrorLogs} loading={loadingErrors}>
-              {t('common.refresh')}
-            </Button>
-          }
-        >
-          {errorLogs.length === 0 ? (
-            <div className="hint">{t('logs.error_logs_empty')}</div>
-          ) : (
-            <div className="item-list">
-              {errorLogs.map((item) => (
-                <div key={item.name} className="item-row">
-                  <div className="item-meta">
-                    <div className="item-title">{item.name}</div>
-                    <div className="item-subtitle">
-                      {item.size ? `${(item.size / 1024).toFixed(1)} KB` : ''}{' '}
-                      {item.modified ? formatUnixTimestamp(item.modified) : ''}
-                    </div>
-                  </div>
-                  <div className="item-actions">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => downloadErrorLog(item.name)}
+                  return (
+                    <div
+                      className="log-row flex-row gap-lg"
+                      style={{ 
+                        padding: '12px 28px', 
+                        borderBottom: '1px solid var(--border-light)', 
+                        background: rowBg,
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        transition: 'background 0.2s'
+                      }}
+                      onDoubleClick={() => copyLogLine(line.raw)}
                     >
-                      {t('logs.error_logs_download')}
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                      <div style={{ width: '160px', flexShrink: 0, color: 'var(--text-tertiary)', fontSize: '12px', fontWeight: 500 }}>
+                        {line.timestamp || ''}
+                      </div>
+                      
+                      <div className="flex-column gap-xs flex-1 min-w-0">
+                        <div className="flex-row items-center gap-md flex-wrap">
+                          {line.level && (
+                            <span className="badge" style={{ 
+                              fontSize: '10px', 
+                              color: levelColor, 
+                              background: `rgba(${levelColor === 'var(--text-tertiary)' ? 'var(--text-tertiary-rgb)' : (levelColor === 'var(--warning-color)' ? 'var(--warning-color-rgb)' : 'var(--error-color-rgb)')}, 0.1)`,
+                              border: 'none',
+                              padding: '2px 8px'
+                            }}>
+                              {line.level.toUpperCase()}
+                            </span>
+                          )}
+
+                          {line.source && (
+                            <span style={{ color: 'var(--text-tertiary)', fontWeight: 600 }}>[{line.source}]</span>
+                          )}
+
+                          {typeof line.statusCode === 'number' && (
+                            <span className="badge" style={{ 
+                              fontSize: '10px',
+                              background: line.statusCode < 400 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                              color: line.statusCode < 400 ? 'var(--success-color)' : 'var(--error-color)',
+                              border: 'none'
+                            }}>
+                              {line.statusCode}
+                            </span>
+                          )}
+
+                          {line.method && (
+                            <span style={{ fontWeight: 900, color: 'var(--primary-color)', fontSize: '11px' }}>{line.method}</span>
+                          )}
+
+                          {line.path && (
+                            <span style={{ color: 'var(--text-primary)', fontWeight: 700, letterSpacing: '-0.01em' }}>{line.path}</span>
+                          )}
+
+                          {line.latency && (
+                            <span className="badge badge-secondary" style={{ fontSize: '10px' }}>{line.latency}</span>
+                          )}
+                        </div>
+                        
+                        {line.message && (
+                          <div style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', wordBreak: 'break-all', lineHeight: 1.6 }}>
+                            {line.message}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }}
+              />
+            ) : (
+              <div className="flex-center" style={{ height: '500px' }}>
+                <EmptyState title={t('logs.empty_title')} description={t('logs.empty_desc')} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 错误日志归档 */}
+        <div className="flex-column gap-lg mt-xl">
+           <div className="flex-row items-center gap-md">
+            <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--error-color)' }}>
+              <IconEyeOff size={20} />
             </div>
-          )}
-        </Card>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 900 }}>{t('logs.error_logs_modal_title')}</h2>
+          </div>
+
+          <div className="grid cols-3" style={{ gap: '20px' }}>
+            {errorLogs.map((item) => (
+              <div key={item.name} className="card-glass flex-column gap-md card-hover" style={{ padding: '24px', borderRadius: '20px' }}>
+                <div className="flex-row justify-between items-start">
+                  <div className="flex-column gap-xs">
+                    <span style={{ fontSize: '15px', fontWeight: 850, color: 'var(--text-primary)' }}>{item.name}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{item.modified ? formatUnixTimestamp(item.modified) : 'Unknown Date'}</span>
+                  </div>
+                  <div className="badge badge-secondary">{item.size ? `${(item.size / 1024).toFixed(1)} KB` : '0 KB'}</div>
+                </div>
+                <Button variant="secondary" onClick={() => downloadErrorLog(item.name)} className="btn-glass" style={{ width: '100%', height: '40px' }}>
+                   <IconDownload size={14} /> <span style={{ marginLeft: '8px' }}>{t('logs.error_logs_download')}</span>
+                </Button>
+              </div>
+            ))}
+            {errorLogs.length === 0 && (
+              <div className="card-glass flex-center" style={{ padding: '40px', gridColumn: 'span 3', borderRadius: '20px', color: 'var(--text-tertiary)' }}>
+                {t('logs.error_logs_empty')}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

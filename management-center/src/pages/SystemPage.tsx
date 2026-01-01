@@ -1,12 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { IconGithub, IconBookOpen, IconExternalLink, IconCode } from '@/components/ui/icons';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { IconGithub, IconBookOpen, IconCode } from '@/components/ui/icons';
 import { useAuthStore, useConfigStore, useNotificationStore, useModelsStore } from '@/stores';
 import { apiKeysApi } from '@/services/api/apiKeys';
 import { classifyModels } from '@/utils/models';
-import styles from './SystemPage.module.scss';
 
 export function SystemPage() {
   const { t, i18n } = useTranslation();
@@ -17,10 +16,7 @@ export function SystemPage() {
 
   const models = useModelsStore((state) => state.models);
   const modelsLoading = useModelsStore((state) => state.loading);
-  const modelsError = useModelsStore((state) => state.error);
   const fetchModelsFromStore = useModelsStore((state) => state.fetchModels);
-
-  const [modelStatus, setModelStatus] = useState<{ type: 'success' | 'warning' | 'error' | 'muted'; message: string }>();
 
   const apiKeysCache = useRef<string[]>([]);
 
@@ -73,10 +69,6 @@ export function SystemPage() {
 
   const fetchModels = async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
     if (auth.connectionStatus !== 'connected') {
-      setModelStatus({
-        type: 'warning',
-        message: t('notification.connection_required')
-      });
       return;
     }
 
@@ -89,19 +81,12 @@ export function SystemPage() {
       apiKeysCache.current = [];
     }
 
-    setModelStatus({ type: 'muted', message: t('system_info.models_loading') });
     try {
       const apiKeys = await resolveApiKeysForModels();
       const primaryKey = apiKeys[0];
-      const list = await fetchModelsFromStore(auth.apiBase, primaryKey, forceRefresh);
-      const hasModels = list.length > 0;
-      setModelStatus({
-        type: hasModels ? 'success' : 'warning',
-        message: hasModels ? t('system_info.models_count', { count: list.length }) : t('system_info.models_empty')
-      });
+      await fetchModelsFromStore(auth.apiBase, primaryKey, forceRefresh);
     } catch (err: unknown) {
-      const message = `${t('system_info.models_error')}: ${(err as Error)?.message || ''}`;
-      setModelStatus({ type: 'error', message });
+      console.error(err);
     }
   };
 
@@ -117,138 +102,143 @@ export function SystemPage() {
   }, [auth.connectionStatus, auth.apiBase]);
 
   return (
-    <div className={styles.container}>
-      <h1 className={styles.pageTitle}>{t('system_info.title')}</h1>
-      <div className={styles.content}>
-      <Card
-        title={t('system_info.connection_status_title')}
-        extra={
-          <Button variant="secondary" size="sm" onClick={() => fetchConfig(undefined, true)}>
-            {t('common.refresh')}
-          </Button>
-        }
-      >
-        <div className="grid cols-2">
-          <div className="stat-card">
-            <div className="stat-label">{t('connection.server_address')}</div>
-            <div className="stat-value">{auth.apiBase || '-'}</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">{t('footer.api_version')}</div>
-            <div className="stat-value">{auth.serverVersion || t('system_info.version_unknown')}</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">{t('footer.build_date')}</div>
-            <div className="stat-value">
-              {auth.serverBuildDate ? new Date(auth.serverBuildDate).toLocaleString() : t('system_info.version_unknown')}
+    <div className="flex-column">
+      <header className="hero-wrapper">
+        <div className="hero-content">
+          <div className="flex-column gap-xs">
+            <div className="badge badge-primary" style={{ marginBottom: '8px', width: 'fit-content' }}>
+               System Core
             </div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">{t('connection.status')}</div>
-            <div className="stat-value">{t(`common.${auth.connectionStatus}_status` as 'common.connected_status')}</div>
+            <h1 className="hero-title">{t('system_info.title')}</h1>
+            <p className="hero-subtitle">{t('system_info.description') || '系统底层运行状态、API 版本信息与官方技术文档索引。'}</p>
           </div>
         </div>
-      </Card>
+      </header>
 
-      <Card title={t('system_info.quick_links_title')}>
-        <p className={styles.sectionDescription}>{t('system_info.quick_links_desc')}</p>
-        <div className={styles.quickLinks}>
-          <a
-            href="https://github.com/router-for-me/CLIProxyAPI"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.linkCard}
-          >
-            <div className={`${styles.linkIcon} ${styles.github}`}>
-              <IconGithub size={22} />
+      <div style={{ padding: '0 40px 80px', marginTop: '-40px' }} className="flex-column gap-xl">
+        {/* 系统核心指标 */}
+        <section className="flex-column gap-lg">
+          <div className="flex-row items-center gap-md">
+            <div style={{ width: '8px', height: '20px', borderRadius: '4px', background: 'var(--primary-color)' }} />
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 900 }}>{t('system_info.connection_status_title')}</h2>
+          </div>
+          
+          <div className="grid cols-4" style={{ gap: '20px' }}>
+            <div className="card-glass flex-column gap-xs" style={{ padding: '24px', borderRadius: '24px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>{t('connection.server_address')}</span>
+              <span style={{ fontSize: '18px', fontWeight: 850, color: 'var(--text-primary)', wordBreak: 'break-all' }}>{auth.apiBase || '-'}</span>
             </div>
-            <div className={styles.linkContent}>
-              <div className={styles.linkTitle}>
-                {t('system_info.link_main_repo')}
-                <IconExternalLink size={14} />
+            <div className="card-glass flex-column gap-xs" style={{ padding: '24px', borderRadius: '24px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>{t('footer.api_version')}</span>
+              <span style={{ fontSize: '18px', fontWeight: 850, color: 'var(--text-primary)' }}>{auth.serverVersion || t('system_info.version_unknown')}</span>
+            </div>
+            <div className="card-glass flex-column gap-xs" style={{ padding: '24px', borderRadius: '24px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>{t('footer.build_date')}</span>
+              <span style={{ fontSize: '18px', fontWeight: 850, color: 'var(--text-primary)' }}>
+                {auth.serverBuildDate ? new Date(auth.serverBuildDate).toLocaleDateString() : t('system_info.version_unknown')}
+              </span>
+            </div>
+            <div className="card-glass flex-column gap-xs" style={{ padding: '24px', borderRadius: '24px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>{t('connection.status')}</span>
+              <div className="flex-row items-center gap-sm">
+                <div className="record-dot" style={{ 
+                  width: '8px', height: '8px', 
+                  background: auth.connectionStatus === 'connected' ? 'var(--success-color)' : 'var(--error-color)',
+                  boxShadow: `0 0 10px ${auth.connectionStatus === 'connected' ? 'var(--success-color)' : 'var(--error-color)'}`
+                }} />
+                <span style={{ fontSize: '18px', fontWeight: 850, color: auth.connectionStatus === 'connected' ? 'var(--success-color)' : 'var(--error-color)' }}>
+                  {t(`common.${auth.connectionStatus}_status` as 'common.connected_status')}
+                </span>
               </div>
-              <div className={styles.linkDesc}>{t('system_info.link_main_repo_desc')}</div>
             </div>
-          </a>
+          </div>
+        </section>
 
-          <a
-            href="https://github.com/router-for-me/Cli-Proxy-API-Management-Center"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.linkCard}
-          >
-            <div className={`${styles.linkIcon} ${styles.github}`}>
-              <IconCode size={22} />
-            </div>
-            <div className={styles.linkContent}>
-              <div className={styles.linkTitle}>
-                {t('system_info.link_webui_repo')}
-                <IconExternalLink size={14} />
+        {/* 快捷导航 */}
+        <section className="flex-column gap-lg">
+          <div className="flex-row items-center gap-md">
+            <div style={{ width: '8px', height: '20px', borderRadius: '4px', background: 'var(--primary-color)' }} />
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 900 }}>{t('system_info.quick_links_title')}</h2>
+          </div>
+          
+          <div className="grid cols-3" style={{ gap: '20px' }}>
+            <a href="https://github.com/router-for-me/CLIProxyAPI" target="_blank" rel="noopener noreferrer" className="card-glass flex-row items-center gap-lg card-hover" style={{ padding: '24px', borderRadius: '24px', textDecoration: 'none' }}>
+              <div className="flex-center" style={{ width: '52px', height: '52px', borderRadius: '14px', background: 'rgba(51, 65, 85, 0.1)', color: '#334155' }}>
+                <IconGithub size={28} />
               </div>
-              <div className={styles.linkDesc}>{t('system_info.link_webui_repo_desc')}</div>
-            </div>
-          </a>
-
-          <a
-            href="https://help.router-for.me/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.linkCard}
-          >
-            <div className={`${styles.linkIcon} ${styles.docs}`}>
-              <IconBookOpen size={22} />
-            </div>
-            <div className={styles.linkContent}>
-              <div className={styles.linkTitle}>
-                {t('system_info.link_docs')}
-                <IconExternalLink size={14} />
+              <div className="flex-column gap-xs">
+                <span style={{ fontSize: '16px', fontWeight: 850, color: 'var(--text-primary)' }}>{t('system_info.link_main_repo')}</span>
+                <span style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>{t('system_info.link_main_repo_desc')}</span>
               </div>
-              <div className={styles.linkDesc}>{t('system_info.link_docs_desc')}</div>
-            </div>
-          </a>
-        </div>
-      </Card>
+            </a>
 
-      <Card
-        title={t('system_info.models_title')}
-        extra={
-          <Button variant="secondary" size="sm" onClick={() => fetchModels({ forceRefresh: true })} loading={modelsLoading}>
-            {t('common.refresh')}
-          </Button>
-        }
-      >
-        <p className={styles.sectionDescription}>{t('system_info.models_desc')}</p>
-        {modelStatus && <div className={`status-badge ${modelStatus.type}`}>{modelStatus.message}</div>}
-        {modelsError && <div className="error-box">{modelsError}</div>}
-        {modelsLoading ? (
-          <div className="hint">{t('common.loading')}</div>
-        ) : models.length === 0 ? (
-          <div className="hint">{t('system_info.models_empty')}</div>
-        ) : (
-          <div className="item-list">
-            {groupedModels.map((group) => (
-              <div key={group.id} className="item-row">
-                <div className="item-meta">
-                  <div className="item-title">{group.label}</div>
-                  <div className="item-subtitle">{t('system_info.models_count', { count: group.items.length })}</div>
-                </div>
-                <div className={styles.modelTags}>
-                  {group.items.map((model) => (
-                    <span
-                      key={`${model.name}-${model.alias ?? 'default'}`}
-                      className={styles.modelTag}
-                      title={model.description || ''}
-                    >
-                      <span className={styles.modelName}>{model.name}</span>
-                      {model.alias && <span className={styles.modelAlias}>{model.alias}</span>}
-                    </span>
+            <a href="https://github.com/router-for-me/Cli-Proxy-API-Management-Center" target="_blank" rel="noopener noreferrer" className="card-glass flex-row items-center gap-lg card-hover" style={{ padding: '24px', borderRadius: '24px', textDecoration: 'none' }}>
+              <div className="flex-center" style={{ width: '52px', height: '52px', borderRadius: '14px', background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary-color)' }}>
+                <IconCode size={28} />
+              </div>
+              <div className="flex-column gap-xs">
+                <span style={{ fontSize: '16px', fontWeight: 850, color: 'var(--text-primary)' }}>{t('system_info.link_webui_repo')}</span>
+                <span style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>{t('system_info.link_webui_repo_desc')}</span>
+              </div>
+            </a>
+
+            <a href="https://help.router-for.me/" target="_blank" rel="noopener noreferrer" className="card-glass flex-row items-center gap-lg card-hover" style={{ padding: '24px', borderRadius: '24px', textDecoration: 'none' }}>
+              <div className="flex-center" style={{ width: '52px', height: '52px', borderRadius: '14px', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--success-color)' }}>
+                <IconBookOpen size={28} />
+              </div>
+              <div className="flex-column gap-xs">
+                <span style={{ fontSize: '16px', fontWeight: 850, color: 'var(--text-primary)' }}>{t('system_info.link_docs')}</span>
+                <span style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>{t('system_info.link_docs_desc')}</span>
+              </div>
+            </a>
+          </div>
+        </section>
+
+        {/* 模型兼容性概览 */}
+        <section className="flex-column gap-lg">
+          <div className="flex-row justify-between items-center">
+            <div className="flex-row items-center gap-md">
+              <div style={{ width: '8px', height: '20px', borderRadius: '4px', background: 'var(--primary-color)' }} />
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 900 }}>{t('system_info.models_title')}</h2>
+            </div>
+            <Button variant="secondary" onClick={() => fetchModels({ forceRefresh: true })} loading={modelsLoading} className="btn-glass">
+              <span style={{ fontSize: '13px' }}>{t('common.refresh')}</span>
+            </Button>
+          </div>
+
+          <div className="card-glass" style={{ padding: '0', borderRadius: '28px', overflow: 'hidden' }}>
+            <div style={{ padding: '24px 32px', background: 'rgba(var(--bg-primary-rgb), 0.3)', borderBottom: '1px solid var(--border-light)' }}>
+              <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-secondary)', fontWeight: 500 }}>{t('system_info.models_desc')}</p>
+            </div>
+
+            <div className="flex-column" style={{ padding: '16px' }}>
+              {modelsLoading ? (
+                <div className="flex-center" style={{ height: '200px' }}><LoadingSpinner /></div>
+              ) : models.length === 0 ? (
+                <div className="flex-center" style={{ height: '200px', color: 'var(--text-tertiary)' }}>{t('system_info.models_empty')}</div>
+              ) : (
+                <div className="flex-column gap-md">
+                   {groupedModels.map((group) => (
+                    <div key={group.id} className="card-glass" style={{ padding: '20px 24px', borderRadius: '20px', background: 'rgba(var(--bg-primary-rgb), 0.2)', border: '1px solid var(--border-light)' }}>
+                      <div className="flex-row justify-between items-center mb-md">
+                        <span style={{ fontSize: '16px', fontWeight: 850, color: 'var(--text-primary)' }}>{group.label}</span>
+                        <span className="badge badge-secondary">{group.items.length} Models</span>
+                      </div>
+                      <div className="flex-row flex-wrap gap-sm">
+                        {group.items.map((model) => (
+                          <div key={`${model.name}-${model.alias ?? 'default'}`} className="flex-column p-sm card-glass card-hover" style={{ minWidth: '120px', borderRadius: '12px', background: 'rgba(var(--bg-primary-rgb), 0.4)' }} title={model.description || ''}>
+                             <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>{model.name}</span>
+                             {model.alias && <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{model.alias}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
-              </div>
-            ))}
+              )}
+            </div>
           </div>
-        )}
-      </Card>
+        </section>
       </div>
     </div>
   );

@@ -238,14 +238,14 @@ export function MainLayout() {
 
   const navItems = [
     { path: '/settings', label: t('nav.basic_settings'), icon: sidebarIcons.settings },
-    { path: '/credentials', label: t('nav.credentials', { defaultValue: 'Unified Credentials' }), icon: sidebarIcons.credentials },
+    { path: '/credentials', label: t('nav.credentials', { defaultValue: '统一凭证池' }), icon: sidebarIcons.credentials },
     { path: '/api-keys', label: t('nav.api_keys'), icon: sidebarIcons.apiKeys },
     { path: '/ai-providers', label: t('nav.ai_providers'), icon: sidebarIcons.aiProviders },
     { path: '/auth-files', label: t('nav.auth_files'), icon: sidebarIcons.authFiles },
-    { path: '/oauth', label: t('nav.oauth', { defaultValue: 'OAuth' }), icon: sidebarIcons.oauth },
+    { path: '/oauth', label: t('nav.oauth', { defaultValue: 'OAuth 登录' }), icon: sidebarIcons.oauth },
     { path: '/usage', label: t('nav.usage_stats'), icon: sidebarIcons.usage },
     { path: '/config', label: t('nav.config_management'), icon: sidebarIcons.config },
-    { path: '/scheduler', label: t('nav.scheduler', { defaultValue: 'Scheduler' }), icon: sidebarIcons.scheduler },
+    { path: '/scheduler', label: t('nav.scheduler', { defaultValue: '定时任务' }), icon: sidebarIcons.scheduler },
     { path: '/model-pool', label: t('nav.model_pool'), icon: sidebarIcons.modelPool },
     ...(config?.loggingToFile ? [{ path: '/logs', label: t('nav.logs'), icon: sidebarIcons.logs }] : []),
     { path: '/system', label: t('nav.system_info'), icon: sidebarIcons.system }

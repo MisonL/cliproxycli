@@ -848,5 +848,27 @@
     "health_ok": "Health check passed (Duration: {{duration}}ms)",
     "health_fail": "Health check failed: {{error}}",
     "health_error": "Error during health check"
+  },
+  "credentials": {
+    "title": "Unified Credential Pool",
+    "subtitle": "Industrial-grade AI credential scheduling system, supporting multi-tenancy isolation, dynamic load balancing, and automatic failover. Integrated with intelligent caching and encrypted storage.",
+    "badge": "Enterprise Ready",
+    "feature_1": "Intelligent Weighting",
+    "feature_2": "Millisecond Failover",
+    "feature_3": "Transparent Proxy",
+    "scheduling_title": "Scheduling Strategy",
+    "scheduling_desc": "Global request distribution algorithm with real-time response.",
+    "strategy_priority": "Priority Mode",
+    "strategy_priority_desc": "Higher priority for lower values, automatic fallback on failure.",
+    "strategy_lb": "Load Balance",
+    "strategy_lb_desc": "Distribute traffic based on weights for balanced processing.",
+    "strategy_rr": "Round Robin",
+    "strategy_rr_desc": "Utilize in sequence to ensure fair distribution.",
+    "strategy_sticky": "Sticky Session",
+    "strategy_sticky_desc": "Maintain the same credential for persistent sessions.",
+    "pool_title": "Credential Pool List",
+    "pool_desc": "Manage API access credentials across different providers and regions.",
+    "add_provider": "Add Provider",
+    "delete_confirm": "Are you sure you want to delete this credential? This action cannot be undone."
   }
 }

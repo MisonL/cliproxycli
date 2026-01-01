@@ -1,18 +1,48 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { UnifiedCredentialManager } from '@/components/auth-config/UnifiedCredentialManager';
 
-const CredentialsPage: React.FC = () => {
-    return (
-        <div className="container mx-auto max-w-5xl py-6 space-y-6">
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold mb-2">Unified Credential Management</h1>
-                <p className="text-gray-500 dark:text-gray-400">
-                    Manage your credentials in a unified pool with advanced scheduling, load balancing, and failover capabilities.
-                </p>
-            </div>
-            <UnifiedCredentialManager />
-        </div>
-    );
-};
+export const CredentialsPage: React.FC = () => {
+  const { t } = useTranslation();
 
-export default CredentialsPage;
+  return (
+    <div className="flex-column">
+      {/* Premium Hero Section */}
+      <section className="hero-wrapper">
+        <div className="hero-content">
+          <div className="badge badge-success" style={{ marginBottom: '16px' }}>
+            {t('credentials.badge')}
+          </div>
+          <h1 className="hero-title">
+            {t('credentials.title')}
+          </h1>
+          <p className="hero-subtitle">
+            {t('credentials.subtitle')}
+          </p>
+          
+          <div className="flex-row gap-lg" style={{ marginTop: '40px' }}>
+            <div className="flex-row items-center gap-sm">
+              <span style={{ color: 'var(--primary-color)' }}>✦</span>
+              <span className="text-secondary" style={{ fontSize: '14px', fontWeight: 600 }}>{t('credentials.feature_1')}</span>
+            </div>
+            <div className="flex-row items-center gap-sm">
+              <span style={{ color: 'var(--primary-color)' }}>✦</span>
+              <span className="text-secondary" style={{ fontSize: '14px', fontWeight: 600 }}>{t('credentials.feature_2')}</span>
+            </div>
+            <div className="flex-row items-center gap-sm">
+              <span style={{ color: 'var(--primary-color)' }}>✦</span>
+              <span className="text-secondary" style={{ fontSize: '14px', fontWeight: 600 }}>{t('credentials.feature_3')}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Content Area */}
+      <div style={{ padding: '0 40px 80px', marginTop: '-40px' }}>
+        <div className="card card-glass">
+          <UnifiedCredentialManager />
+        </div>
+      </div>
+    </div>
+  );
+};

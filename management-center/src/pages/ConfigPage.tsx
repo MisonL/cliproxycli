@@ -4,13 +4,11 @@ import CodeMirror, { ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { search, searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { keymap } from '@codemirror/view';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { IconChevronDown, IconChevronUp, IconSearch } from '@/components/ui/icons';
 import { useNotificationStore, useAuthStore, useThemeStore } from '@/stores';
 import { configFileApi } from '@/services/api/configFile';
-import styles from './ConfigPage.module.scss';
 
 export function ConfigPage() {
   const { t } = useTranslation();
@@ -212,127 +210,115 @@ export function ConfigPage() {
     return t('config_management.status_loaded');
   };
 
-  const getStatusClass = () => {
-    if (error) return styles.error;
-    if (dirty) return styles.modified;
-    if (!loading && !saving) return styles.saved;
-    return '';
-  };
+
 
   return (
-    <div className={styles.container}>
-      <h1 className={styles.pageTitle}>{t('config_management.title')}</h1>
-      <p className={styles.description}>{t('config_management.description')}</p>
+    <div className="flex-column">
+      <header className="hero-wrapper">
+        <div className="hero-content">
+          <div className="flex-column gap-xs">
+            <div className="badge badge-primary" style={{ marginBottom: '8px', width: 'fit-content' }}>
+               Core Engine Config
+            </div>
+            <h1 className="hero-title">{t('config_management.title')}</h1>
+            <p className="hero-subtitle">{t('config_management.description') || '系统核心运行配置，采用标准 YAML 格式，修改后实时生效。'}</p>
+          </div>
+        </div>
+      </header>
 
-      <Card>
-        <div className={styles.content}>
-          {/* Editor */}
-          {error && <div className="error-box">{error}</div>}
-          <div className={styles.editorWrapper} ref={editorWrapperRef}>
-            {/* Floating search controls */}
-            <div className={styles.floatingControls} ref={floatingControlsRef}>
-              <div className={styles.searchInputWrapper}>
+      <div style={{ padding: '0 40px 80px', marginTop: '-40px' }} className="flex-column gap-xl">
+        <div className="card-glass flex-column overflow-hidden" style={{ borderRadius: '24px', border: '1px solid var(--border-light)', minHeight: '600px' }}>
+          {/* 编辑器状态栏 */}
+          <div className="flex-row justify-between items-center" style={{ padding: '20px 28px', background: 'linear-gradient(to right, rgba(var(--bg-primary-rgb), 0.6), rgba(var(--bg-primary-rgb), 0.2))', borderBottom: '1px solid var(--border-light)' }}>
+            <div className="flex-row items-center gap-md">
+              <div className={`record-dot ${dirty ? 'animate-pulse' : ''}`} style={{ 
+                width: '10px', height: '10px', 
+                background: error ? 'var(--error-color)' : (dirty ? 'var(--warning-color)' : 'var(--success-color)'),
+                boxShadow: `0 0 10px ${error ? 'var(--error-color)' : (dirty ? 'var(--warning-color)' : 'var(--success-color)')}`
+              }} />
+              <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-secondary)' }}>{getStatusText()}</span>
+            </div>
+
+            <div className="flex-row items-center gap-md">
+              <Button variant="secondary" size="md" onClick={loadConfig} disabled={loading} className="btn-glass" style={{ height: '40px' }}>
+                 <span style={{ fontSize: '13px' }}>{t('config_management.reload')}</span>
+              </Button>
+              <Button size="md" onClick={handleSave} loading={saving} disabled={disableControls || loading || !dirty} style={{ height: '40px', padding: '0 24px' }}>
+                 <span style={{ fontSize: '13px' }}>{t('config_management.save')}</span>
+              </Button>
+            </div>
+          </div>
+
+          <div style={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+            {/* 浮动搜索栏 */}
+            <div className="card-glass flex-row items-center gap-md" style={{ 
+              position: 'absolute', top: '24px', right: '32px', zIndex: 10,
+              padding: '8px 16px', borderRadius: '16px', border: '1px solid var(--border-light)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.1)', background: 'rgba(var(--bg-primary-rgb), 0.8)'
+            }}>
+              <div style={{ position: 'relative', width: '240px' }}>
                 <Input
+                  className="input-premium"
+                  style={{ height: '36px', paddingLeft: '36px', paddingRight: '70px', fontSize: '13px' }}
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
-                  placeholder={t('config_management.search_placeholder', {
-                    defaultValue: '搜索配置内容...'
-                  })}
+                  placeholder={t('config_management.search_placeholder', { defaultValue: 'Search...' })}
                   disabled={disableControls || loading}
-                  className={styles.searchInput}
-                  rightElement={
-                    <div className={styles.searchRight}>
-                      {searchQuery && lastSearchedQuery === searchQuery && (
-                        <span className={styles.searchCount}>
-                          {searchResults.total > 0
-                            ? `${searchResults.current} / ${searchResults.total}`
-                            : t('config_management.search_no_results', { defaultValue: '无结果' })}
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        className={styles.searchButton}
-                        onClick={() => executeSearch('next')}
-                        disabled={!searchQuery || disableControls || loading}
-                        title={t('config_management.search_button', { defaultValue: '搜索' })}
-                      >
-                        <IconSearch size={16} />
-                      </button>
-                    </div>
-                  }
                 />
+                <IconSearch size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
+                {searchQuery && lastSearchedQuery === searchQuery && (
+                   <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', fontWeight: 800, color: 'var(--primary-color)' }}>
+                     {searchResults.total > 0 ? `${searchResults.current}/${searchResults.total}` : 'N/A'}
+                   </span>
+                )}
               </div>
-              <div className={styles.searchActions}>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handlePrevMatch}
-                  disabled={!searchQuery || lastSearchedQuery !== searchQuery || searchResults.total === 0}
-                  title={t('config_management.search_prev', { defaultValue: '上一个' })}
-                >
+              <div className="flex-row items-center gap-xs">
+                <Button variant="ghost" size="sm" onClick={handlePrevMatch} disabled={!searchQuery || lastSearchedQuery !== searchQuery || searchResults.total === 0} style={{ padding: '6px' }}>
                   <IconChevronUp size={16} />
                 </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleNextMatch}
-                  disabled={!searchQuery || lastSearchedQuery !== searchQuery || searchResults.total === 0}
-                  title={t('config_management.search_next', { defaultValue: '下一个' })}
-                >
+                <Button variant="ghost" size="sm" onClick={handleNextMatch} disabled={!searchQuery || lastSearchedQuery !== searchQuery || searchResults.total === 0} style={{ padding: '6px' }}>
                   <IconChevronDown size={16} />
                 </Button>
               </div>
             </div>
-            <CodeMirror
-              ref={editorRef}
-              value={content}
-              onChange={handleChange}
-              extensions={extensions}
-              theme={theme === 'dark' ? 'dark' : 'light'}
-              editable={!disableControls && !loading}
-              placeholder={t('config_management.editor_placeholder')}
-              height="100%"
-              style={{ height: '100%' }}
-              basicSetup={{
-                lineNumbers: true,
-                highlightActiveLineGutter: true,
-                highlightActiveLine: true,
-                foldGutter: true,
-                dropCursor: true,
-                allowMultipleSelections: true,
-                indentOnInput: true,
-                bracketMatching: true,
-                closeBrackets: true,
-                autocompletion: false,
-                rectangularSelection: true,
-                crosshairCursor: false,
-                highlightSelectionMatches: true,
-                closeBracketsKeymap: true,
-                searchKeymap: true,
-                foldKeymap: true,
-                completionKeymap: false,
-                lintKeymap: true
-              }}
-            />
-          </div>
 
-          {/* Controls */}
-          <div className={styles.controls}>
-            <span className={`${styles.status} ${getStatusClass()}`}>
-              {getStatusText()}
-            </span>
-            <div className={styles.actions}>
-              <Button variant="secondary" size="sm" onClick={loadConfig} disabled={loading}>
-                {t('config_management.reload')}
-              </Button>
-              <Button size="sm" onClick={handleSave} loading={saving} disabled={disableControls || loading || !dirty}>
-                {t('config_management.save')}
-              </Button>
+            <div style={{ flex: 1, minHeight: '500px' }}>
+              <CodeMirror
+                ref={editorRef}
+                value={content}
+                onChange={handleChange}
+                extensions={extensions}
+                theme={theme === 'dark' ? 'dark' : 'light'}
+                editable={!disableControls && !loading}
+                placeholder={t('config_management.editor_placeholder')}
+                height="100%"
+                style={{ height: '100%' }}
+                basicSetup={{
+                  lineNumbers: true,
+                  highlightActiveLineGutter: true,
+                  highlightActiveLine: true,
+                  foldGutter: true,
+                  dropCursor: true,
+                  allowMultipleSelections: true,
+                  indentOnInput: true,
+                  bracketMatching: true,
+                  closeBrackets: true,
+                  autocompletion: false,
+                  rectangularSelection: true,
+                  crosshairCursor: false,
+                  highlightSelectionMatches: true,
+                  closeBracketsKeymap: true,
+                  searchKeymap: true,
+                  foldKeymap: true,
+                  completionKeymap: false,
+                  lintKeymap: true
+                }}
+              />
             </div>
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

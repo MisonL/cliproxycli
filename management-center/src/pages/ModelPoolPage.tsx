@@ -27,7 +27,7 @@ import {
   IconChartBar,
   IconTrash2,
 } from '@/components/ui/icons';
-import styles from './ModelPoolPage.module.scss';
+// 移除旧的 styles 引用
 
 export function ModelPoolPage() {
   const { t } = useTranslation();
@@ -294,229 +294,290 @@ export function ModelPoolPage() {
   };
 
   return (
-    <div className={styles.container}>
-      <header className={styles.pageHeader}>
-        <h1 className={styles.pageTitle}>{t('model_pool.page_title')}</h1>
-        <p className={styles.pageDescription}>{t('model_pool.page_description')}</p>
+    <div className="flex-column">
+      <header className="hero-wrapper">
+        <div className="hero-content flex-row justify-between items-center">
+          <div className="flex-column gap-xs">
+            <div className="badge badge-primary" style={{ marginBottom: '8px', width: 'fit-content' }}>
+               Distributed Architecture
+            </div>
+            <h1 className="hero-title">{t('model_pool.page_title')}</h1>
+            <p className="hero-subtitle">{t('model_pool.page_description') || '企业级大模型服务网格，支持跨供应商负载均衡、自动扩缩容与多级缓存。'}</p>
+          </div>
+          <Button onClick={handleCreatePool} className="btn-glass" style={{ height: '52px', padding: '0 28px' }}>
+            <IconPlus size={20} /> <span style={{ marginLeft: '8px' }}>{t('model_pool.create_pool_btn')}</span>
+          </Button>
+        </div>
       </header>
 
-      {/* 统计概览 */}
-      <section className={styles.statsBar}>
-        <div className={`${styles.statCard} ${styles.info}`}>
-          <span className={styles.statLabel}>{t('model_pool.stats_total_channels')}</span>
-          <span className={styles.statValue}>{stats?.totalChannels || 0}</span>
-        </div>
-        <div className={`${styles.statCard} ${styles.healthy}`}>
-          <span className={styles.statLabel}>{t('model_pool.stats_healthy')}</span>
-          <span className={styles.statValue}>{stats?.healthyChannels || 0}</span>
-        </div>
-        <div className={`${styles.statCard} ${styles.danger}`}>
-          <span className={styles.statLabel}>{t('model_pool.stats_unhealthy')}</span>
-          <span className={styles.statValue}>{stats?.unhealthyChannels || 0}</span>
-        </div>
-        <div className={`${styles.statCard} ${styles.info}`}>
-          <span className={styles.statLabel}>{t('model_pool.stats_success_rate')}</span>
-          <span className={styles.statValue}>{stats?.successRate24h || 100}%</span>
-        </div>
-      </section>
-
-      {/* 工具栏 */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <Input
-            className={styles.searchInput}
-            placeholder={t('model_pool.search_placeholder')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            rightElement={<IconSearch size={16} />}
-          />
-          <select
-            className={styles.filterSelect}
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-          >
-            <option value="all">{t('model_pool.filter_type_all')}</option>
-            <option value="api">{t('model_pool.type_api')}</option>
-            <option value="oauth">{t('model_pool.type_oauth')}</option>
-          </select>
-          <select
-            className={styles.filterSelect}
-            value={providerFilter}
-            onChange={(e) => setProviderFilter(e.target.value)}
-          >
-            <option value="all">{t('model_pool.filter_provider_all')}</option>
-            <option value="gemini">Gemini</option>
-            <option value="claude">Claude</option>
-            <option value="openai">OpenAI</option>
-          </select>
-        </div>
-        <div className={styles.toolbarActions}>
-          <Button variant="secondary" onClick={loadData}>
-            <IconRefreshCw size={16} />
-          </Button>
-          <Button onClick={handleCreatePool}>
-            <IconPlus size={16} /> {t('model_pool.create_pool_btn')}
-          </Button>
-        </div>
-      </div>
-
-      {/* 内容区域 */}
-      {loading ? (
-        <div className={styles.loadingContainer}>
-          <LoadingSpinner />
-        </div>
-      ) : pools.length === 0 ? (
-        <EmptyState
-          title={t('model_pool.no_pools_title')}
-          description={t('model_pool.no_pools_desc')}
-          action={<Button onClick={handleCreatePool}>{t('model_pool.create_pool_btn')}</Button>}
-        />
-      ) : (
-        <div className={styles.poolSection}>
-          {pools.map((pool) => (
-            <div key={pool.id} className={styles.poolCard}>
-              <div className={styles.poolHeader}>
-                <div className={styles.poolTitle}>
-                  <h3 className={styles.poolName}>{pool.name}</h3>
-                  <span
-                    className={`${styles.poolBadge} ${pool.enabled ? styles.active : styles.disabled}`}
-                  >
-                    {pool.enabled ? t('common.enabled') : t('common.disabled')}
-                  </span>
-                </div>
-                <div className={styles.poolMeta}>
-                  <div className={styles.poolMetaItem}>
-                    <IconArrowPath size={14} />
-                    <span>{t(`model_pool.strategy_${pool.rotationStrategy}`)}</span>
-                  </div>
-                  <div className={styles.poolMetaItem}>
-                    <IconActivity size={14} />
-                    <span>
-                      {t('model_pool.concurrency')}: {pool.maxConcurrency}
-                    </span>
-                  </div>
-                  <div className={styles.poolActions}>
-                    <Button variant="secondary" size="sm" onClick={() => handleEditPool(pool)}>
-                      <IconSettings size={14} /> {t('common.edit')}
-                    </Button>
-                    <Button variant="danger" size="sm" onClick={() => handleDeletePool(pool.id)}>
-                      <IconTrash2 size={14} />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              <div className={styles.poolBody}>
-                <div className={styles.channelGrid}>
-                  {channels
-                    .filter((c) => pool.channels.includes(c.id))
-                    .map((channel) => (
-                      <div
-                        key={channel.id}
-                        className={`${styles.channelCard} ${!channel.enabled ? styles.disabled : ''}`}
-                        onClick={() =>
-                          handleCheckHealth(channel.id, pool.healthCheckModel || 'gpt-3.5-turbo')
-                        }
-                      >
-                        <div className={styles.channelHeader}>
-                          <div className={styles.channelInfo}>
-                            <h4 className={styles.channelName}>{channel.name}</h4>
-                            <span className={styles.channelSource}>{channel.sourceDisplay}</span>
-                          </div>
-                          <div
-                            className={`${styles.channelStatus} ${styles[channel.healthStatus]}`}
-                            title={t(`model_pool.health_${channel.healthStatus}`)}
-                          />
-                          <button
-                            className={styles.channelEditBtn}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditChannel(channel);
-                            }}
-                            title={t('common.edit')}
-                          >
-                            <IconSettings size={14} />
-                          </button>
-                        </div>
-                        <div className={styles.channelMeta}>
-                          <span className={`${styles.channelBadge} ${styles.type}`}>
-                            {t(`model_pool.type_${channel.type}`)}
-                          </span>
-                          <span className={`${styles.channelBadge} ${styles.provider}`}>
-                            {channel.provider}
-                          </span>
-                        </div>
-                        <div className={styles.channelStats}>
-                          <span className={styles.statSuccess}>
-                            {t('stats.success')}: {channel.stats.success}
-                          </span>
-                          <span className={styles.statFailure}>
-                            {t('stats.failure')}: {channel.stats.failure}
-                          </span>
-                        </div>
-                        <div className={styles.channelConfig}>
-                          <div className={styles.configItem}>
-                            <span>
-                              {t('model_pool.weight')}: {channel.weight}
-                            </span>
-                          </div>
-                          <div className={styles.configItem}>
-                            <span>
-                              {t('model_pool.priority')}: {channel.priority}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </div>
+      <div style={{ padding: '0 40px 80px', marginTop: '-40px' }} className="flex-column gap-xl">
+        {/* 统计概览 */}
+        <div className="grid cols-4" style={{ gap: '24px' }}>
+          <div className="card-glass flex-row items-center gap-md" style={{ padding: '24px', borderRadius: '20px' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba($primary-color, 0.15) 0%, rgba($primary-color, 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba($primary-color, 0.1)' }}>
+              <IconPlug size={24} style={{ color: 'var(--primary-color)' }} />
             </div>
-          ))}
-        </div>
-      )}
+            <div className="flex-column">
+              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{t('model_pool.stats_total_channels')}</span>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.2 }}>{stats?.totalChannels || 0}</span>
+            </div>
+          </div>
+          
+          <div className="card-glass flex-row items-center gap-md" style={{ padding: '24px', borderRadius: '20px' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(16, 185, 129, 0.1)' }}>
+              <IconActivity size={24} style={{ color: 'var(--success-color)' }} />
+            </div>
+            <div className="flex-column">
+              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{t('model_pool.stats_healthy')}</span>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--success-color)', lineHeight: 1.2 }}>{stats?.healthyChannels || 0}</span>
+            </div>
+          </div>
 
-      {/* 未分配渠道 */}
-      <section className={styles.unassignedSection}>
-        <h2 className={styles.sectionTitle}>
-          <IconPlug size={20} /> {t('model_pool.unassigned_channels')}
-        </h2>
-        <div className={styles.channelGrid}>
-          {filteredChannels
-            .filter((c) => !pools.some((p) => p.channels.includes(c.id)))
-            .map((channel) => (
-              <div
-                key={channel.id}
-                className={`${styles.channelCard} ${!channel.enabled ? styles.disabled : ''}`}
-                title={t('model_pool.click_to_view_details')}
+          <div className="card-glass flex-row items-center gap-md" style={{ padding: '24px', borderRadius: '20px' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(239, 68, 68, 0.1)' }}>
+              <IconShieldCheck size={24} style={{ color: 'var(--error-color)' }} />
+            </div>
+            <div className="flex-column">
+              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{t('model_pool.stats_unhealthy')}</span>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--error-color)', lineHeight: 1.2 }}>{stats?.unhealthyChannels || 0}</span>
+            </div>
+          </div>
+
+          <div className="card-glass flex-row items-center gap-md" style={{ padding: '24px', borderRadius: '20px' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(59, 130, 246, 0.1)' }}>
+              <IconChartBar size={24} style={{ color: 'var(--primary-color)', filter: 'hue-rotate(30deg)' }} />
+            </div>
+            <div className="flex-column">
+              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{t('model_pool.stats_success_rate')}</span>
+              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--primary-color)', lineHeight: 1.2 }}>{stats?.successRate24h || 100}%</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 工具栏 */}
+        <div className="card-glass flex-row justify-between items-center" style={{ padding: '20px 28px', borderRadius: '20px' }}>
+          <div className="flex-row items-center gap-md flex-1">
+            <div style={{ position: 'relative', flex: 1, maxWidth: '350px' }}>
+              <Input
+                className="input-premium"
+                style={{ paddingLeft: '44px', width: '100%' }}
+                placeholder={t('model_pool.search_placeholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <IconSearch size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
+            </div>
+            
+            <div className="flex-row items-center gap-sm card-glass" style={{ padding: '0 16px', height: '44px', background: 'rgba(var(--bg-primary-rgb), 0.3)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+              <select
+                className="input-premium"
+                style={{ border: 'none', background: 'transparent', padding: '0 8px', width: '110px', height: '40px', fontWeight: 600, fontSize: '13px' }}
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
               >
-                <div className={styles.channelHeader}>
-                  <div className={styles.channelInfo}>
-                    <h4 className={styles.channelName}>{channel.name}</h4>
-                    <span className={styles.channelSource}>{channel.sourceDisplay}</span>
+                <option value="all">{t('model_pool.filter_type_all')}</option>
+                <option value="api">{t('model_pool.type_api')}</option>
+                <option value="oauth">{t('model_pool.type_oauth')}</option>
+              </select>
+            </div>
+
+            <div className="flex-row items-center gap-sm card-glass" style={{ padding: '0 16px', height: '44px', background: 'rgba(var(--bg-primary-rgb), 0.3)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+              <select
+                className="input-premium"
+                style={{ border: 'none', background: 'transparent', padding: '0 8px', width: '120px', height: '40px', fontWeight: 600, fontSize: '13px' }}
+                value={providerFilter}
+                onChange={(e) => setProviderFilter(e.target.value)}
+              >
+                <option value="all">{t('model_pool.filter_provider_all')}</option>
+                <option value="gemini">Gemini</option>
+                <option value="claude">Claude</option>
+                <option value="openai">OpenAI</option>
+              </select>
+            </div>
+          </div>
+          
+          <Button variant="secondary" onClick={loadData} className="btn-glass" style={{ width: '44px', height: '44px', padding: 0 }}>
+            <IconRefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+          </Button>
+        </div>
+
+        {/* 内容区域 */}
+        {loading ? (
+          <div className="flex-center" style={{ padding: '100px' }}>
+            <LoadingSpinner />
+          </div>
+        ) : pools.length === 0 ? (
+          <div className="card-glass" style={{ padding: '80px', borderRadius: '24px' }}>
+            <EmptyState
+              title={t('model_pool.no_pools_title')}
+              description={t('model_pool.no_pools_desc')}
+              action={<Button onClick={handleCreatePool} className="btn-glass">{t('model_pool.create_pool_btn')}</Button>}
+            />
+          </div>
+        ) : (
+          <div className="flex-column gap-xl">
+            {pools.map((pool) => (
+              <div key={pool.id} className="card-glass overflow-hidden" style={{ borderRadius: '24px', border: '1px solid var(--border-light)' }}>
+                <div className="flex-row justify-between items-center" style={{ padding: '24px 32px', background: 'linear-gradient(to right, rgba(var(--bg-primary-rgb), 0.6), rgba(var(--bg-primary-rgb), 0.2))', borderBottom: '1px solid var(--border-light)' }}>
+                  <div className="flex-row items-center gap-lg">
+                    <div style={{ width: '12px', height: '24px', background: 'var(--primary-color)', borderRadius: '4px' }} />
+                    <div className="flex-column">
+                      <div className="flex-row items-center gap-md">
+                        <h3 style={{ margin: 0, fontSize: '19px', fontWeight: 900, letterSpacing: '-0.02em' }}>{pool.name}</h3>
+                        <span className={`badge ${pool.enabled ? 'badge-success' : 'badge-secondary'}`} style={{ fontSize: '11px' }}>
+                          {pool.enabled ? t('common.enabled') : t('common.disabled')}
+                        </span>
+                      </div>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 500 }}>{pool.description || '暂无描述信息'}</p>
+                    </div>
                   </div>
-                  <div
-                    className={`${styles.channelStatus} ${styles[channel.healthStatus]}`}
-                    title={t(`model_pool.health_${channel.healthStatus}`)}
-                  />
-                  <button
-                    className={styles.channelEditBtn}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEditChannel(channel);
-                    }}
-                    title={t('common.edit')}
-                  >
-                    <IconSettings size={14} />
-                  </button>
+                  
+                  <div className="flex-row items-center gap-xl">
+                    <div className="flex-row items-center gap-lg">
+                      <div className="flex-column items-center">
+                        <div className="flex-row items-center gap-xs" style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '15px' }}>
+                          <IconArrowPath size={14} style={{ opacity: 0.6 }} />
+                          {t(`model_pool.strategy_${pool.rotationStrategy}`)}
+                        </div>
+                        <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Strategy</span>
+                      </div>
+                      <div style={{ width: '1px', height: '28px', background: 'var(--border-light)' }} />
+                      <div className="flex-column items-center">
+                        <div className="flex-row items-center gap-xs" style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '15px' }}>
+                          <IconActivity size={14} style={{ opacity: 0.6 }} />
+                          {pool.maxConcurrency}
+                        </div>
+                        <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 700, textTransform: 'uppercase' }}>Concurrency</span>
+                      </div>
+                    </div>
+
+                    <div className="flex-row gap-sm">
+                      <Button variant="secondary" size="sm" onClick={() => handleEditPool(pool)} className="btn-glass" style={{ height: '38px', padding: '0 16px', fontSize: '13px' }}>
+                        <IconSettings size={14} /> <span style={{ marginLeft: '4px' }}>{t('common.edit')}</span>
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDeletePool(pool.id)} className="text-error" style={{ width: '38px', height: '38px', padding: 0 }}>
+                        <IconTrash2 size={16} />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div className={styles.channelMeta}>
-                  <div className={styles.channelBadge}>
-                    {getProviderIcon(channel.provider)} {channel.provider}
+
+                <div style={{ padding: '32px' }}>
+                  <div className="grid cols-3" style={{ gap: '20px' }}>
+                    {channels
+                      .filter((c) => pool.channels.includes(c.id))
+                      .map((channel) => (
+                        <div
+                          key={channel.id}
+                          className={`card-glass flex-column card-hover ${!channel.enabled ? 'opacity-60' : ''}`}
+                          style={{ padding: '20px', borderRadius: '18px', border: '1px solid var(--border-light)', position: 'relative' }}
+                          onClick={() => handleCheckHealth(channel.id, pool.healthCheckModel || 'gpt-3.5-turbo')}
+                        >
+                          <div className="flex-row justify-between items-start mb-md">
+                            <div className="flex-column gap-xs">
+                              <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 850 }}>{channel.name}</h4>
+                              <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{channel.sourceDisplay}</span>
+                            </div>
+                            <div className="flex-row items-center gap-sm">
+                              <div 
+                                style={{ 
+                                  width: '10px', height: '10px', borderRadius: '50%', 
+                                  background: channel.healthStatus === 'healthy' ? 'var(--success-color)' : channel.healthStatus === 'degraded' ? 'var(--warning-color)' : 'var(--error-color)',
+                                  boxShadow: `0 0 10px ${channel.healthStatus === 'healthy' ? 'rgba(16, 185, 129, 0.5)' : 'rgba(239, 68, 68, 0.5)'}`
+                                }} 
+                                title={t(`model_pool.health_${channel.healthStatus}`)}
+                              />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                style={{ width: '28px', height: '28px', padding: 0 }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditChannel(channel);
+                                }}
+                              >
+                                <IconSettings size={14} />
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className="flex-row gap-xs mb-lg">
+                            <span className="badge badge-primary-light" style={{ fontSize: '10px', padding: '2px 8px' }}>{t(`model_pool.type_${channel.type}`)}</span>
+                            <span className="badge badge-secondary" style={{ fontSize: '10px', padding: '2px 8px' }}>{channel.provider}</span>
+                          </div>
+
+                          <div className="flex-row justify-between items-center pt-md" style={{ borderTop: '1px dashed var(--border-light)' }}>
+                            <div className="flex-row gap-lg">
+                              <div className="flex-column">
+                                <span style={{ fontSize: '14px', fontWeight: 900, color: 'var(--success-color)' }}>{channel.stats.success}</span>
+                                <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Pass</span>
+                              </div>
+                              <div className="flex-column">
+                                <span style={{ fontSize: '14px', fontWeight: 900, color: 'var(--error-color)' }}>{channel.stats.failure}</span>
+                                <span style={{ fontSize: '9px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Fail</span>
+                              </div>
+                            </div>
+                            <div className="flex-row gap-md">
+                               <div className="flex-column items-end">
+                                 <span style={{ fontSize: '13px', fontWeight: 800 }}>{channel.weight}</span>
+                                 <span style={{ fontSize: '9px', color: 'var(--text-tertiary)' }}>W</span>
+                               </div>
+                               <div className="flex-column items-end">
+                                 <span style={{ fontSize: '13px', fontWeight: 800 }}>{channel.priority}</span>
+                                 <span style={{ fontSize: '9px', color: 'var(--text-tertiary)' }}>P</span>
+                               </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                   </div>
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* 未分配渠道 */}
+        <div className="flex-column gap-lg mt-xl">
+          <div className="flex-row items-center gap-md">
+            <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba($primary-color, 0.1)', color: 'var(--primary-color)' }}>
+              <IconPlug size={20} />
+            </div>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 900 }}>{t('model_pool.unassigned_channels')}</h2>
+          </div>
+          
+          <div className="grid cols-4" style={{ gap: '16px' }}>
+            {filteredChannels
+              .filter((c) => !pools.some((p) => p.channels.includes(c.id)))
+              .map((channel) => (
+                <div
+                  key={channel.id}
+                  className={`card-glass flex-column card-hover ${!channel.enabled ? 'opacity-60' : ''}`}
+                  style={{ padding: '16px', borderRadius: '16px', background: 'rgba(var(--bg-primary-rgb), 0.3)' }}
+                >
+                  <div className="flex-row justify-between items-center mb-md">
+                    <div className="flex-column">
+                      <span style={{ fontSize: '14px', fontWeight: 800 }}>{channel.name}</span>
+                      <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>{channel.sourceDisplay}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      style={{ width: '28px', height: '28px', padding: 0 }}
+                      onClick={() => handleEditChannel(channel)}
+                    >
+                      <IconSettings size={14} />
+                    </Button>
+                  </div>
+                  <div className="flex-row items-center gap-sm">
+                    {getProviderIcon(channel.provider)}
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>{channel.provider}</span>
+                  </div>
+                </div>
+              ))}
+          </div>
         </div>
-      </section>
+      </div>
 
       {/* 池编辑弹窗 */}
       <Modal
@@ -535,41 +596,44 @@ export function ModelPoolPage() {
           </>
         }
       >
-        <div className={styles.formGrid}>
-          <div className={styles.formRow}>
-            <div className={styles.formGroup}>
-              <label>{t('model_pool.pool_name')}</label>
+        <div className="flex-column gap-lg">
+          <div className="grid cols-2" style={{ gap: '20px' }}>
+            <div className="flex-column gap-xs">
+              <label style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('model_pool.pool_name')}</label>
               <Input
+                className="input-premium"
                 value={poolForm.name}
                 onChange={(e) => setPoolForm({ ...poolForm, name: e.target.value })}
                 placeholder={t('model_pool.pool_name_placeholder')}
               />
             </div>
-            <div className={styles.formGroup}>
-              <label>{t('model_pool.rotation_strategy')}</label>
-              <select
-                className={styles.filterSelect}
-                style={{ width: '100%' }}
-                value={poolForm.rotationStrategy}
-                onChange={(e) =>
-                  setPoolForm({
-                    ...poolForm,
-                    rotationStrategy: e.target.value as RotationStrategy,
-                  })
-                }
-              >
-                <option value="round_robin">{t('model_pool.strategy_round_robin')}</option>
-                <option value="weighted">{t('model_pool.strategy_weighted')}</option>
-                <option value="priority">{t('model_pool.strategy_priority')}</option>
-                <option value="random">{t('model_pool.strategy_random')}</option>
-              </select>
+            <div className="flex-column gap-xs">
+              <label style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('model_pool.rotation_strategy')}</label>
+              <div className="card-glass" style={{ height: '44px', background: 'rgba(var(--bg-primary-rgb), 0.3)', borderRadius: '12px', border: '1px solid var(--border-light)', padding: '0 12px' }}>
+                <select
+                  style={{ border: 'none', background: 'transparent', width: '100%', height: '100%', outline: 'none', fontWeight: 600, color: 'var(--text-primary)' }}
+                  value={poolForm.rotationStrategy}
+                  onChange={(e) =>
+                    setPoolForm({
+                      ...poolForm,
+                      rotationStrategy: e.target.value as RotationStrategy,
+                    })
+                  }
+                >
+                  <option value="round_robin">{t('model_pool.strategy_round_robin')}</option>
+                  <option value="weighted">{t('model_pool.strategy_weighted')}</option>
+                  <option value="priority">{t('model_pool.strategy_priority')}</option>
+                  <option value="random">{t('model_pool.strategy_random')}</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div className={styles.formRow}>
-            <div className={styles.formGroup}>
-              <label>{t('model_pool.max_concurrency')}</label>
+          <div className="grid cols-2" style={{ gap: '20px' }}>
+            <div className="flex-column gap-xs">
+              <label style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('model_pool.max_concurrency')}</label>
               <Input
+                className="input-premium"
                 type="number"
                 min={1}
                 value={poolForm.maxConcurrency}
@@ -578,38 +642,49 @@ export function ModelPoolPage() {
                 }
               />
             </div>
-            <div className={styles.formGroup}>
-              <label>{t('model_pool.health_check_interval')}</label>
-              <select
-                className={styles.filterSelect}
-                style={{ width: '100%' }}
-                value={poolForm.healthCheckInterval}
-                onChange={(e) => setPoolForm({ ...poolForm, healthCheckInterval: e.target.value })}
-              >
-                <option value="1m">1 min</option>
-                <option value="5m">5 mins</option>
-                <option value="15m">15 mins</option>
-                <option value="1h">1 hour</option>
-              </select>
+            <div className="flex-column gap-xs">
+              <label style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('model_pool.health_check_interval')}</label>
+              <div className="card-glass" style={{ height: '44px', background: 'rgba(var(--bg-primary-rgb), 0.3)', borderRadius: '12px', border: '1px solid var(--border-light)', padding: '0 12px' }}>
+                <select
+                  style={{ border: 'none', background: 'transparent', width: '100%', height: '100%', outline: 'none', fontWeight: 600, color: 'var(--text-primary)' }}
+                  value={poolForm.healthCheckInterval}
+                  onChange={(e) => setPoolForm({ ...poolForm, healthCheckInterval: e.target.value })}
+                >
+                  <option value="1m">1 min</option>
+                  <option value="5m">5 mins</option>
+                  <option value="15m">15 mins</option>
+                  <option value="1h">1 hour</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div className={styles.formGroup}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <label style={{ marginBottom: 0 }}>{t('model_pool.select_channels')}</label>
-              <div className={styles.selectionModeToggle}>
-                <span className={styles.toggleLabel}>{t('model_pool.selection_mode')}:</span>
-                <div className={styles.toggleButtons}>
+          <div className="flex-column gap-md">
+            <div className="flex-row justify-between items-center">
+              <label style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('model_pool.select_channels')}</label>
+              <div className="flex-row items-center gap-sm">
+                <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{t('model_pool.selection_mode')}:</span>
+                <div className="flex-row gap-xs card-glass" style={{ padding: '2px', borderRadius: '8px', background: 'var(--bg-tertiary)' }}>
                   <button
                     type="button"
-                    className={`${styles.toggleBtn} ${selectionMode === 'channel' ? styles.active : ''}`}
+                    className={`btn-ghost ${selectionMode === 'channel' ? 'active-selection' : ''}`}
+                    style={{ 
+                      fontSize: '11px', padding: '4px 12px', borderRadius: '6px', 
+                      background: selectionMode === 'channel' ? 'var(--primary-color)' : 'transparent',
+                      color: selectionMode === 'channel' ? '#fff' : 'var(--text-tertiary)'
+                    }}
                     onClick={() => setSelectionMode('channel')}
                   >
                     {t('model_pool.selection_mode_channel')}
                   </button>
                   <button
                     type="button"
-                    className={`${styles.toggleBtn} ${selectionMode === 'model' ? styles.active : ''}`}
+                    className={`btn-ghost ${selectionMode === 'model' ? 'active-selection' : ''}`}
+                    style={{ 
+                      fontSize: '11px', padding: '4px 12px', borderRadius: '6px', 
+                      background: selectionMode === 'model' ? 'var(--primary-color)' : 'transparent',
+                      color: selectionMode === 'model' ? '#fff' : 'var(--text-tertiary)'
+                    }}
                     onClick={() => setSelectionMode('model')}
                   >
                     {t('model_pool.selection_mode_model')}
@@ -619,39 +694,45 @@ export function ModelPoolPage() {
             </div>
 
             {selectionMode === 'model' && (
-              <div style={{ marginBottom: '10px' }}>
+              <div style={{ position: 'relative' }}>
                 <Input
+                  className="input-premium"
+                  style={{ paddingLeft: '40px' }}
                   placeholder={t('model_pool.search_placeholder')}
                   value={modelSearchQuery}
                   onChange={(e) => setModelSearchQuery(e.target.value)}
                 />
+                <IconSearch size={14} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
               </div>
             )}
 
-            <div className={styles.channelSelectList}>
+            <div className="card-glass" style={{ maxHeight: '300px', overflowY: 'auto', borderRadius: '16px', border: '1px solid var(--border-light)' }}>
               {selectionMode === 'channel' ? (
-                // Channel Mode List
-                channels.map((channel) => (
-                  <div
-                    key={channel.id}
-                    className={styles.channelSelectItem}
-                    onClick={() => handleToggleChannel(channel.id)}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={poolForm.selectedChannels.includes(channel.id)}
-                      onChange={() => {}}
-                    />
-                    <div className={styles.channelSelectInfo}>
-                      <div className={styles.channelSelectName}>{channel.name}</div>
-                      <div className={styles.channelSelectMeta}>
-                        {channel.provider} | {channel.type}
+                channels.map((channel) => {
+                  const isChecked = poolForm.selectedChannels.includes(channel.id);
+                  return (
+                    <div
+                      key={channel.id}
+                      className="flex-row items-center gap-md"
+                      style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-light)', cursor: 'pointer', transition: 'background 0.2s' }}
+                      onClick={() => handleToggleChannel(channel.id)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {}}
+                        style={{ width: '18px', height: '18px', accentColor: 'var(--primary-color)' }}
+                      />
+                      <div className="flex-column">
+                        <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)' }}>{channel.name}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                          {channel.provider} · {channel.type}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
-                // Model Mode List
                 channels
                   .flatMap(channel => 
                     (channel.models || []).map(model => ({
@@ -672,19 +753,19 @@ export function ModelPoolPage() {
                     return (
                       <div
                         key={`${item.channelId}-${item.modelName}`}
-                        className={styles.channelSelectItem}
+                        className="flex-row items-center gap-md"
+                        style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-light)', cursor: 'pointer' }}
                         onClick={() => handleToggleModel(item.channelId, item.modelName)}
                       >
                         <input
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => {}}
+                          style={{ width: '18px', height: '18px', accentColor: 'var(--primary-color)' }}
                         />
-                        <div className={styles.channelSelectInfo}>
-                          <div className={styles.channelSelectName} style={{ fontWeight: 600 }}>
-                            {item.modelName}
-                          </div>
-                          <div className={styles.channelSelectMeta}>
+                        <div className="flex-column">
+                          <div style={{ fontSize: '14px', fontWeight: 850, color: 'var(--text-primary)' }}>{item.modelName}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
                             {t('model_pool.channel_name')}: {item.channelName} ({item.provider})
                           </div>
                         </div>
@@ -695,14 +776,15 @@ export function ModelPoolPage() {
             </div>
           </div>
 
-          <div className={styles.formGroup}>
-            <label>{t('model_pool.health_check_model')}</label>
+          <div className="flex-column gap-xs">
+            <label style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('model_pool.health_check_model')}</label>
             <Input
+              className="input-premium"
               value={poolForm.healthCheckModel}
               onChange={(e) => setPoolForm({ ...poolForm, healthCheckModel: e.target.value })}
               placeholder="gpt-3.5-turbo"
             />
-            <p className={styles.formHint}>{t('model_pool.health_check_hint')}</p>
+            <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 500 }}>{t('model_pool.health_check_hint')}</p>
           </div>
         </div>
       </Modal>
@@ -724,10 +806,11 @@ export function ModelPoolPage() {
           </>
         }
       >
-        <div className={styles.formGrid}>
-          <div className={styles.formGroup}>
-            <label>{t('model_pool.priority')} (1-100)</label>
+        <div className="flex-column gap-lg">
+          <div className="flex-column gap-xs">
+            <label style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('model_pool.priority')} (1-100)</label>
             <Input
+              className="input-premium"
               type="number"
               min={1}
               max={100}
@@ -738,9 +821,10 @@ export function ModelPoolPage() {
               hint="数值越小优先级越高 (仅在优先级策略下生效)"
             />
           </div>
-          <div className={styles.formGroup}>
-            <label>{t('model_pool.weight')} (1-100)</label>
+          <div className="flex-column gap-xs">
+            <label style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('model_pool.weight')} (1-100)</label>
             <Input
+              className="input-premium"
               type="number"
               min={1}
               max={100}
@@ -751,9 +835,10 @@ export function ModelPoolPage() {
               hint="权重值，越高分配几率越大 (仅在权重策略下生效)"
             />
           </div>
-          <div className={styles.formGroup}>
-            <label>{t('model_pool.max_concurrency')}</label>
+          <div className="flex-column gap-xs">
+            <label style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>{t('model_pool.max_concurrency')}</label>
             <Input
+              className="input-premium"
               type="number"
               min={1}
               value={channelForm.maxConcurrency}
@@ -762,9 +847,9 @@ export function ModelPoolPage() {
               }
             />
           </div>
-          <div className={styles.formGroup}>
+          <div className="card-glass flex-row justify-between items-center" style={{ padding: '12px 16px', borderRadius: '12px', background: 'rgba(var(--bg-primary-rgb), 0.3)' }}>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>{t('common.enabled')}</span>
             <ToggleSwitch
-              label={t('common.enabled')}
               checked={channelForm.enabled}
               onChange={(val: boolean) => setChannelForm({ ...channelForm, enabled: val })}
             />
