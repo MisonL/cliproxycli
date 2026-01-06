@@ -44,24 +44,24 @@ export const useAuthStore = create<AuthStoreState>()(
         if (restoreSessionPromise) return restoreSessionPromise;
 
         restoreSessionPromise = (async () => {
-          secureStorage.migratePlaintextKeys(['apiBase', 'apiUrl', 'managementKey']);
+          secureStorage.migratePlaintextKeys(['managementKey']); // Removed apiBase migration
 
           const wasLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-          const legacyBase =
-            secureStorage.getItem<string>('apiBase') ||
-            secureStorage.getItem<string>('apiUrl', { encrypt: true });
           const legacyKey = secureStorage.getItem<string>('managementKey');
 
-          const { apiBase, managementKey } = get();
-          const resolvedBase = normalizeApiBase(apiBase || legacyBase || detectApiBaseFromLocation());
+          const { managementKey } = get();
+          
+          // Always detect base from location, ignore storage for apiBase
+          const resolvedBase = normalizeApiBase(detectApiBaseFromLocation());
           const resolvedKey = managementKey || legacyKey || '';
 
           set({ apiBase: resolvedBase, managementKey: resolvedKey });
           apiClient.setConfig({ apiBase: resolvedBase, managementKey: resolvedKey });
 
-          if (wasLoggedIn && resolvedBase && resolvedKey) {
+          if (wasLoggedIn && resolvedKey) {
             try {
-              await get().login({ apiBase: resolvedBase, managementKey: resolvedKey });
+              // Login using the resolved base automatically
+              await get().login({ managementKey: resolvedKey });
               return true;
             } catch (error) {
               console.warn('Auto login failed:', error);
@@ -77,7 +77,8 @@ export const useAuthStore = create<AuthStoreState>()(
 
       // 登录
       login: async (credentials) => {
-        const apiBase = normalizeApiBase(credentials.apiBase);
+        // Ignore credentials.apiBase if passed, always use detected or existing base
+        const apiBase = normalizeApiBase(detectApiBaseFromLocation());
         const managementKey = credentials.managementKey.trim();
 
         try {
@@ -129,9 +130,10 @@ export const useAuthStore = create<AuthStoreState>()(
 
       // 检查认证状态
       checkAuth: async () => {
-        const { managementKey, apiBase } = get();
+        const { managementKey } = get();
+        const apiBase = normalizeApiBase(detectApiBaseFromLocation());
 
-        if (!managementKey || !apiBase) {
+        if (!managementKey) {
           return false;
         }
 
@@ -142,9 +144,11 @@ export const useAuthStore = create<AuthStoreState>()(
           // 验证连接
           await useConfigStore.getState().fetchConfig();
 
+          // Sync state just in case
           set({
             isAuthenticated: true,
-            connectionStatus: 'connected'
+            connectionStatus: 'connected',
+            apiBase
           });
 
           return true;
@@ -185,7 +189,7 @@ export const useAuthStore = create<AuthStoreState>()(
         }
       })),
       partialize: (state) => ({
-        apiBase: state.apiBase,
+        // apiBase: state.apiBase, // Found logic to remove this
         managementKey: state.managementKey,
         serverVersion: state.serverVersion,
         serverBuildDate: state.serverBuildDate

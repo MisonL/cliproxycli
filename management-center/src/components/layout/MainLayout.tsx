@@ -381,7 +381,14 @@ export function MainLayout() {
             </span>
             <span>
               {t('footer.build_date')}:{' '}
-              {serverBuildDate ? new Date(serverBuildDate).toLocaleString(i18n.language) : t('system_info.version_unknown')}
+              {(() => {
+                if (!serverBuildDate) return t('system_info.version_unknown');
+                const date = new Date(serverBuildDate);
+                // Check if date is valid (NaN check)
+                return !Number.isNaN(date.getTime())
+                  ? date.toLocaleString(i18n.language)
+                  : serverBuildDate;
+              })()}
             </span>
           </footer>
         </div>

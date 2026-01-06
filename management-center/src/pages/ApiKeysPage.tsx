@@ -128,97 +128,130 @@ export function ApiKeysPage() {
   return (
     <div className="flex-column">
       {/* Hero Header */}
+      {/* Hero Header */}
       <section className="hero-wrapper">
         <div className="hero-content">
-          <div className="badge badge-success" style={{ marginBottom: '16px' }}>
-            Security Layer
+          <div className="flex-column gap-xs">
+            <div className="badge badge-success" style={{ marginBottom: '8px', width: 'fit-content' }}>
+              Security Layer
+            </div>
+            <h1 className="hero-title">{t('api_keys.title') || 'API 访问密钥管理'}</h1>
+            <p className="hero-subtitle">
+              {t('api_keys.subtitle') || '配置用于代理鉴权的 API 密钥。只有持有有效密钥的客户端才能通过网关。支持多级密钥轮转与独立配额审计。'}
+            </p>
           </div>
-          <h1 className="hero-title">API 访问密钥管理</h1>
-          <p className="hero-subtitle">
-            配置用于代理鉴权的 API 密钥。只有持有有效密钥的客户端才能通过网关。支持多级密钥轮转与独立配额审计。
-          </p>
-          <div className="flex-row gap-md" style={{ marginTop: '32px' }}>
-            <Button size="sm" onClick={openAddModal} disabled={disableControls}>
-              <IconPlus size={14} /> 生成新密钥
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => loadApiKeys(true)} disabled={loading}>
-              <IconRefreshCw size={14} /> 同步状态
-            </Button>
+          <div className="flex-row gap-lg" style={{ marginTop: '40px' }}>
+            <div className="flex-row items-center gap-sm">
+               <span style={{ color: 'var(--success-color)' }}>✦</span>
+               <span className="text-secondary" style={{ fontSize: '14px', fontWeight: 600 }}>{t('api_keys.feature_1') || '多级鉴权'}</span>
+            </div>
+             <div className="flex-row items-center gap-sm">
+               <span style={{ color: 'var(--success-color)' }}>✦</span>
+               <span className="text-secondary" style={{ fontSize: '14px', fontWeight: 600 }}>{t('api_keys.feature_2') || '动态轮转'}</span>
+            </div>
+             <div className="flex-row items-center gap-sm">
+               <span style={{ color: 'var(--success-color)' }}>✦</span>
+               <span className="text-secondary" style={{ fontSize: '14px', fontWeight: 600 }}>{t('api_keys.feature_3') || '审计日志'}</span>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Content Area */}
       <div style={{ padding: '0 40px 80px', marginTop: '-40px' }}>
-        <div className="card card-glass overflow-hidden">
-          <div className="card-header">
-            <div className="flex-row items-center gap-sm">
-               <div className="icon-wrapper" style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--primary-color)' }}>
-                  <IconKey size={18} />
-               </div>
-               <span className="title" style={{ fontSize: '18px' }}>存量密钥池</span>
-            </div>
-            <div className="badge badge-success">{apiKeys.length} ACTIVE</div>
-          </div>
-
-          <div className="card-body">
-            {error && <div className="badge badge-error" style={{ width: '100%', marginBottom: '24px' }}>{error}</div>}
-
-            {apiKeys.length === 0 ? (
-              <div style={{ padding: '80px 0' }}>
-                <EmptyState
-                  title={t('api_keys.empty_title')}
-                  description={t('api_keys.empty_desc')}
-                  action={
-                    <Button onClick={openAddModal} disabled={disableControls}>
-                      {t('api_keys.add_button')}
-                    </Button>
-                  }
-                />
-              </div>
-            ) : (
-              <div className="flex-column gap-md">
-                {apiKeys.map((key, index) => (
-                  <div key={index} className="card-glass card-hover" style={{ padding: '16px 24px', borderRadius: '16px', border: '1px solid var(--border-light)' }}>
-                    <div className="flex-row items-center justify-between">
-                      <div className="flex-row items-center gap-lg">
-                        <div style={{ 
-                          width: '32px', height: '32px', borderRadius: '8px', 
-                          background: 'var(--bg-tertiary)', display: 'grid', placeItems: 'center',
-                          fontSize: '11px', fontWeight: 900, color: 'var(--text-tertiary)'
-                        }}>
-                          #{index + 1}
-                        </div>
-                        <div className="flex-column">
-                          <span className="text-primary" style={{ fontWeight: 700, fontSize: '15px', fontFamily: 'var(--font-mono)' }}>
-                            {maskApiKey(String(key || ''))}
-                          </span>
-                          <span className="text-tertiary" style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>
-                            Proxy Authentication Key
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex-row gap-sm">
-                        <Button variant="ghost" size="sm" onClick={() => openEditModal(index)} disabled={disableControls} style={{ padding: '8px' }}>
-                          <IconEdit size={16} />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(index)}
-                          disabled={disableControls || deletingIndex === index}
-                          loading={deletingIndex === index}
-                          style={{ padding: '8px' }}
-                        >
-                          <IconTrash2 size={16} style={{ color: 'var(--error-color)' }} />
-                        </Button>
-                      </div>
+        <div className="card card-glass">
+        <div className="card-body" style={{ padding: '32px' }}>
+            <div className="flex-column gap-xl">
+                 <div className="flex-row items-center justify-between">
+                    <div className="flex-column gap-xs">
+                        <h2 className="title" style={{ fontSize: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                             <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.2) 0%, rgba(var(--primary-color-rgb), 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <IconKey size={18} style={{ color: 'var(--primary-color)' }} />
+                             </div>
+                             {t('api_keys.pool_title') || '存量密钥池'}
+                        </h2>
+                        <p className="text-tertiary" style={{ fontSize: '14px', fontWeight: 500 }}>
+                            {t('api_keys.pool_desc') || '管理当前系统允许接入的密钥列表'}
+                        </p>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                     <div className="flex-row gap-sm">
+                        <Button variant="secondary" onClick={() => loadApiKeys(true)} disabled={loading} style={{ height: '44px', padding: '0 20px', borderRadius: '12px' }}>
+                           <IconRefreshCw size={18} />
+                        </Button>
+                         <Button variant="primary" onClick={openAddModal} disabled={disableControls} style={{ height: '44px', padding: '0 20px', borderRadius: '12px' }}>
+                           <div className="flex-row items-center gap-sm">
+                               <IconPlus size={18} />
+                               <span style={{ fontWeight: 700 }}>{t('api_keys.add_button') || '生成新密钥'}</span>
+                           </div>
+                        </Button>
+                     </div>
+                 </div>
+
+                 {error && <div className="badge badge-error" style={{ width: '100%', marginBottom: '24px' }}>{error}</div>}
+
+                {apiKeys.length === 0 ? (
+                    <EmptyState
+                        title={t('api_keys.empty_title')}
+                        description={t('api_keys.empty_desc')}
+                        action={
+                        <Button onClick={openAddModal} disabled={disableControls}>
+                            {t('api_keys.add_button')}
+                        </Button>
+                        }
+                    />
+                ) : (
+                    <div className="flex-column gap-md">
+                        {apiKeys.map((key, index) => (
+                        <div key={index} className="card-glass card-hover flex-row items-center justify-between" 
+                             style={{ 
+                                 padding: '20px 24px', 
+                                 borderRadius: '20px', 
+                                 background: 'rgba(var(--bg-primary-rgb), 0.3)',
+                                 border: '1px solid var(--border-light)',
+                                 transition: 'transform 0.2s ease'
+                             }}>
+                            <div className="flex-row items-center gap-lg">
+                            <div style={{ 
+                                width: '48px', height: '48px', borderRadius: '14px', 
+                                background: 'rgba(var(--primary-color-rgb), 0.1)', 
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: 'var(--primary-color)'
+                            }}>
+                                <IconKey size={24} />
+                            </div>
+                            <div className="flex-column gap-xs">
+                                <div className="flex-row items-center gap-sm">
+                                    <span style={{ fontSize: '16px', fontWeight: 850, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                                        {maskApiKey(String(key || ''))}
+                                    </span>
+                                    <span className="badge badge-secondary" style={{ textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.05em' }}>ACTIVE</span>
+                                </div>
+                                <span style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>
+                                    Default Permission Group • <span style={{ fontFamily: 'var(--font-mono)' }}>#{index + 1}</span>
+                                </span>
+                            </div>
+                            </div>
+                            <div className="flex-row gap-sm">
+                            <Button variant="ghost" size="sm" onClick={() => openEditModal(index)} disabled={disableControls} style={{ width: '36px', height: '36px', padding: 0, borderRadius: '10px' }}>
+                                <IconEdit size={18} style={{ color: 'var(--primary-color)' }} />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(index)}
+                                disabled={disableControls || deletingIndex === index}
+                                loading={deletingIndex === index}
+                                style={{ width: '36px', height: '36px', padding: 0, borderRadius: '10px' }}
+                            >
+                                <IconTrash2 size={18} style={{ color: 'var(--error-color)' }} />
+                            </Button>
+                            </div>
+                        </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
         </div>
       </div>
 

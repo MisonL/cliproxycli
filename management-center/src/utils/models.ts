@@ -7,25 +7,30 @@ export interface ModelInfo {
   name: string;
   alias?: string;
   description?: string;
+  // Derived fields for UI
+  displayName?: string;
+  fullId?: string;
+  providerPrefix?: string;
+  categoryColor?: string;
 }
 
 const MODEL_CATEGORIES = [
-  { id: 'gpt', label: 'GPT', patterns: [/gpt/i, /\bo\d\b/i, /\bo\d+\.?/i, /\bchatgpt/i] },
-  { id: 'claude', label: 'Claude', patterns: [/claude/i] },
-  { id: 'gemini', label: 'Gemini', patterns: [/gemini/i, /\bgai\b/i] },
-  { id: 'kiro', label: 'Kiro', patterns: [/kiro/i, /amazon/i, /codewhisperer/i] },
-  { id: 'github-copilot', label: 'Copilot', patterns: [/copilot/i] },
-  { id: 'kimi', label: 'Kimi', patterns: [/kimi/i] },
-  { id: 'qwen', label: 'Qwen', patterns: [/qwen/i] },
-  { id: 'glm', label: 'GLM', patterns: [/glm/i, /chatglm/i] },
-  { id: 'grok', label: 'Grok', patterns: [/grok/i] },
-  { id: 'deepseek', label: 'DeepSeek', patterns: [/deepseek/i] }
+  { id: 'gpt', label: 'GPT', prefix: 'openai', color: '#10a37f', patterns: [/gpt/i, /\bo\d\b/i, /\bo\d+\.?/i, /\bchatgpt/i] },
+  { id: 'claude', label: 'Claude', prefix: 'anthropic', color: '#d97757', patterns: [/claude/i] },
+  { id: 'gemini', label: 'Gemini', prefix: 'google', color: '#4b9ef5', patterns: [/gemini/i, /\bgai\b/i] },
+  { id: 'kiro', label: 'Kiro', prefix: 'kiro', color: '#ec4899', patterns: [/kiro/i, /amazon/i, /codewhisperer/i] },
+  { id: 'github-copilot', label: 'Copilot', prefix: 'github', color: '#171b21', patterns: [/copilot/i] },
+  { id: 'kimi', label: 'Kimi', prefix: 'moonshot', color: '#000000', patterns: [/kimi/i] },
+  { id: 'qwen', label: 'Qwen', prefix: 'qwen', color: '#615ced', patterns: [/qwen/i] },
+  { id: 'glm', label: 'GLM', prefix: 'zhipu', color: '#3b82f6', patterns: [/glm/i, /chatglm/i] },
+  { id: 'grok', label: 'Grok', prefix: 'xai', color: '#000000', patterns: [/grok/i] },
+  { id: 'deepseek', label: 'DeepSeek', prefix: 'deepseek', color: '#4e69e0', patterns: [/deepseek/i] }
 ];
 
 const matchCategory = (text: string) => {
   for (const category of MODEL_CATEGORIES) {
     if (category.patterns.some((pattern) => pattern.test(text))) {
-      return category.id;
+      return category;
     }
   }
   return null;
@@ -103,13 +108,31 @@ export function classifyModels(models: ModelInfo[] = [], { otherLabel = 'Other' 
     const name = (model?.name || '').toString();
     const alias = (model?.alias || '').toString();
     const haystack = `${name} ${alias}`.toLowerCase();
-    const matchedId = matchCategory(haystack);
-    const target = matchedId ? groups.find((group) => group.id === matchedId) : null;
+    
+    const category = matchCategory(haystack);
+    const targetGroup = category ? groups.find((g) => g.id === category.id) : null;
 
-    if (target) {
-      target.items.push(model);
+    // Logic to enforce prefix
+    let fullId = name;
+    let providerPrefix = name.includes(':') ? name.split(':')[0] : undefined;
+
+    if (!providerPrefix && category && category.prefix) {
+      providerPrefix = category.prefix;
+      fullId = `${category.prefix}:${name}`;
+    }
+
+    const enhancedModel: ModelInfo = {
+      ...model,
+      displayName: name,
+      fullId: fullId,
+      providerPrefix: providerPrefix,
+      categoryColor: category?.color || '#94a3b8' // Default slate color
+    };
+
+    if (targetGroup) {
+      targetGroup.items.push(enhancedModel);
     } else {
-      otherGroup.items.push(model);
+      otherGroup.items.push(enhancedModel);
     }
   });
 

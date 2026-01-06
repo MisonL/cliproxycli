@@ -1,0 +1,216 @@
+@use '../styles/variables.scss' as *;
+
+.page-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 30%, rgba($primary-color, 0.08), transparent 70%);
+  padding: $spacing-md;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 48px 40px;
+  border-radius: 24px;
+  // We will compose the base glass styles in the component usage or replicate critical parts here if needed
+  // ideally we use the global .card-glass class in JSX, and this class adds specifics.
+  background: var(--bg-glass);
+  backdrop-filter: $glass-blur;
+  -webkit-backdrop-filter: $glass-blur;
+  border: var(--glass-border);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5), var(--glass-inner-glow);
+  
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  position: relative;
+  overflow: hidden;
+
+  // Subtle top highlight
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  }
+}
+
+.logo-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $spacing-lg;
+
+  .logo-icon-wrapper {
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 20px -5px rgba($primary-color, 0.4);
+    
+    // Add a subtle bounce animation on hover or load
+    transition: transform $transition-normal cubic-bezier(0.34, 1.56, 0.64, 1);
+    
+    &:hover {
+      transform: scale(1.05) rotate(5deg);
+    }
+  }
+
+  .text-content {
+    text-align: center;
+    
+    h1 {
+      font-size: 24px;
+      font-weight: 800;
+      background: linear-gradient(to right, #fff, rgba(255,255,255,0.7));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+
+    p {
+      color: var(--text-tertiary);
+      font-size: 13px;
+      font-weight: 500;
+    }
+  }
+}
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.input-wrapper {
+  // Enhancing the input container for better icon alignment
+  position: relative;
+  
+  // Target the global input class within this wrapper
+  :global(.input) {
+    height: 52px;
+    font-size: 15px;
+    background: rgba(0,0,0,0.2) !important; // Darker background for contrast
+    border-color: rgba(255,255,255,0.08) !important;
+    padding-left: 48px !important; // More space for icon
+    transition: all 0.2s ease;
+
+    &:focus {
+      background: rgba(0,0,0,0.3) !important;
+      border-color: var(--primary-color) !important;
+      box-shadow: 0 0 0 4px rgba($primary-color, 0.15);
+    }
+  }
+}
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  transition: color 0.2s;
+  border-radius: 6px;
+
+  &:hover {
+    color: var(--primary-color);
+    background: rgba(255,255,255,0.05);
+  }
+}
+
+.input-icon {
+  // Position is handled by the Input component wrapper
+  color: var(--text-tertiary);
+  transition: color 0.2s;
+}
+
+.input-wrapper:focus-within .input-icon {
+  color: var(--primary-color);
+}
+
+.submit-btn {
+  height: 48px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+  color: #fff;
+  border: none;
+  box-shadow: 0 8px 20px -5px rgba($primary-color, 0.4);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-top: 8px;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px -6px rgba($primary-color, 0.5);
+    filter: brightness(1.1);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.7;
+    cursor: wait;
+  }
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba($error-color, 0.1);
+  color: $error-color;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid rgba($error-color, 0.2);
+  
+  &::before {
+    content: '';
+    display: block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+}
+
+.footer-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -10px; // Pull closer to button
+  
+  font-size: 12px;
+  color: var(--text-tertiary);
+  opacity: 0.6;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  span {
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    margin-left: 4px;
+    background: rgba(255,255,255,0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+}

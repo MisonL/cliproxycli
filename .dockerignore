@@ -31,3 +31,18 @@ bin/*
 .agent/*
 .bmad/*
 _bmad/*
+
+# Development dependencies and build artifacts
+**/node_modules
+**/dist
+**/build
+.DS_Store
+**/.DS_Store
+tmp
+.idea
+.vscode
+
+# Large assets not needed for build
+banner.txt
+*.mp4
+*.mov

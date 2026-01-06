@@ -304,19 +304,47 @@ export function SchedulerPage() {
 
   return (
     <div className="flex-column">
-      <div className="hero-wrapper">
-        <div className="hero-content flex-row justify-between items-center">
-          <div className="flex-column gap-xs">
-            <h1 className="hero-title">{t('scheduler.page_title')}</h1>
-            <p className="hero-subtitle">自动化任务调度与日志监控中心</p>
+      <section className="hero-wrapper">
+        <div className="hero-content">
+          <div className="flex-row justify-between items-start">
+             <div className="flex-column gap-xs">
+              <div className="badge badge-primary" style={{ marginBottom: '8px', width: 'fit-content' }}>
+                Automation Center
+              </div>
+              <h1 className="hero-title">{t('scheduler.page_title')}</h1>
+              <p className="hero-subtitle">
+                {t('scheduler.page_subtitle') || '自动化任务调度与日志监控中心。支持定时执行、间隔轮询与 cron 表达式触发。集成多模态大模型处理能力。'}
+              </p>
+            </div>
+            <Button onClick={handleCreate} className="btn-glass" style={{ height: '48px', padding: '0 24px', borderRadius: '14px', boxShadow: '0 8px 20px -6px rgba(var(--primary-color-rgb), 0.3)' }}>
+              <div className="flex-row items-center gap-sm">
+                 <IconPlus size={20} /> 
+                 <span style={{ fontWeight: 700 }}>{t('scheduler.create_task_button')}</span>
+              </div>
+            </Button>
           </div>
-          <Button onClick={handleCreate} className="btn-glass">
-            <IconPlus size={18} /> {t('scheduler.create_task_button')}
-          </Button>
+          
+           <div className="flex-row gap-lg" style={{ marginTop: '40px' }}>
+            <div className="flex-row items-center gap-sm">
+               <span style={{ color: 'var(--primary-color)' }}>✦</span>
+               <span className="text-secondary" style={{ fontSize: '14px', fontWeight: 600 }}>{t('scheduler.feature_1') || '精准调度'}</span>
+            </div>
+             <div className="flex-row items-center gap-sm">
+               <span style={{ color: 'var(--primary-color)' }}>✦</span>
+               <span className="text-secondary" style={{ fontSize: '14px', fontWeight: 600 }}>{t('scheduler.feature_2') || '执行日志'}</span>
+            </div>
+             <div className="flex-row items-center gap-sm">
+               <span style={{ color: 'var(--primary-color)' }}>✦</span>
+               <span className="text-secondary" style={{ fontSize: '14px', fontWeight: 600 }}>{t('scheduler.feature_3') || '失败重试'}</span>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div style={{ padding: '0 40px 80px', marginTop: '-60px' }} className="flex-column gap-xl">
+      <div style={{ padding: '0 40px 80px', marginTop: '-40px' }}>
+        <div className="card card-glass">
+          <div className="card-body" style={{ padding: '32px' }}>
+            <div className="flex-column gap-xl">
 
         {/* 顶部统计面板 - 全新水晶风格 */}
         <div className="grid cols-4" style={{ gap: '24px' }}>
@@ -540,9 +568,11 @@ export function SchedulerPage() {
 
         {/* 执行日志面板 - 专业表格设计 */}
         <div className="card-glass flex-column" style={{ padding: '0', borderRadius: '24px', overflow: 'hidden' }}>
-          <div className="flex-row justify-between items-center" style={{ padding: '24px 32px', background: 'linear-gradient(to right, rgba(var(--bg-primary-rgb), 0.6), rgba(var(--bg-primary-rgb), 0.2))', borderBottom: '1px solid var(--border-light)' }}>
+          <div className="flex-row justify-between items-center" style={{ padding: '24px 32px', background: 'rgba(var(--bg-primary-rgb), 0.3)', borderBottom: '1px solid var(--border-light)' }}>
             <div className="flex-row items-center gap-md">
-              <div style={{ width: '12px', height: '24px', background: 'var(--primary-color)', borderRadius: '4px' }} />
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.2) 0%, rgba(var(--primary-color-rgb), 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <IconScrollText size={18} style={{ color: 'var(--primary-color)' }} />
+              </div>
               <h2 style={{ margin: 0, fontSize: '19px', fontWeight: 900, letterSpacing: '-0.02em' }}>{t('scheduler.execution_logs_title')}</h2>
               <span className="badge badge-secondary" style={{ fontSize: '11px' }}>最近 {logs.length} 条记录</span>
             </div>
@@ -680,6 +710,9 @@ export function SchedulerPage() {
               </div>
             </div>
           )}
+        </div>
+            </div>
+          </div>
         </div>
       </div>
 

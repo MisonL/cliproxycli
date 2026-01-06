@@ -17,7 +17,7 @@ import { Line } from 'react-chartjs-2';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { IconDiamond, IconDollarSign, IconPlus, IconRefreshCw, IconSatellite, IconTimer, IconTrendingUp } from '@/components/ui/icons';
+import { IconDiamond, IconDollarSign, IconPlus, IconRefreshCw, IconSatellite, IconTimer, IconTrendingUp, IconChartBar } from '@/components/ui/icons';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useThemeStore } from '@/stores';
 import { usageApi } from '@/services/api/usage';
@@ -555,7 +555,10 @@ export function UsagePage() {
         </div>
       </header>
 
-      <div style={{ padding: '0 40px 80px', marginTop: '-40px' }} className="flex-column gap-xl">
+      <div style={{ padding: '0 40px 80px', marginTop: '-40px' }}>
+        <div className="card card-glass">
+          <div className="card-body" style={{ padding: '32px' }}>
+            <div className="flex-column gap-xl">
         {error && (
           <div className="card-glass border-error" style={{ padding: '16px 24px' }}>
             <span className="text-error" style={{ fontWeight: 600 }}>{error}</span>
@@ -578,7 +581,7 @@ export function UsagePage() {
                   '--accent-soft': card.accentSoft,
                   border: '1px solid var(--border-color)',
                   boxShadow: '0 8px 32px -4px rgba(0,0,0,0.1)'
-                } as any
+                } as React.CSSProperties
               }
             >
               <div className="flex-row justify-between items-start mb-md">
@@ -674,7 +677,12 @@ export function UsagePage() {
           {/* Requests Chart */}
           <div className="card-glass" style={{ padding: '24px' }}>
             <div className="flex-row justify-between items-center mb-xl">
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>{t('usage_stats.requests_trend')}</h3>
+              <div className="flex-row items-center gap-md">
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.2) 0%, rgba(var(--primary-color-rgb), 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <IconSatellite size={18} style={{ color: 'var(--primary-color)' }} />
+                </div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>{t('usage_stats.requests_trend')}</h3>
+              </div>
               <div className="flex-row bg-secondary p-xs rounded-lg" style={{ background: 'rgba(var(--bg-primary-rgb), 0.5)', padding: '4px', border: '1px solid var(--border-color)' }}>
                 <Button
                   variant={requestsPeriod === 'hour' ? 'primary' : 'ghost'}
@@ -728,7 +736,12 @@ export function UsagePage() {
           {/* Tokens Chart */}
           <div className="card-glass" style={{ padding: '24px' }}>
             <div className="flex-row justify-between items-center mb-xl">
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>{t('usage_stats.tokens_trend')}</h3>
+               <div className="flex-row items-center gap-md">
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.2) 0%, rgba(var(--primary-color-rgb), 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <IconDiamond size={18} style={{ color: 'var(--primary-color)' }} />
+                </div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>{t('usage_stats.tokens_trend')}</h3>
+              </div>
               <div className="flex-row bg-secondary p-xs rounded-lg" style={{ background: 'rgba(var(--bg-primary-rgb), 0.5)', padding: '4px', border: '1px solid var(--border-color)' }}>
                 <Button
                   variant={tokensPeriod === 'hour' ? 'primary' : 'ghost'}
@@ -783,7 +796,12 @@ export function UsagePage() {
         <div className="grid cols-2" style={{ gap: '24px' }}>
           {/* API Key Statistics */}
           <div className="card-glass" style={{ padding: '24px' }}>
-            <h3 className="mb-lg" style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>{t('usage_stats.api_details')}</h3>
+            <div className="flex-row items-center gap-md mb-lg">
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.2) 0%, rgba(var(--primary-color-rgb), 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <IconChartBar size={18} style={{ color: 'var(--primary-color)' }} />
+                </div>
+               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>{t('usage_stats.api_details')}</h3>
+            </div>
             {loading ? (
               <div className="flex-center" style={{ padding: '40px', color: 'var(--text-tertiary)' }}>{t('common.loading')}</div>
             ) : apiStats.length > 0 ? (
@@ -980,6 +998,9 @@ export function UsagePage() {
               ) : (
                 <div className="flex-center card-glass" style={{ padding: '32px', color: 'var(--text-tertiary)' }}>{t('usage_stats.model_price_empty')}</div>
               )}
+            </div>
+          </div>
+        </div>
             </div>
           </div>
         </div>

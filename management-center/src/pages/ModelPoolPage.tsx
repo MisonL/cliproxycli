@@ -310,7 +310,10 @@ export function ModelPoolPage() {
         </div>
       </header>
 
-      <div style={{ padding: '0 40px 80px', marginTop: '-40px' }} className="flex-column gap-xl">
+      <div style={{ padding: '0 40px 80px', marginTop: '-40px' }}>
+        <div className="card card-glass">
+          <div className="card-body" style={{ padding: '32px' }}>
+            <div className="flex-column gap-xl">
         {/* 统计概览 */}
         <div className="grid cols-4" style={{ gap: '24px' }}>
           <div className="card-glass flex-row items-center gap-md" style={{ padding: '24px', borderRadius: '20px' }}>
@@ -540,8 +543,8 @@ export function ModelPoolPage() {
         {/* 未分配渠道 */}
         <div className="flex-column gap-lg mt-xl">
           <div className="flex-row items-center gap-md">
-            <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba($primary-color, 0.1)', color: 'var(--primary-color)' }}>
-              <IconPlug size={20} />
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, rgba(var(--primary-color-rgb), 0.2) 0%, rgba(var(--primary-color-rgb), 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <IconPlug size={18} style={{ color: 'var(--primary-color)' }} />
             </div>
             <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 900 }}>{t('model_pool.unassigned_channels')}</h2>
           </div>
@@ -575,6 +578,9 @@ export function ModelPoolPage() {
                   </div>
                 </div>
               ))}
+          </div>
+        </div>
+            </div>
           </div>
         </div>
       </div>

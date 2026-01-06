@@ -5,7 +5,7 @@
 
 // 登录凭据
 export interface LoginCredentials {
-  apiBase: string;
+  apiBase?: string;
   managementKey: string;
 }
 
