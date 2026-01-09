@@ -17,11 +17,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/auth/gemini"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/interfaces"
-	sdkAuth "github.com/router-for-me/CLIProxyAPI/v6/sdk/auth"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"cliproxy/internal/auth/gemini"
+	"cliproxy/internal/config"
+	"cliproxy/internal/interfaces"
+	sdkAuth "cliproxy/sdk/auth"
+	cliproxyauth "cliproxy/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 )
@@ -76,7 +76,7 @@ func DoLogin(cfg *config.Config, projectID string, options *LoginOptions) {
 	}
 
 	geminiAuth := gemini.NewGeminiAuth()
-	httpClient, errClient := geminiAuth.GetAuthenticatedClient(ctx, storage, cfg, options.NoBrowser)
+	httpClient, errClient := geminiAuth.GetAuthenticatedClient(ctx, storage, cfg, &gemini.WebLoginOptions{NoBrowser: options.NoBrowser})
 	if errClient != nil {
 		log.Errorf("Gemini authentication failed: %v", errClient)
 		return

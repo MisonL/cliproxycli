@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/usage"
+	"cliproxy/sdk/cliproxy/usage"
 )
 
 // OpenAIStreamState tracks the state of streaming response conversion

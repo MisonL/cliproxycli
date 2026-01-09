@@ -1,17 +1,17 @@
 # @sdk/access SDK Reference
 
-The `github.com/router-for-me/CLIProxyAPI/v6/sdk/access` package centralizes inbound request authentication for the proxy. It offers a lightweight manager that chains credential providers, so servers can reuse the same access control logic inside or outside the CLI runtime.
+The `cliproxy/sdk/access` package centralizes inbound request authentication for the proxy. It offers a lightweight manager that chains credential providers, so servers can reuse the same access control logic inside or outside the CLI runtime.
 
 ## Importing
 
 ```go
 import (
-    sdkaccess "github.com/router-for-me/CLIProxyAPI/v6/sdk/access"
-    "github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+    sdkaccess "cliproxy/sdk/access"
+    "cliproxy/internal/config"
 )
 ```
 
-Add the module with `go get github.com/router-for-me/CLIProxyAPI/v6/sdk/access`.
+Add the module with `go get cliproxy/sdk/access`.
 
 ## Manager Lifecycle
 
@@ -85,7 +85,7 @@ auth:
 ```go
 import (
     _ "github.com/acme/xplatform/sdk/access/providers/partner" // registers partner-token
-    sdkaccess "github.com/router-for-me/CLIProxyAPI/v6/sdk/access"
+    sdkaccess "cliproxy/sdk/access"
 )
 ```
 

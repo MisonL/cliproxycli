@@ -4,28 +4,15 @@ package watcher
 
 import (
 	"context"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+	"cliproxy/internal/config"
 	"gopkg.in/yaml.v3"
 
-	sdkAuth "github.com/router-for-me/CLIProxyAPI/v6/sdk/auth"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
-	log "github.com/sirupsen/logrus"
+	coreauth "cliproxy/sdk/cliproxy/auth"
 )
-
-// storePersister captures persistence-capable token store methods used by the watcher.
-type storePersister interface {
-	PersistConfig(ctx context.Context) error
-	PersistAuthFiles(ctx context.Context, message string, paths ...string) error
-}
-
-type authDirProvider interface {
-	AuthDir() string
-}
 
 // Watcher manages file watching for configuration and authentication files
 type Watcher struct {
@@ -48,7 +35,6 @@ type Watcher struct {
 	pendingUpdates    map[string]AuthUpdate
 	pendingOrder      []string
 	dispatchCancel    context.CancelFunc
-	storePersister    storePersister
 	mirroredAuthDir   string
 	oldConfigYaml     []byte
 }
@@ -91,18 +77,6 @@ func NewWatcher(configPath, authDir string, reloadCallback func(*config.Config))
 		lastAuthHashes: make(map[string]string),
 	}
 	w.dispatchCond = sync.NewCond(&w.dispatchMu)
-	if store := sdkAuth.GetTokenStore(); store != nil {
-		if persister, ok := store.(storePersister); ok {
-			w.storePersister = persister
-			log.Debug("persistence-capable token store detected; watcher will propagate persisted changes")
-		}
-		if provider, ok := store.(authDirProvider); ok {
-			if fixed := strings.TrimSpace(provider.AuthDir()); fixed != "" {
-				w.mirroredAuthDir = fixed
-				log.Debugf("mirrored auth directory locked to %s", fixed)
-			}
-		}
-	}
 	return w, nil
 }
 

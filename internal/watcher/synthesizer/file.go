@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/runtime/geminicli"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"cliproxy/internal/runtime/geminicli"
+	coreauth "cliproxy/sdk/cliproxy/auth"
 )
 
 // FileSynthesizer generates Auth entries from OAuth JSON files.
@@ -86,22 +86,12 @@ func (s *FileSynthesizer) Synthesize(ctx *SynthesisContext) ([]*coreauth.Auth, e
 			}
 		}
 
-		status := coreauth.StatusActive
-		var statusMsg string
-		if s, ok := metadata["status"].(string); ok && s != "" {
-			status = coreauth.Status(s)
-		}
-		if msg, ok := metadata["status_message"].(string); ok {
-			statusMsg = msg
-		}
-
 		a := &coreauth.Auth{
-			ID:            id,
-			Provider:      provider,
-			Label:         label,
-			Prefix:        prefix,
-			Status:        status,
-			StatusMessage: statusMsg,
+			ID:       id,
+			Provider: provider,
+			Label:    label,
+			Prefix:   prefix,
+			Status:   coreauth.StatusActive,
 			Attributes: map[string]string{
 				"source": full,
 				"path":   full,

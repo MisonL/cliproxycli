@@ -1,6 +1,10 @@
 package scheduler
 
-import "time"
+import (
+	"encoding/json"
+	"sync"
+	"time"
+)
 
 // TaskType defines the scheduling strategy.
 type TaskType string
@@ -23,6 +27,7 @@ const (
 
 // Task represents a scheduled AI job.
 type Task struct {
+	mu           sync.RWMutex
 	ID           string     `json:"id"`
 	Name         string     `json:"name"`
 	Type         TaskType   `json:"type"`       // "interval" or "fixed_time"
@@ -37,6 +42,24 @@ type Task struct {
 	LastRunAt    *time.Time `json:"last_run_at"`
 	NextRunAt    *time.Time `json:"next_run_at"`
 	FailureCount int        `json:"failure_count"`
+}
+
+func (t *Task) Lock()    { t.mu.Lock() }
+func (t *Task) Unlock()  { t.mu.Unlock() }
+func (t *Task) RLock()   { t.mu.RLock() }
+func (t *Task) RUnlock() { t.mu.RUnlock() }
+
+// MarshalJSON provides thread-safe JSON serialization.
+func (t *Task) MarshalJSON() ([]byte, error) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	type Alias Task
+	return json.Marshal(&struct {
+		*Alias
+	}{
+		Alias: (*Alias)(t),
+	})
 }
 
 // ExecutionLog records the result of a task run.

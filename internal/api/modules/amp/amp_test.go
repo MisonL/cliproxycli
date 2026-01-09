@@ -9,10 +9,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/api/modules"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	sdkaccess "github.com/router-for-me/CLIProxyAPI/v6/sdk/access"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/api/handlers"
+	"cliproxy/internal/api/modules"
+	"cliproxy/internal/config"
+	sdkaccess "cliproxy/sdk/access"
+	"cliproxy/sdk/api/handlers"
+	sdkconfig "cliproxy/sdk/config"
 )
 
 func TestAmpModule_Name(t *testing.T) {
@@ -56,9 +57,11 @@ func TestAmpModule_Register_WithUpstream(t *testing.T) {
 	m := NewLegacy(accessManager, func(c *gin.Context) { c.Next() })
 
 	cfg := &config.Config{
-		AmpCode: config.AmpCode{
-			UpstreamURL:    upstream.URL,
-			UpstreamAPIKey: "test-key",
+		SDKConfig: sdkconfig.SDKConfig{
+			AmpCode: config.AmpCode{
+				UpstreamURL:    upstream.URL,
+				UpstreamAPIKey: "test-key",
+			},
 		},
 	}
 
@@ -88,8 +91,10 @@ func TestAmpModule_Register_WithoutUpstream(t *testing.T) {
 	m := NewLegacy(accessManager, func(c *gin.Context) { c.Next() })
 
 	cfg := &config.Config{
-		AmpCode: config.AmpCode{
-			UpstreamURL: "", // No upstream
+		SDKConfig: sdkconfig.SDKConfig{
+			AmpCode: config.AmpCode{
+				UpstreamURL: "", // No upstream
+			},
 		},
 	}
 
@@ -125,8 +130,10 @@ func TestAmpModule_Register_InvalidUpstream(t *testing.T) {
 	m := NewLegacy(accessManager, func(c *gin.Context) { c.Next() })
 
 	cfg := &config.Config{
-		AmpCode: config.AmpCode{
-			UpstreamURL: "://invalid-url",
+		SDKConfig: sdkconfig.SDKConfig{
+			AmpCode: config.AmpCode{
+				UpstreamURL: "://invalid-url",
+			},
 		},
 	}
 
@@ -159,8 +166,8 @@ func TestAmpModule_OnConfigUpdated_CacheInvalidation(t *testing.T) {
 		t.Fatal("expected cache to be set")
 	}
 
-	// Update config - should invalidate cache (API key change triggers invalidation)
-	if err := m.OnConfigUpdated(&config.Config{AmpCode: config.AmpCode{UpstreamURL: "http://x", UpstreamAPIKey: "new-key"}}); err != nil {
+	// Update config - should invalidate cache
+	if err := m.OnConfigUpdated(&config.Config{SDKConfig: sdkconfig.SDKConfig{AmpCode: config.AmpCode{UpstreamURL: "http://x", UpstreamAPIKey: "new-key"}}}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -184,7 +191,7 @@ func TestAmpModule_OnConfigUpdated_URLRemoved(t *testing.T) {
 	m.secretSource = ms
 
 	// Config update with empty URL - should log warning but not error
-	cfg := &config.Config{AmpCode: config.AmpCode{UpstreamURL: ""}}
+	cfg := &config.Config{SDKConfig: sdkconfig.SDKConfig{AmpCode: config.AmpCode{UpstreamURL: ""}}}
 
 	if err := m.OnConfigUpdated(cfg); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -196,7 +203,7 @@ func TestAmpModule_OnConfigUpdated_NonMultiSourceSecret(t *testing.T) {
 	m := &AmpModule{enabled: true}
 	m.secretSource = NewStaticSecretSource("static-key")
 
-	cfg := &config.Config{AmpCode: config.AmpCode{UpstreamURL: "http://example.com"}}
+	cfg := &config.Config{SDKConfig: sdkconfig.SDKConfig{AmpCode: config.AmpCode{UpstreamURL: "http://example.com"}}}
 
 	// Should not error or panic
 	if err := m.OnConfigUpdated(cfg); err != nil {
@@ -249,9 +256,11 @@ func TestAmpModule_SecretSource_FromConfig(t *testing.T) {
 
 	// Config with explicit API key
 	cfg := &config.Config{
-		AmpCode: config.AmpCode{
-			UpstreamURL:    upstream.URL,
-			UpstreamAPIKey: "config-key",
+		SDKConfig: sdkconfig.SDKConfig{
+			AmpCode: config.AmpCode{
+				UpstreamURL:    upstream.URL,
+				UpstreamAPIKey: "config-key",
+			},
 		},
 	}
 
@@ -294,7 +303,7 @@ func TestAmpModule_ProviderAliasesAlwaysRegistered(t *testing.T) {
 
 			m := NewLegacy(accessManager, func(c *gin.Context) { c.Next() })
 
-			cfg := &config.Config{AmpCode: config.AmpCode{UpstreamURL: scenario.configURL}}
+			cfg := &config.Config{SDKConfig: sdkconfig.SDKConfig{AmpCode: config.AmpCode{UpstreamURL: scenario.configURL}}}
 
 			ctx := modules.Context{Engine: r, BaseHandler: base, Config: cfg, AuthMiddleware: func(c *gin.Context) { c.Next() }}
 			if err := m.Register(ctx); err != nil && scenario.configURL != "" {
@@ -310,5 +319,43 @@ func TestAmpModule_ProviderAliasesAlwaysRegistered(t *testing.T) {
 				t.Fatal("provider aliases should be registered")
 			}
 		})
+	}
+}
+
+func TestAmpModule_hasUpstreamAPIKeysChanged_DetectsRemovedKeyWithDuplicateInput(t *testing.T) {
+	m := &AmpModule{}
+
+	oldCfg := &config.AmpCode{
+		UpstreamAPIKeys: []config.AmpUpstreamAPIKeyEntry{
+			{UpstreamAPIKey: "u1", APIKeys: []string{"k1", "k2"}},
+		},
+	}
+	newCfg := &config.AmpCode{
+		UpstreamAPIKeys: []config.AmpUpstreamAPIKeyEntry{
+			{UpstreamAPIKey: "u1", APIKeys: []string{"k1", "k1"}},
+		},
+	}
+
+	if !m.hasUpstreamAPIKeysChanged(oldCfg, newCfg) {
+		t.Fatal("expected change to be detected when k2 is removed but new list contains duplicates")
+	}
+}
+
+func TestAmpModule_hasUpstreamAPIKeysChanged_IgnoresEmptyAndWhitespaceKeys(t *testing.T) {
+	m := &AmpModule{}
+
+	oldCfg := &config.AmpCode{
+		UpstreamAPIKeys: []config.AmpUpstreamAPIKeyEntry{
+			{UpstreamAPIKey: "u1", APIKeys: []string{"k1", "k2"}},
+		},
+	}
+	newCfg := &config.AmpCode{
+		UpstreamAPIKeys: []config.AmpUpstreamAPIKeyEntry{
+			{UpstreamAPIKey: "u1", APIKeys: []string{"  k1  ", "", "k2", "   "}},
+		},
+	}
+
+	if m.hasUpstreamAPIKeysChanged(oldCfg, newCfg) {
+		t.Fatal("expected no change when only whitespace/empty entries differ")
 	}
 }

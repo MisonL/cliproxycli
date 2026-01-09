@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	sdkAuth "github.com/router-for-me/CLIProxyAPI/v6/sdk/auth"
+	"cliproxy/internal/config"
+	sdkAuth "cliproxy/sdk/auth"
 	log "github.com/sirupsen/logrus"
 )
 

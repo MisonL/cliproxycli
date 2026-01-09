@@ -9,12 +9,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	coreusage "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/usage"
+	coreusage "cliproxy/sdk/cliproxy/usage"
 )
 
 var statisticsEnabled atomic.Bool
@@ -73,7 +74,6 @@ type RequestStatistics struct {
 	requestsByHour map[int]int64
 	tokensByDay    map[string]int64
 	tokensByHour   map[int]int64
-	dirty          bool
 }
 
 // apiStats holds aggregated metrics for a single API key.
@@ -94,7 +94,7 @@ type modelStats struct {
 type RequestDetail struct {
 	Timestamp time.Time  `json:"timestamp"`
 	Source    string     `json:"source"`
-	AuthIndex uint64     `json:"auth_index"`
+	AuthIndex string     `json:"auth_index"`
 	Tokens    TokenStats `json:"tokens"`
 	Failed    bool       `json:"failed"`
 }
@@ -211,7 +211,6 @@ func (s *RequestStatistics) Record(ctx context.Context, record coreusage.Record)
 	s.requestsByHour[hourKey]++
 	s.tokensByDay[dayKey] += totalTokens
 	s.tokensByHour[hourKey] += totalTokens
-	s.dirty = true
 }
 
 func (s *RequestStatistics) updateAPIStats(stats *apiStats, model string, detail RequestDetail) {
@@ -225,124 +224,6 @@ func (s *RequestStatistics) updateAPIStats(stats *apiStats, model string, detail
 	modelStatsValue.TotalRequests++
 	modelStatsValue.TotalTokens += detail.Tokens.TotalTokens
 	modelStatsValue.Details = append(modelStatsValue.Details, detail)
-}
-
-// Save persists the current statistics snapshot to a JSON file.
-// It returns true if the statistics were saved, false if skipped because not dirty.
-func (s *RequestStatistics) Save(path string) (bool, error) {
-	if s == nil {
-		return false, nil
-	}
-
-	s.mu.Lock()
-	if !s.dirty {
-		s.mu.Unlock()
-		return false, nil
-	}
-	s.dirty = false // Reset dirty flag before snapshot if we want to be strict, but Snapshot() also locks.
-	s.mu.Unlock()
-
-	snapshot := s.Snapshot()
-	data, err := json.MarshalIndent(snapshot, "", "  ")
-	if err != nil {
-		return false, fmt.Errorf("failed to marshal usage stats: %w", err)
-	}
-
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return false, fmt.Errorf("failed to create usage stats directory: %w", err)
-	}
-
-	// Atomic write: write to temp file then rename
-	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
-		return false, fmt.Errorf("failed to write usage stats to temp file: %w", err)
-	}
-
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return false, fmt.Errorf("failed to rename usage stats file: %w", err)
-	}
-
-	return true, nil
-}
-
-// Load restores statistics from a JSON file.
-// It merges the loaded data into the current statistics.
-func (s *RequestStatistics) Load(path string) error {
-	if s == nil {
-		return nil
-	}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("failed to read usage stats file: %w", err)
-	}
-
-	var snapshot StatisticsSnapshot
-	if err := json.Unmarshal(data, &snapshot); err != nil {
-		return fmt.Errorf("failed to unmarshal usage stats: %w", err)
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	// Restore simple counters
-	s.totalRequests = snapshot.TotalRequests
-	s.successCount = snapshot.SuccessCount
-	s.failureCount = snapshot.FailureCount
-	s.totalTokens = snapshot.TotalTokens
-
-	// Restore complex maps
-	// Clear existing to avoid double counting if loading multiple times (though typically only called (once on start)
-	s.apis = make(map[string]*apiStats)
-	s.requestsByDay = make(map[string]int64)
-	s.requestsByHour = make(map[int]int64)
-	s.tokensByDay = make(map[string]int64)
-	s.tokensByHour = make(map[int]int64)
-
-	// Restore APIs
-	for apiName, apiSnap := range snapshot.APIs {
-		stats := &apiStats{
-			TotalRequests: apiSnap.TotalRequests,
-			TotalTokens:   apiSnap.TotalTokens,
-			Models:        make(map[string]*modelStats),
-		}
-		for modelName, modelSnap := range apiSnap.Models {
-			details := make([]RequestDetail, len(modelSnap.Details))
-			copy(details, modelSnap.Details)
-			stats.Models[modelName] = &modelStats{
-				TotalRequests: modelSnap.TotalRequests,
-				TotalTokens:   modelSnap.TotalTokens,
-				Details:       details,
-			}
-		}
-		s.apis[apiName] = stats
-	}
-
-	// Restore Time Series Maps
-	for k, v := range snapshot.RequestsByDay {
-		s.requestsByDay[k] = v
-	}
-	for k, v := range snapshot.TokensByDay {
-		s.tokensByDay[k] = v
-	}
-	// Hour maps in snapshot are strings "HH", need to parse back to int
-	for k, v := range snapshot.RequestsByHour {
-		if h, err := time.Parse("15", k); err == nil {
-			s.requestsByHour[h.Hour()] = v
-		}
-	}
-	for k, v := range snapshot.TokensByHour {
-		if h, err := time.Parse("15", k); err == nil {
-			s.tokensByHour[h.Hour()] = v
-		}
-	}
-
-	return nil
 }
 
 // Snapshot returns a copy of the aggregated metrics for external consumption.
@@ -404,6 +285,118 @@ func (s *RequestStatistics) Snapshot() StatisticsSnapshot {
 	return result
 }
 
+type MergeResult struct {
+	Added   int64 `json:"added"`
+	Skipped int64 `json:"skipped"`
+}
+
+// MergeSnapshot merges an exported statistics snapshot into the current store.
+// Existing data is preserved and duplicate request details are skipped.
+func (s *RequestStatistics) MergeSnapshot(snapshot StatisticsSnapshot) MergeResult {
+	result := MergeResult{}
+	if s == nil {
+		return result
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	seen := make(map[string]struct{})
+	for apiName, stats := range s.apis {
+		if stats == nil {
+			continue
+		}
+		for modelName, modelStatsValue := range stats.Models {
+			if modelStatsValue == nil {
+				continue
+			}
+			for _, detail := range modelStatsValue.Details {
+				seen[dedupKey(apiName, modelName, detail)] = struct{}{}
+			}
+		}
+	}
+
+	for apiName, apiSnapshot := range snapshot.APIs {
+		apiName = strings.TrimSpace(apiName)
+		if apiName == "" {
+			continue
+		}
+		stats, ok := s.apis[apiName]
+		if !ok || stats == nil {
+			stats = &apiStats{Models: make(map[string]*modelStats)}
+			s.apis[apiName] = stats
+		} else if stats.Models == nil {
+			stats.Models = make(map[string]*modelStats)
+		}
+		for modelName, modelSnapshot := range apiSnapshot.Models {
+			modelName = strings.TrimSpace(modelName)
+			if modelName == "" {
+				modelName = "unknown"
+			}
+			for _, detail := range modelSnapshot.Details {
+				detail.Tokens = normaliseTokenStats(detail.Tokens)
+				if detail.Timestamp.IsZero() {
+					detail.Timestamp = time.Now()
+				}
+				key := dedupKey(apiName, modelName, detail)
+				if _, exists := seen[key]; exists {
+					result.Skipped++
+					continue
+				}
+				seen[key] = struct{}{}
+				s.recordImported(apiName, modelName, stats, detail)
+				result.Added++
+			}
+		}
+	}
+
+	return result
+}
+
+func (s *RequestStatistics) recordImported(apiName, modelName string, stats *apiStats, detail RequestDetail) {
+	totalTokens := detail.Tokens.TotalTokens
+	if totalTokens < 0 {
+		totalTokens = 0
+	}
+
+	s.totalRequests++
+	if detail.Failed {
+		s.failureCount++
+	} else {
+		s.successCount++
+	}
+	s.totalTokens += totalTokens
+
+	s.updateAPIStats(stats, modelName, detail)
+
+	dayKey := detail.Timestamp.Format("2006-01-02")
+	hourKey := detail.Timestamp.Hour()
+
+	s.requestsByDay[dayKey]++
+	s.requestsByHour[hourKey]++
+	s.tokensByDay[dayKey] += totalTokens
+	s.tokensByHour[hourKey] += totalTokens
+}
+
+func dedupKey(apiName, modelName string, detail RequestDetail) string {
+	timestamp := detail.Timestamp.UTC().Format(time.RFC3339Nano)
+	tokens := normaliseTokenStats(detail.Tokens)
+	return fmt.Sprintf(
+		"%s|%s|%s|%s|%s|%t|%d|%d|%d|%d|%d",
+		apiName,
+		modelName,
+		timestamp,
+		detail.Source,
+		detail.AuthIndex,
+		detail.Failed,
+		tokens.InputTokens,
+		tokens.OutputTokens,
+		tokens.ReasoningTokens,
+		tokens.CachedTokens,
+		tokens.TotalTokens,
+	)
+}
+
 func resolveAPIIdentifier(ctx context.Context, record coreusage.Record) string {
 	if ctx != nil {
 		if ginCtx, ok := ctx.Value("gin").(*gin.Context); ok && ginCtx != nil {
@@ -463,10 +456,66 @@ func normaliseDetail(detail coreusage.Detail) TokenStats {
 	return tokens
 }
 
+func normaliseTokenStats(tokens TokenStats) TokenStats {
+	if tokens.TotalTokens == 0 {
+		tokens.TotalTokens = tokens.InputTokens + tokens.OutputTokens + tokens.ReasoningTokens
+	}
+	if tokens.TotalTokens == 0 {
+		tokens.TotalTokens = tokens.InputTokens + tokens.OutputTokens + tokens.ReasoningTokens + tokens.CachedTokens
+	}
+	return tokens
+}
+
 func formatHour(hour int) string {
 	if hour < 0 {
 		hour = 0
 	}
 	hour = hour % 24
 	return fmt.Sprintf("%02d", hour)
+}
+
+// Save dumps the current statistics snapshot to a JSON file.
+func (s *RequestStatistics) Save(path string) (string, error) {
+	if s == nil {
+		return "", fmt.Errorf("statistics is nil")
+	}
+	snapshot := s.Snapshot()
+	data, err := json.MarshalIndent(snapshot, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("marshal statistics: %w", err)
+	}
+
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("create stats dir: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return "", fmt.Errorf("write statistics: %w", err)
+	}
+
+	return path, nil
+}
+
+// Load reads statistics from a JSON file and merges them into the current store.
+func (s *RequestStatistics) Load(path string) error {
+	if s == nil {
+		return fmt.Errorf("statistics is nil")
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("read statistics: %w", err)
+	}
+
+	var snapshot StatisticsSnapshot
+	if err := json.Unmarshal(data, &snapshot); err != nil {
+		return fmt.Errorf("unmarshal statistics: %w", err)
+	}
+
+	s.MergeSnapshot(snapshot)
+	return nil
 }

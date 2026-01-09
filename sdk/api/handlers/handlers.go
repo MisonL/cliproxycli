@@ -12,13 +12,13 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/interfaces"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/router"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
-	coreexecutor "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/config"
-	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
+	"cliproxy/internal/interfaces"
+	"cliproxy/internal/router"
+	"cliproxy/internal/util"
+	coreauth "cliproxy/sdk/cliproxy/auth"
+	coreexecutor "cliproxy/sdk/cliproxy/executor"
+	"cliproxy/sdk/config"
+	sdktranslator "cliproxy/sdk/translator"
 )
 
 // ErrorResponse represents a standard error response format for the API.

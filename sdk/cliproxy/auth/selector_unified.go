@@ -7,8 +7,12 @@ import (
 	"sync"
 	"time"
 
-	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
+	cliproxyexecutor "cliproxy/sdk/cliproxy/executor"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
 
 // UnifiedSelector implements a comprehensive selection strategy supporting
 // Priority, Weighted Load Balancing, Round Robin, and Sticky sessions.

@@ -4,17 +4,19 @@ import (
 	"net/http"
 	"time"
 
+	"cliproxy/internal/scheduler"
+	internalScheduler "cliproxy/internal/scheduler"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/scheduler"
 )
 
 type Handler struct {
-	store  *scheduler.Store
-	engine *scheduler.Engine
+	store  *internalScheduler.Store
+	engine *internalScheduler.Engine
 }
 
-func NewHandler(store *scheduler.Store, engine *scheduler.Engine) *Handler {
+func NewHandler(store *internalScheduler.Store, engine *internalScheduler.Engine) *Handler {
 	return &Handler{
 		store:  store,
 		engine: engine,
@@ -126,14 +128,32 @@ func (h *Handler) UpdateTask(c *gin.Context) {
 		return
 	}
 
+	// Lock task for safe update of fields in memory
+	task.Lock()
 	if req.Name != nil {
 		task.Name = *req.Name
 	}
 	if req.Status != nil {
-		task.Status = scheduler.TaskStatus(*req.Status)
+		status := internalScheduler.TaskStatus(*req.Status)
+		// Basic validation
+		if status == internalScheduler.TaskStatusActive || status == internalScheduler.TaskStatusPaused || status == internalScheduler.TaskStatusFinished {
+			task.Status = status
+		} else {
+			task.Unlock()
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid status"})
+			return
+		}
 	}
 	if req.Type != nil {
-		task.Type = scheduler.TaskType(*req.Type)
+		taskType := internalScheduler.TaskType(*req.Type)
+		// Validation
+		if taskType == internalScheduler.TaskTypeInterval || taskType == internalScheduler.TaskTypeFixedTime || taskType == internalScheduler.TaskTypeDaily || taskType == internalScheduler.TaskTypeSystemReport {
+			task.Type = taskType
+		} else {
+			task.Unlock()
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid type"})
+			return
+		}
 	}
 	if req.Prompt != nil {
 		task.Prompt = *req.Prompt
@@ -153,6 +173,7 @@ func (h *Handler) UpdateTask(c *gin.Context) {
 	if req.FixedTime != nil {
 		t, err := time.Parse(time.RFC3339, *req.FixedTime)
 		if err != nil {
+			task.Unlock()
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid fixed_time format (RFC3339 required)"})
 			return
 		}
@@ -163,7 +184,9 @@ func (h *Handler) UpdateTask(c *gin.Context) {
 	// For simplicity, let the engine handle it on next tick (it updates if NextRunAt is wrong/past).
 	// Ideally we set NextRunAt = nil to force recalc.
 	task.NextRunAt = nil
+	task.Unlock()
 
+	// Persist to store OUTSIDE of result lock
 	if err := h.store.AddTask(task); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update task"})
 		return

@@ -118,6 +118,12 @@
   },
   "api_keys": {
     "title": "API Keys Management",
+    "subtitle": "Configure API keys for proxy authentication. Only clients with valid keys can pass through the gateway. Supports multi-level key rotation and independent quota auditing.",
+    "feature_1": "Multi-level Auth",
+    "feature_2": "Dynamic Rotation",
+    "feature_3": "Audit Logging",
+    "pool_title": "Existing Key Pool",
+    "pool_desc": "Manage the list of keys allowed to access the system",
     "proxy_auth_title": "Proxy Service Authentication Keys",
     "add_button": "Add Key",
     "empty_title": "No API Keys",

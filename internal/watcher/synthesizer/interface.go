@@ -5,7 +5,7 @@
 package synthesizer
 
 import (
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	coreauth "cliproxy/sdk/cliproxy/auth"
 )
 
 // AuthSynthesizer defines the interface for generating Auth entries from various sources.

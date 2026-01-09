@@ -1,17 +1,17 @@
 # @sdk/access 开发指引
 
-`github.com/router-for-me/CLIProxyAPI/v6/sdk/access` 包负责代理的入站访问认证。它提供一个轻量的管理器，用于按顺序链接多种凭证校验实现，让服务器在 CLI 运行时内外都能复用相同的访问控制逻辑。
+`cliproxy/sdk/access` 包负责代理的入站访问认证。它提供一个轻量的管理器，用于按顺序链接多种凭证校验实现，让服务器在 CLI 运行时内外都能复用相同的访问控制逻辑。
 
 ## 引用方式
 
 ```go
 import (
-    sdkaccess "github.com/router-for-me/CLIProxyAPI/v6/sdk/access"
-    "github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+    sdkaccess "cliproxy/sdk/access"
+    "cliproxy/internal/config"
 )
 ```
 
-通过 `go get github.com/router-for-me/CLIProxyAPI/v6/sdk/access` 添加依赖。
+通过 `go get cliproxy/sdk/access` 添加依赖。
 
 ## 管理器生命周期
 
@@ -85,7 +85,7 @@ auth:
 ```go
 import (
     _ "github.com/acme/xplatform/sdk/access/providers/partner" // registers partner-token
-    sdkaccess "github.com/router-for-me/CLIProxyAPI/v6/sdk/access"
+    sdkaccess "cliproxy/sdk/access"
 )
 ```
 

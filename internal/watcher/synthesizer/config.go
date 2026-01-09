@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/watcher/diff"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"cliproxy/internal/watcher/diff"
+	coreauth "cliproxy/sdk/cliproxy/auth"
 )
 
 // ConfigSynthesizer generates Auth entries from configuration API keys.
@@ -34,94 +34,8 @@ func (s *ConfigSynthesizer) Synthesize(ctx *SynthesisContext) ([]*coreauth.Auth,
 	out = append(out, s.synthesizeOpenAICompat(ctx)...)
 	// Vertex-compat
 	out = append(out, s.synthesizeVertexCompat(ctx)...)
-	// Unified Providers (v2)
-	out = append(out, s.synthesizeUnifiedProviders(ctx)...)
 
 	return out, nil
-}
-
-// synthesizeUnifiedProviders converts new UnifiedProvider configs into Auth entries.
-func (s *ConfigSynthesizer) synthesizeUnifiedProviders(ctx *SynthesisContext) []*coreauth.Auth {
-	cfg := ctx.Config
-	now := ctx.Now
-	idGen := ctx.IDGenerator
-
-	out := make([]*coreauth.Auth, 0, len(cfg.Providers))
-	for i := range cfg.Providers {
-		p := cfg.Providers[i]
-
-		// Ensure unique ID
-		// Use provider Type and first credential value as seed if ID is missing?
-		// Or just random? Stable ID is better.
-		seed := p.ID
-		if seed == "" {
-			// Try to find a stable seed from credentials
-			for k, v := range p.Credentials {
-				if strings.Contains(strings.ToLower(k), "key") || strings.Contains(strings.ToLower(k), "token") {
-					seed = v
-					break
-				}
-			}
-		}
-
-		id, token := idGen.Next("unified:"+p.Type, seed, p.ID)
-
-		attributes := make(map[string]string, len(p.Credentials)+2)
-		attributes["source"] = fmt.Sprintf("config:unified:%s[%s]", p.Type, token)
-		attributes["provider_key"] = p.Type // Normalized type
-
-		// Map credentials to attributes (standard keys)
-		for k, v := range p.Credentials {
-			// Normalize keys to snake_case if needed, but keeping as-is is safer for now
-			// unless we strictly define the standard keys.
-			attributes[k] = v
-		}
-
-		if p.ProxyURL != "" {
-			attributes["proxy_url"] = p.ProxyURL
-		}
-
-		// Calculate models hash if model config exists, to trigger updates on change
-		// (Skipping complex hasing for now, will rely on file hash or simply ID stability)
-
-		a := &coreauth.Auth{
-			ID:         id,
-			Provider:   p.Type,
-			Label:      p.ID,
-			Prefix:     p.Prefix,
-			Status:     coreauth.StatusActive, // Already filtered for Enabled in Sanitize
-			ProxyURL:   p.ProxyURL,
-			Attributes: attributes,
-			Priority:   p.Priority,
-			Weight:     p.Weight,
-			Tags:       p.Tags,
-			CreatedAt:  now,
-			UpdatedAt:  now,
-		}
-
-		if a.Label == "" {
-			a.Label = fmt.Sprintf("%s-%s", p.Type, token[:6])
-		}
-
-		// Handle Model Config (Include/Exclude/Alias)
-		// We need to store this in Metadata or Attributes so executors can read it.
-		// ExcludedModels is standard attribute.
-		// "Include" and "Alias" are new features.
-		// For now, let's map Exclude to the legacy slice if present.
-		if len(p.Models.Exclude) > 0 {
-			ApplyAuthExcludedModelsMeta(a, cfg, p.Models.Exclude, "unified")
-		}
-
-		// Store full model config in Metadata for advanced router to pick up?
-		// Yes, let's put it in Metadata.
-		if a.Metadata == nil {
-			a.Metadata = make(map[string]any)
-		}
-		a.Metadata["model_config"] = p.Models
-
-		out = append(out, a)
-	}
-	return out
 }
 
 // synthesizeGeminiKeys creates Auth entries for Gemini API keys.
@@ -147,6 +61,9 @@ func (s *ConfigSynthesizer) synthesizeGeminiKeys(ctx *SynthesisContext) []*corea
 		}
 		if base != "" {
 			attrs["base_url"] = base
+		}
+		if hash := diff.ComputeGeminiModelsHash(entry.Models); hash != "" {
+			attrs["models_hash"] = hash
 		}
 		addConfigHeadersToAttrs(entry.Headers, attrs)
 		a := &coreauth.Auth{
@@ -232,6 +149,9 @@ func (s *ConfigSynthesizer) synthesizeCodexKeys(ctx *SynthesisContext) []*coreau
 		}
 		if ck.BaseURL != "" {
 			attrs["base_url"] = ck.BaseURL
+		}
+		if hash := diff.ComputeCodexModelsHash(ck.Models); hash != "" {
+			attrs["models_hash"] = hash
 		}
 		addConfigHeadersToAttrs(ck.Headers, attrs)
 		proxyURL := strings.TrimSpace(ck.ProxyURL)

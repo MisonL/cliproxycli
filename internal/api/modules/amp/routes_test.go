@@ -6,24 +6,8 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/api/handlers"
+	"cliproxy/sdk/api/handlers"
 )
-
-type closeNotifyingRecorder struct {
-	*httptest.ResponseRecorder
-	closed chan bool
-}
-
-func newCloseNotifyingRecorder() *closeNotifyingRecorder {
-	return &closeNotifyingRecorder{
-		ResponseRecorder: httptest.NewRecorder(),
-		closed:           make(chan bool, 1),
-	}
-}
-
-func (r *closeNotifyingRecorder) CloseNotify() <-chan bool {
-	return r.closed
-}
 
 func TestRegisterManagementRoutes(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -39,7 +23,7 @@ func TestRegisterManagementRoutes(t *testing.T) {
 	mockProxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxyCalled = true
 		w.WriteHeader(200)
-		_, _ = w.Write([]byte("proxied"))
+		w.Write([]byte("proxied"))
 	}))
 	defer mockProxy.Close()
 
@@ -81,13 +65,15 @@ func TestRegisterManagementRoutes(t *testing.T) {
 	for _, path := range managementPaths {
 		t.Run(path.path, func(t *testing.T) {
 			proxyCalled = false
-			req := httptest.NewRequest(path.method, path.path, nil)
-			w := newCloseNotifyingRecorder()
-			r.ServeHTTP(w, req)
-			resp := w.Result()
-			defer func() {
-				_ = resp.Body.Close()
-			}()
+			req, err := http.NewRequest(path.method, srv.URL+path.path, nil)
+			if err != nil {
+				t.Fatalf("failed to build request: %v", err)
+			}
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatalf("request failed: %v", err)
+			}
+			defer resp.Body.Close()
 
 			if resp.StatusCode == http.StatusNotFound {
 				t.Fatalf("route %s not registered", path.path)

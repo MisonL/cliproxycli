@@ -5,8 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"cliproxy/internal/config"
+	coreauth "cliproxy/sdk/cliproxy/auth"
+	sdkconfig "cliproxy/sdk/config"
 )
 
 func TestNewStableIDGenerator(t *testing.T) {
@@ -134,8 +135,10 @@ func TestApplyAuthExcludedModelsMeta(t *testing.T) {
 				Attributes: make(map[string]string),
 			},
 			cfg: &config.Config{
-				OAuthExcludedModels: map[string][]string{
-					"claude": {"claude-2.0"},
+				SDKConfig: sdkconfig.SDKConfig{
+					OAuthExcludedModels: map[string][]string{
+						"claude": {"claude-2.0"},
+					},
 				},
 			},
 			perKey:   nil,

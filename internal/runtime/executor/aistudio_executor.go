@@ -12,12 +12,12 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/wsrelay"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
-	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
-	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
+	"cliproxy/internal/config"
+	"cliproxy/internal/util"
+	"cliproxy/internal/wsrelay"
+	cliproxyauth "cliproxy/sdk/cliproxy/auth"
+	cliproxyexecutor "cliproxy/sdk/cliproxy/executor"
+	sdktranslator "cliproxy/sdk/translator"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -59,18 +59,13 @@ func (e *AIStudioExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth,
 	if err != nil {
 		return resp, err
 	}
-	apiKey, bearer := geminiCreds(auth)
+
 	endpoint := e.buildEndpoint(req.Model, body.action, opts.Alt)
 	wsReq := &wsrelay.HTTPRequest{
-		Method: http.MethodPost,
-		URL:    endpoint,
-		Headers: http.Header{
-			"Content-Type":      []string{"application/json"},
-			"User-Agent":        []string{geminiUserAgent},
-			"X-Goog-Api-Client": []string{geminiXGoogAPIClient},
-			"Client-Metadata":   []string{geminiClientMetadata},
-		},
-		Body: body.payload,
+		Method:  http.MethodPost,
+		URL:     endpoint,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    body.payload,
 	}
 
 	var authID, authLabel, authType, authValue string
@@ -78,11 +73,6 @@ func (e *AIStudioExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth,
 		authID = auth.ID
 		authLabel = auth.Label
 		authType, authValue = auth.AccountInfo()
-	}
-	if apiKey != "" {
-		wsReq.Headers.Set("x-goog-api-key", apiKey)
-	} else if bearer != "" {
-		wsReq.Headers.Set("Authorization", "Bearer "+bearer)
 	}
 	recordAPIRequest(ctx, e.cfg, upstreamRequestLog{
 		URL:       endpoint,
@@ -124,18 +114,13 @@ func (e *AIStudioExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth
 	if err != nil {
 		return nil, err
 	}
-	apiKey, bearer := geminiCreds(auth)
+
 	endpoint := e.buildEndpoint(req.Model, body.action, opts.Alt)
 	wsReq := &wsrelay.HTTPRequest{
-		Method: http.MethodPost,
-		URL:    endpoint,
-		Headers: http.Header{
-			"Content-Type":      []string{"application/json"},
-			"User-Agent":        []string{geminiUserAgent},
-			"X-Goog-Api-Client": []string{geminiXGoogAPIClient},
-			"Client-Metadata":   []string{geminiClientMetadata},
-		},
-		Body: body.payload,
+		Method:  http.MethodPost,
+		URL:     endpoint,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    body.payload,
 	}
 	var authID, authLabel, authType, authValue string
 	if auth != nil {
@@ -154,11 +139,6 @@ func (e *AIStudioExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth
 		AuthType:  authType,
 		AuthValue: authValue,
 	})
-	if apiKey != "" {
-		wsReq.Headers.Set("x-goog-api-key", apiKey)
-	} else if bearer != "" {
-		wsReq.Headers.Set("Authorization", "Bearer "+bearer)
-	}
 	wsStream, err := e.relay.Stream(ctx, authID, wsReq)
 	if err != nil {
 		recordAPIResponseError(ctx, e.cfg, err)
@@ -285,23 +265,12 @@ func (e *AIStudioExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.A
 	body.payload, _ = sjson.DeleteBytes(body.payload, "tools")
 	body.payload, _ = sjson.DeleteBytes(body.payload, "safetySettings")
 
-	apiKey, bearer := geminiCreds(auth)
 	endpoint := e.buildEndpoint(req.Model, "countTokens", "")
 	wsReq := &wsrelay.HTTPRequest{
-		Method: http.MethodPost,
-		URL:    endpoint,
-		Headers: http.Header{
-			"Content-Type":      []string{"application/json"},
-			"User-Agent":        []string{geminiUserAgent},
-			"X-Goog-Api-Client": []string{geminiXGoogAPIClient},
-			"Client-Metadata":   []string{geminiClientMetadata},
-		},
-		Body: body.payload,
-	}
-	if apiKey != "" {
-		wsReq.Headers.Set("x-goog-api-key", apiKey)
-	} else if bearer != "" {
-		wsReq.Headers.Set("Authorization", "Bearer "+bearer)
+		Method:  http.MethodPost,
+		URL:     endpoint,
+		Headers: http.Header{"Content-Type": []string{"application/json"}},
+		Body:    body.payload,
 	}
 	var authID, authLabel, authType, authValue string
 	if auth != nil {
@@ -354,15 +323,20 @@ type translatedPayload struct {
 func (e *AIStudioExecutor) translateRequest(req cliproxyexecutor.Request, opts cliproxyexecutor.Options, stream bool) ([]byte, translatedPayload, error) {
 	from := opts.SourceFormat
 	to := sdktranslator.FromString("gemini")
+	originalPayload := bytes.Clone(req.Payload)
+	if len(opts.OriginalRequest) > 0 {
+		originalPayload = bytes.Clone(opts.OriginalRequest)
+	}
+	originalTranslated := sdktranslator.TranslateRequest(from, to, req.Model, originalPayload, stream)
 	payload := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), stream)
 	payload = ApplyThinkingMetadata(payload, req.Metadata, req.Model)
 	payload = util.ApplyGemini3ThinkingLevelFromMetadata(req.Model, req.Metadata, payload)
 	payload = util.ApplyDefaultThinkingIfNeeded(req.Model, payload)
-	payload = util.ConvertThinkingLevelToBudget(payload, req.Model)
-	payload = util.NormalizeGeminiThinkingBudget(req.Model, payload)
+	payload = util.ConvertThinkingLevelToBudget(payload, req.Model, true)
+	payload = util.NormalizeGeminiThinkingBudget(req.Model, payload, true)
 	payload = util.StripThinkingConfigIfUnsupported(req.Model, payload)
 	payload = fixGeminiImageAspectRatio(req.Model, payload)
-	payload = applyPayloadConfig(e.cfg, req.Model, payload)
+	payload = applyPayloadConfigWithRoot(e.cfg, req.Model, to.String(), "", payload, originalTranslated)
 	payload, _ = sjson.DeleteBytes(payload, "generationConfig.maxOutputTokens")
 	payload, _ = sjson.DeleteBytes(payload, "generationConfig.responseMimeType")
 	payload, _ = sjson.DeleteBytes(payload, "generationConfig.responseJsonSchema")

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	cliproxyauth "cliproxy/sdk/cliproxy/auth"
 )
 
 func TestMemoryTokenStore(t *testing.T) {

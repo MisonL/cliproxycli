@@ -10,8 +10,9 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/api/handlers/management"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+	"cliproxy/internal/api/handlers/management"
+	"cliproxy/internal/config"
+	sdkconfig "cliproxy/sdk/config"
 )
 
 func init() {
@@ -25,13 +26,15 @@ func newAmpTestHandler(t *testing.T) (*management.Handler, string) {
 	configPath := filepath.Join(tmpDir, "config.yaml")
 
 	cfg := &config.Config{
-		AmpCode: config.AmpCode{
-			UpstreamURL:                   "https://example.com",
-			UpstreamAPIKey:                "test-api-key-12345",
-			RestrictManagementToLocalhost: true,
-			ForceModelMappings:            false,
-			ModelMappings: []config.AmpModelMapping{
-				{From: "gpt-4", To: "gemini-pro"},
+		SDKConfig: sdkconfig.SDKConfig{
+			AmpCode: config.AmpCode{
+				UpstreamURL:                   "https://example.com",
+				UpstreamAPIKey:                "test-api-key-12345",
+				RestrictManagementToLocalhost: true,
+				ForceModelMappings:            false,
+				ModelMappings: []config.AmpModelMapping{
+					{From: "gpt-4", To: "gemini-pro"},
+				},
 			},
 		},
 	}

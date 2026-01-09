@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/usage"
+	"cliproxy/sdk/cliproxy/usage"
 	log "github.com/sirupsen/logrus"
 )
 

@@ -13,12 +13,13 @@ import (
 	"testing"
 	"time"
 
+	"cliproxy/internal/config"
+	"cliproxy/internal/watcher/diff"
+	"cliproxy/internal/watcher/synthesizer"
+	coreauth "cliproxy/sdk/cliproxy/auth"
+	sdkconfig "cliproxy/sdk/config"
+
 	"github.com/fsnotify/fsnotify"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/watcher/diff"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/watcher/synthesizer"
-	sdkAuth "github.com/router-for-me/CLIProxyAPI/v6/sdk/auth"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 	"gopkg.in/yaml.v3"
 )
 
@@ -44,8 +45,10 @@ func TestApplyAuthExcludedModelsMeta_OAuthProvider(t *testing.T) {
 		Attributes: map[string]string{},
 	}
 	cfg := &config.Config{
-		OAuthExcludedModels: map[string][]string{
-			"testprov": {"A", "b"},
+		SDKConfig: sdkconfig.SDKConfig{
+			OAuthExcludedModels: map[string][]string{
+				"testprov": {"A", "b"},
+			},
 		},
 	}
 
@@ -62,14 +65,16 @@ func TestApplyAuthExcludedModelsMeta_OAuthProvider(t *testing.T) {
 
 func TestBuildAPIKeyClientsCounts(t *testing.T) {
 	cfg := &config.Config{
-		GeminiKey: []config.GeminiKey{{APIKey: "g1"}, {APIKey: "g2"}},
-		VertexCompatAPIKey: []config.VertexCompatKey{
-			{APIKey: "v1"},
-		},
-		ClaudeKey: []config.ClaudeKey{{APIKey: "c1"}},
-		CodexKey:  []config.CodexKey{{APIKey: "x1"}, {APIKey: "x2"}},
-		OpenAICompatibility: []config.OpenAICompatibility{
-			{APIKeyEntries: []config.OpenAICompatibilityAPIKey{{APIKey: "o1"}, {APIKey: "o2"}}},
+		SDKConfig: sdkconfig.SDKConfig{
+			GeminiKey: []config.GeminiKey{{APIKey: "g1"}, {APIKey: "g2"}},
+			VertexCompatAPIKey: []config.VertexCompatKey{
+				{APIKey: "v1"},
+			},
+			ClaudeKey: []config.ClaudeKey{{APIKey: "c1"}},
+			CodexKey:  []config.CodexKey{{APIKey: "x1"}, {APIKey: "x2"}},
+			OpenAICompatibility: []config.OpenAICompatibility{
+				{APIKeyEntries: []config.OpenAICompatibilityAPIKey{{APIKey: "o1"}, {APIKey: "o2"}}},
+			},
 		},
 	}
 
@@ -131,17 +136,19 @@ func TestSnapshotCoreAuths_ConfigAndAuthFiles(t *testing.T) {
 	}
 
 	cfg := &config.Config{
-		AuthDir: authDir,
-		GeminiKey: []config.GeminiKey{
-			{
-				APIKey:         "g-key",
-				BaseURL:        "https://gemini",
-				ExcludedModels: []string{"Model-A", "model-b"},
-				Headers:        map[string]string{"X-Req": "1"},
+		SDKConfig: sdkconfig.SDKConfig{
+			AuthDir: authDir,
+			GeminiKey: []config.GeminiKey{
+				{
+					APIKey:         "g-key",
+					BaseURL:        "https://gemini",
+					ExcludedModels: []string{"Model-A", "model-b"},
+					Headers:        map[string]string{"X-Req": "1"},
+				},
 			},
-		},
-		OAuthExcludedModels: map[string][]string{
-			"gemini-cli": {"Foo", "bar"},
+			OAuthExcludedModels: map[string][]string{
+				"gemini-cli": {"Foo", "bar"},
+			},
 		},
 	}
 
@@ -215,13 +222,13 @@ func TestReloadConfigIfChanged_TriggersOnChangeAndSkipsUnchanged(t *testing.T) {
 	}
 
 	configPath := filepath.Join(tmpDir, "config.yaml")
-	writeConfig := func(port int, allowRemote bool) {
+	writeConfig := func(port int, debug bool) {
 		cfg := &config.Config{
-			Port:    port,
-			AuthDir: authDir,
-			RemoteManagement: config.RemoteManagement{
-				AllowRemote: allowRemote,
+			SDKConfig: sdkconfig.SDKConfig{
+				Port:    port,
+				AuthDir: authDir,
 			},
+			Debug: debug,
 		}
 		data, err := yaml.Marshal(cfg)
 		if err != nil {
@@ -259,7 +266,7 @@ func TestReloadConfigIfChanged_TriggersOnChangeAndSkipsUnchanged(t *testing.T) {
 	}
 	w.clientsMutex.RLock()
 	defer w.clientsMutex.RUnlock()
-	if w.config == nil || w.config.Port != 9090 || !w.config.RemoteManagement.AllowRemote {
+	if w.config == nil || w.config.Port != 9090 || !w.config.Debug {
 		t.Fatalf("expected config to be updated after reload, got %+v", w.config)
 	}
 }
@@ -282,7 +289,7 @@ func TestStartAndStopSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create watcher: %v", err)
 	}
-	w.SetConfig(&config.Config{AuthDir: authDir})
+	w.SetConfig(&config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: authDir}})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -311,9 +318,7 @@ func TestStartFailsWhenConfigMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create watcher: %v", err)
 	}
-	defer func() {
-		_ = w.Stop()
-	}()
+	defer w.Stop()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -379,7 +384,7 @@ func TestAddOrUpdateClientSkipsUnchanged(t *testing.T) {
 			atomic.AddInt32(&reloads, 1)
 		},
 	}
-	w.SetConfig(&config.Config{AuthDir: tmpDir})
+	w.SetConfig(&config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: tmpDir}})
 	// Use normalizeAuthPath to match how addOrUpdateClient stores the key
 	w.lastAuthHashes[w.normalizeAuthPath(authFile)] = hexString(sum[:])
 
@@ -404,7 +409,7 @@ func TestAddOrUpdateClientTriggersReloadAndHash(t *testing.T) {
 			atomic.AddInt32(&reloads, 1)
 		},
 	}
-	w.SetConfig(&config.Config{AuthDir: tmpDir})
+	w.SetConfig(&config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: tmpDir}})
 
 	w.addOrUpdateClient(authFile)
 
@@ -430,7 +435,7 @@ func TestRemoveClientRemovesHash(t *testing.T) {
 			atomic.AddInt32(&reloads, 1)
 		},
 	}
-	w.SetConfig(&config.Config{AuthDir: tmpDir})
+	w.SetConfig(&config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: tmpDir}})
 	// Use normalizeAuthPath to set up the hash with the correct key format
 	w.lastAuthHashes[w.normalizeAuthPath(authFile)] = "hash"
 
@@ -523,7 +528,7 @@ func TestReloadClientsCachesAuthHashes(t *testing.T) {
 	}
 	w := &Watcher{
 		authDir: tmpDir,
-		config:  &config.Config{AuthDir: tmpDir},
+		config:  &config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: tmpDir}},
 	}
 
 	w.reloadClients(true, nil, false)
@@ -537,8 +542,8 @@ func TestReloadClientsCachesAuthHashes(t *testing.T) {
 
 func TestReloadClientsLogsConfigDiffs(t *testing.T) {
 	tmpDir := t.TempDir()
-	oldCfg := &config.Config{AuthDir: tmpDir, Port: 1, Debug: false}
-	newCfg := &config.Config{AuthDir: tmpDir, Port: 2, Debug: true}
+	oldCfg := &config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: tmpDir, Port: 1}, Debug: false}
+	newCfg := &config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: tmpDir, Port: 2}, Debug: true}
 
 	w := &Watcher{
 		authDir: tmpDir,
@@ -563,7 +568,7 @@ func TestReloadClientsFiltersProvidersWithNilCurrentAuths(t *testing.T) {
 	tmp := t.TempDir()
 	w := &Watcher{
 		authDir: tmp,
-		config:  &config.Config{AuthDir: tmp},
+		config:  &config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: tmp}},
 	}
 	w.reloadClients(false, []string{"match"}, false)
 	if len(w.currentAuths) != 0 {
@@ -581,45 +586,6 @@ func TestSetAuthUpdateQueueNilResetsDispatch(t *testing.T) {
 	w.SetAuthUpdateQueue(nil)
 	if w.dispatchCancel != nil {
 		t.Fatal("expected dispatch cancel to be cleared when queue nil")
-	}
-}
-
-func TestPersistAsyncEarlyReturns(t *testing.T) {
-	var nilWatcher *Watcher
-	nilWatcher.persistConfigAsync()
-	nilWatcher.persistAuthAsync("msg", "a")
-
-	w := &Watcher{}
-	w.persistConfigAsync()
-	w.persistAuthAsync("msg", "   ", "")
-}
-
-type errorPersister struct {
-	configCalls int32
-	authCalls   int32
-}
-
-func (p *errorPersister) PersistConfig(context.Context) error {
-	atomic.AddInt32(&p.configCalls, 1)
-	return fmt.Errorf("persist config error")
-}
-
-func (p *errorPersister) PersistAuthFiles(context.Context, string, ...string) error {
-	atomic.AddInt32(&p.authCalls, 1)
-	return fmt.Errorf("persist auth error")
-}
-
-func TestPersistAsyncErrorPaths(t *testing.T) {
-	p := &errorPersister{}
-	w := &Watcher{storePersister: p}
-	w.persistConfigAsync()
-	w.persistAuthAsync("msg", "a")
-	time.Sleep(30 * time.Millisecond)
-	if atomic.LoadInt32(&p.configCalls) != 1 {
-		t.Fatalf("expected PersistConfig to be called once, got %d", p.configCalls)
-	}
-	if atomic.LoadInt32(&p.authCalls) != 1 {
-		t.Fatalf("expected PersistAuthFiles to be called once, got %d", p.authCalls)
 	}
 }
 
@@ -646,7 +612,7 @@ func TestHandleEventRemovesAuthFile(t *testing.T) {
 	var reloads int32
 	w := &Watcher{
 		authDir:        tmpDir,
-		config:         &config.Config{AuthDir: tmpDir},
+		config:         &config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: tmpDir}},
 		lastAuthHashes: make(map[string]string),
 		reloadCallback: func(*config.Config) {
 			atomic.AddInt32(&reloads, 1)
@@ -794,7 +760,7 @@ func TestHandleEventIgnoresUnrelatedFiles(t *testing.T) {
 		lastAuthHashes: make(map[string]string),
 		reloadCallback: func(*config.Config) { atomic.AddInt32(&reloads, 1) },
 	}
-	w.SetConfig(&config.Config{AuthDir: authDir})
+	w.SetConfig(&config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: authDir}})
 
 	w.handleEvent(fsnotify.Event{Name: filepath.Join(tmpDir, "note.txt"), Op: fsnotify.Write})
 	if atomic.LoadInt32(&reloads) != 0 {
@@ -820,7 +786,7 @@ func TestHandleEventConfigChangeSchedulesReload(t *testing.T) {
 		lastAuthHashes: make(map[string]string),
 		reloadCallback: func(*config.Config) { atomic.AddInt32(&reloads, 1) },
 	}
-	w.SetConfig(&config.Config{AuthDir: authDir})
+	w.SetConfig(&config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: authDir}})
 
 	w.handleEvent(fsnotify.Event{Name: configPath, Op: fsnotify.Write})
 
@@ -852,7 +818,7 @@ func TestHandleEventAuthWriteTriggersUpdate(t *testing.T) {
 		lastAuthHashes: make(map[string]string),
 		reloadCallback: func(*config.Config) { atomic.AddInt32(&reloads, 1) },
 	}
-	w.SetConfig(&config.Config{AuthDir: authDir})
+	w.SetConfig(&config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: authDir}})
 
 	w.handleEvent(fsnotify.Event{Name: authFile, Op: fsnotify.Write})
 	if atomic.LoadInt32(&reloads) != 1 {
@@ -882,7 +848,7 @@ func TestHandleEventRemoveDebounceSkips(t *testing.T) {
 		},
 		reloadCallback: func(*config.Config) { atomic.AddInt32(&reloads, 1) },
 	}
-	w.SetConfig(&config.Config{AuthDir: authDir})
+	w.SetConfig(&config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: authDir}})
 
 	w.handleEvent(fsnotify.Event{Name: authFile, Op: fsnotify.Remove})
 	if atomic.LoadInt32(&reloads) != 0 {
@@ -914,7 +880,7 @@ func TestHandleEventAtomicReplaceUnchangedSkips(t *testing.T) {
 		lastAuthHashes: make(map[string]string),
 		reloadCallback: func(*config.Config) { atomic.AddInt32(&reloads, 1) },
 	}
-	w.SetConfig(&config.Config{AuthDir: authDir})
+	w.SetConfig(&config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: authDir}})
 	w.lastAuthHashes[w.normalizeAuthPath(authFile)] = hexString(sum[:])
 
 	w.handleEvent(fsnotify.Event{Name: authFile, Op: fsnotify.Rename})
@@ -948,7 +914,7 @@ func TestHandleEventAtomicReplaceChangedTriggersUpdate(t *testing.T) {
 		lastAuthHashes: make(map[string]string),
 		reloadCallback: func(*config.Config) { atomic.AddInt32(&reloads, 1) },
 	}
-	w.SetConfig(&config.Config{AuthDir: authDir})
+	w.SetConfig(&config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: authDir}})
 	w.lastAuthHashes[w.normalizeAuthPath(authFile)] = hexString(oldSum[:])
 
 	w.handleEvent(fsnotify.Event{Name: authFile, Op: fsnotify.Rename})
@@ -976,7 +942,7 @@ func TestHandleEventRemoveUnknownFileIgnored(t *testing.T) {
 		lastAuthHashes: make(map[string]string),
 		reloadCallback: func(*config.Config) { atomic.AddInt32(&reloads, 1) },
 	}
-	w.SetConfig(&config.Config{AuthDir: authDir})
+	w.SetConfig(&config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: authDir}})
 
 	w.handleEvent(fsnotify.Event{Name: authFile, Op: fsnotify.Remove})
 	if atomic.LoadInt32(&reloads) != 0 {
@@ -1003,7 +969,7 @@ func TestHandleEventRemoveKnownFileDeletes(t *testing.T) {
 		lastAuthHashes: make(map[string]string),
 		reloadCallback: func(*config.Config) { atomic.AddInt32(&reloads, 1) },
 	}
-	w.SetConfig(&config.Config{AuthDir: authDir})
+	w.SetConfig(&config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: authDir}})
 	w.lastAuthHashes[w.normalizeAuthPath(authFile)] = "hash"
 
 	w.handleEvent(fsnotify.Event{Name: authFile, Op: fsnotify.Remove})
@@ -1048,7 +1014,7 @@ func TestRefreshAuthStateDispatchesRuntimeAuths(t *testing.T) {
 		authDir:        t.TempDir(),
 		lastAuthHashes: make(map[string]string),
 	}
-	w.SetConfig(&config.Config{AuthDir: w.authDir})
+	w.SetConfig(&config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: w.authDir}})
 	w.SetAuthUpdateQueue(queue)
 	defer w.stopDispatch()
 
@@ -1113,7 +1079,7 @@ func TestLoadFileClientsWalkError(t *testing.T) {
 	}
 	defer func() { _ = os.Chmod(noAccessDir, 0o755) }()
 
-	cfg := &config.Config{AuthDir: tmpDir}
+	cfg := &config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: tmpDir}}
 	w := &Watcher{}
 	w.SetConfig(cfg)
 
@@ -1162,7 +1128,7 @@ func TestReloadConfigUsesMirroredAuthDir(t *testing.T) {
 		mirroredAuthDir: authDir,
 		lastAuthHashes:  make(map[string]string),
 	}
-	w.SetConfig(&config.Config{AuthDir: authDir})
+	w.SetConfig(&config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: authDir}})
 
 	if ok := w.reloadConfig(); !ok {
 		t.Fatal("expected reloadConfig to succeed")
@@ -1189,15 +1155,19 @@ func TestReloadConfigFiltersAffectedOAuthProviders(t *testing.T) {
 	}
 
 	oldCfg := &config.Config{
-		AuthDir: authDir,
-		OAuthExcludedModels: map[string][]string{
-			"provider-a": {"m1"},
+		SDKConfig: sdkconfig.SDKConfig{
+			AuthDir: authDir,
+			OAuthExcludedModels: map[string][]string{
+				"provider-a": {"m1"},
+			},
 		},
 	}
 	newCfg := &config.Config{
-		AuthDir: authDir,
-		OAuthExcludedModels: map[string][]string{
-			"provider-a": {"m2"},
+		SDKConfig: sdkconfig.SDKConfig{
+			AuthDir: authDir,
+			OAuthExcludedModels: map[string][]string{
+				"provider-a": {"m2"},
+			},
 		},
 	}
 	data, err := yaml.Marshal(newCfg)
@@ -1253,10 +1223,8 @@ func TestStartFailsWhenAuthDirMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create watcher: %v", err)
 	}
-	defer func() {
-		_ = w.Stop()
-	}()
-	w.SetConfig(&config.Config{AuthDir: authDir})
+	defer w.Stop()
+	w.SetConfig(&config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: authDir}})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1282,80 +1250,6 @@ func TestNormalizeAuthNil(t *testing.T) {
 	}
 }
 
-// stubStore implements coreauth.Store plus watcher-specific persistence helpers.
-type stubStore struct {
-	authDir         string
-	cfgPersisted    int32
-	authPersisted   int32
-	mu              sync.Mutex
-	lastAuthMessage string
-	lastAuthPaths   []string
-}
-
-func (s *stubStore) List(context.Context) ([]*coreauth.Auth, error) { return nil, nil }
-func (s *stubStore) Save(context.Context, *coreauth.Auth) (string, error) {
-	return "", nil
-}
-func (s *stubStore) Delete(context.Context, string) error { return nil }
-func (s *stubStore) PersistConfig(context.Context) error {
-	atomic.AddInt32(&s.cfgPersisted, 1)
-	return nil
-}
-func (s *stubStore) PersistAuthFiles(_ context.Context, message string, paths ...string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	atomic.AddInt32(&s.authPersisted, 1)
-	s.lastAuthMessage = message
-	s.lastAuthPaths = paths
-	return nil
-}
-func (s *stubStore) AuthDir() string { return s.authDir }
-
-func TestNewWatcherDetectsPersisterAndAuthDir(t *testing.T) {
-	tmp := t.TempDir()
-	store := &stubStore{authDir: tmp}
-	orig := sdkAuth.GetTokenStore()
-	sdkAuth.RegisterTokenStore(store)
-	defer sdkAuth.RegisterTokenStore(orig)
-
-	w, err := NewWatcher("config.yaml", "auth", nil)
-	if err != nil {
-		t.Fatalf("NewWatcher failed: %v", err)
-	}
-	if w.storePersister == nil {
-		t.Fatal("expected storePersister to be set from token store")
-	}
-	if w.mirroredAuthDir != tmp {
-		t.Fatalf("expected mirroredAuthDir %s, got %s", tmp, w.mirroredAuthDir)
-	}
-}
-
-func TestPersistConfigAndAuthAsyncInvokePersister(t *testing.T) {
-	w := &Watcher{
-		storePersister: &stubStore{},
-	}
-
-	w.persistConfigAsync()
-	w.persistAuthAsync("msg", " a ", "", "b ")
-
-	time.Sleep(30 * time.Millisecond)
-	store := w.storePersister.(*stubStore)
-	if atomic.LoadInt32(&store.cfgPersisted) != 1 {
-		t.Fatalf("expected PersistConfig to be called once, got %d", store.cfgPersisted)
-	}
-	if atomic.LoadInt32(&store.authPersisted) != 1 {
-		t.Fatalf("expected PersistAuthFiles to be called once, got %d", store.authPersisted)
-	}
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	if store.lastAuthMessage != "msg" {
-		t.Fatalf("unexpected auth message: %s", store.lastAuthMessage)
-	}
-	if len(store.lastAuthPaths) != 2 || store.lastAuthPaths[0] != "a" || store.lastAuthPaths[1] != "b" {
-		t.Fatalf("unexpected filtered paths: %#v", store.lastAuthPaths)
-	}
-}
-
 func TestScheduleConfigReloadDebounces(t *testing.T) {
 	tmp := t.TempDir()
 	authDir := tmp
@@ -1370,7 +1264,7 @@ func TestScheduleConfigReloadDebounces(t *testing.T) {
 		authDir:        authDir,
 		reloadCallback: func(*config.Config) { atomic.AddInt32(&reloads, 1) },
 	}
-	w.SetConfig(&config.Config{AuthDir: authDir})
+	w.SetConfig(&config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: authDir}})
 
 	w.scheduleConfigReload()
 	w.scheduleConfigReload()
@@ -1381,9 +1275,9 @@ func TestScheduleConfigReloadDebounces(t *testing.T) {
 		t.Fatalf("expected single debounced reload, got %d", reloads)
 	}
 	w.clientsMutex.RLock()
-	lastHash := w.lastConfigHash
+	hash := w.lastConfigHash
 	w.clientsMutex.RUnlock()
-	if lastHash == "" {
+	if hash == "" {
 		t.Fatal("expected lastConfigHash to be set after reload")
 	}
 }
@@ -1453,7 +1347,7 @@ func TestReloadClientsFiltersOAuthProvidersWithoutRescan(t *testing.T) {
 	tmp := t.TempDir()
 	w := &Watcher{
 		authDir: tmp,
-		config:  &config.Config{AuthDir: tmp},
+		config:  &config.Config{SDKConfig: sdkconfig.SDKConfig{AuthDir: tmp}},
 		currentAuths: map[string]*coreauth.Auth{
 			"a": {ID: "a", Provider: "Match"},
 			"b": {ID: "b", Provider: "other"},

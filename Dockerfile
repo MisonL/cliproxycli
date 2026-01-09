@@ -6,7 +6,7 @@ ARG GO_VERSION=1.24
 FROM oven/bun:1 AS frontend-builder
 WORKDIR /app
 COPY management-center/package.json ./
-RUN bun install --frozen-lockfile || (echo "Retrying without lockfile..." && rm bun.lockb && bun install)
+RUN bun install || (echo "Retrying bun install..." && rm -f bun.lock bun.lockb && bun install)
 COPY management-center/ ./
 RUN bunx vite build
 RUN ls -la dist/ || echo "dist still missing"
@@ -21,6 +21,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
+COPY --from=frontend-builder /app/dist/index.html internal/managementasset/embedded/management.html
 
 ARG VERSION
 ARG COMMIT

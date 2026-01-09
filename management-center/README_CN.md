@@ -4,7 +4,7 @@
 
 [English](README.md)
 
-**主项目**: https://github.com/router-for-me/CLIProxyAPI
+**主项目**: #
 **示例地址**: https://remote.router-for.me/
 **最低版本要求**: ≥ 6.3.0（推荐 ≥ 6.5.0）
 
@@ -55,7 +55,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/router-for-me/Cli-Proxy-API-Management-Center.git
+git clone #.git
 cd Cli-Proxy-API-Management-Center
 
 # 安装依赖

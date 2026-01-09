@@ -3,7 +3,7 @@ package util
 import (
 	"strings"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
+	"cliproxy/internal/registry"
 )
 
 // ModelSupportsThinking reports whether the given model has Thinking capability
@@ -12,8 +12,17 @@ func ModelSupportsThinking(model string) bool {
 	if model == "" {
 		return false
 	}
+	// First check the global dynamic registry
 	if info := registry.GetGlobalRegistry().GetModelInfo(model); info != nil {
 		return info.Thinking != nil
+	}
+	// Fallback: check static model definitions
+	if info := registry.LookupStaticModelInfo(model); info != nil {
+		return info.Thinking != nil
+	}
+	// Fallback: check Antigravity static config
+	if cfg := registry.GetAntigravityModelConfig()[model]; cfg != nil {
+		return cfg.Thinking != nil
 	}
 	return false
 }
@@ -63,11 +72,19 @@ func thinkingRangeFromRegistry(model string) (found bool, min int, max int, zero
 	if model == "" {
 		return false, 0, 0, false, false
 	}
-	info := registry.GetGlobalRegistry().GetModelInfo(model)
-	if info == nil || info.Thinking == nil {
-		return false, 0, 0, false, false
+	// First check global dynamic registry
+	if info := registry.GetGlobalRegistry().GetModelInfo(model); info != nil && info.Thinking != nil {
+		return true, info.Thinking.Min, info.Thinking.Max, info.Thinking.ZeroAllowed, info.Thinking.DynamicAllowed
 	}
-	return true, info.Thinking.Min, info.Thinking.Max, info.Thinking.ZeroAllowed, info.Thinking.DynamicAllowed
+	// Fallback: check static model definitions
+	if info := registry.LookupStaticModelInfo(model); info != nil && info.Thinking != nil {
+		return true, info.Thinking.Min, info.Thinking.Max, info.Thinking.ZeroAllowed, info.Thinking.DynamicAllowed
+	}
+	// Fallback: check Antigravity static config
+	if cfg := registry.GetAntigravityModelConfig()[model]; cfg != nil && cfg.Thinking != nil {
+		return true, cfg.Thinking.Min, cfg.Thinking.Max, cfg.Thinking.ZeroAllowed, cfg.Thinking.DynamicAllowed
+	}
+	return false, 0, 0, false, false
 }
 
 // GetModelThinkingLevels returns the discrete reasoning effort levels for the model.
@@ -155,6 +172,34 @@ func ThinkingEffortToBudget(model, effort string) (int, bool) {
 		return NormalizeThinkingBudget(model, 24576), true
 	case "xhigh":
 		return NormalizeThinkingBudget(model, 32768), true
+	default:
+		return 0, false
+	}
+}
+
+// ThinkingLevelToBudget maps a Gemini thinkingLevel to a numeric thinking budget (tokens).
+//
+// Mappings:
+//   - "minimal" -> 512
+//   - "low"     -> 1024
+//   - "medium"  -> 8192
+//   - "high"    -> 32768
+//
+// Returns false when the level is empty or unsupported.
+func ThinkingLevelToBudget(level string) (int, bool) {
+	if level == "" {
+		return 0, false
+	}
+	normalized := strings.ToLower(strings.TrimSpace(level))
+	switch normalized {
+	case "minimal":
+		return 512, true
+	case "low":
+		return 1024, true
+	case "medium":
+		return 8192, true
+	case "high":
+		return 32768, true
 	default:
 		return 0, false
 	}

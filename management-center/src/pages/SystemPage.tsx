@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { IconGithub, IconBookOpen, IconCode, IconActivity } from '@/components/ui/icons';
+import { IconCode, IconActivity } from '@/components/ui/icons';
 import { useAuthStore, useConfigStore, useNotificationStore, useModelsStore } from '@/stores';
 import { apiKeysApi } from '@/services/api/apiKeys';
 import { modelPoolApi } from '@/services/api/modelPool';
@@ -232,54 +232,6 @@ export function SystemPage() {
                 </div>
               </section>
 
-              {/* 快捷导航 */}
-              <section className="flex-column gap-lg">
-                <div className="flex-row items-center justify-between">
-                   <div className="flex-column gap-xs">
-                    <h2 className="title" style={{ fontSize: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'linear-gradient(135deg, rgba(var(--success-color-rgb), 0.2) 0%, rgba(var(--success-color-rgb), 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <IconBookOpen size={18} style={{ color: 'var(--success-color)' }} />
-                      </div>
-                      {t('system_info.quick_links_title')}
-                    </h2>
-                    <p className="text-tertiary" style={{ fontSize: '14px', fontWeight: 500, paddingLeft: '42px' }}>
-                      访问官方资源库、文档中心与开源社区。
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="grid cols-3" style={{ gap: '20px' }}>
-                  <a href="https://github.com/router-for-me/CLIProxyAPI" target="_blank" rel="noopener noreferrer" className="card-glass flex-row items-center gap-lg card-hover" style={{ padding: '24px', borderRadius: '24px', textDecoration: 'none', background: 'rgba(var(--bg-primary-rgb), 0.4)' }}>
-                    <div className="flex-center" style={{ width: '52px', height: '52px', borderRadius: '14px', background: 'rgba(51, 65, 85, 0.)', border: '1px solid rgba(51, 65, 85, 0.2)', color: 'var(--text-primary)' }}>
-                      <IconGithub size={28} />
-                    </div>
-                    <div className="flex-column gap-xs">
-                      <span style={{ fontSize: '16px', fontWeight: 850, color: 'var(--text-primary)' }}>{t('system_info.link_main_repo')}</span>
-                      <span style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>{t('system_info.link_main_repo_desc')}</span>
-                    </div>
-                  </a>
-
-                  <a href="https://github.com/router-for-me/Cli-Proxy-API-Management-Center" target="_blank" rel="noopener noreferrer" className="card-glass flex-row items-center gap-lg card-hover" style={{ padding: '24px', borderRadius: '24px', textDecoration: 'none', background: 'rgba(var(--bg-primary-rgb), 0.4)' }}>
-                    <div className="flex-center" style={{ width: '52px', height: '52px', borderRadius: '14px', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', color: 'var(--primary-color)' }}>
-                      <IconCode size={28} />
-                    </div>
-                    <div className="flex-column gap-xs">
-                      <span style={{ fontSize: '16px', fontWeight: 850, color: 'var(--text-primary)' }}>{t('system_info.link_webui_repo')}</span>
-                      <span style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>{t('system_info.link_webui_repo_desc')}</span>
-                    </div>
-                  </a>
-
-                  <a href="https://help.router-for.me/" target="_blank" rel="noopener noreferrer" className="card-glass flex-row items-center gap-lg card-hover" style={{ padding: '24px', borderRadius: '24px', textDecoration: 'none', background: 'rgba(var(--bg-primary-rgb), 0.4)' }}>
-                    <div className="flex-center" style={{ width: '52px', height: '52px', borderRadius: '14px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: 'var(--success-color)' }}>
-                      <IconBookOpen size={28} />
-                    </div>
-                    <div className="flex-column gap-xs">
-                      <span style={{ fontSize: '16px', fontWeight: 850, color: 'var(--text-primary)' }}>{t('system_info.link_docs')}</span>
-                      <span style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>{t('system_info.link_docs_desc')}</span>
-                    </div>
-                  </a>
-                </div>
-              </section>
 
               {/* 模型兼容性概览 */}
               <section className="flex-column gap-lg">

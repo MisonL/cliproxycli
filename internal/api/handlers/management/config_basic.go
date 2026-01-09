@@ -1,26 +1,17 @@
 package management
 
 import (
-	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
+
+	"cliproxy/internal/buildinfo"
+	"cliproxy/internal/config"
 
 	"github.com/gin-gonic/gin"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
-	sdkconfig "github.com/router-for-me/CLIProxyAPI/v6/sdk/config"
-	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
-)
-
-const (
-	latestReleaseURL       = "https://api.github.com/repos/router-for-me/CLIProxyAPI/releases/latest"
-	latestReleaseUserAgent = "CLIProxyAPI"
 )
 
 func (h *Handler) GetConfig(c *gin.Context) {
@@ -37,59 +28,11 @@ type releaseInfo struct {
 	Name    string `json:"name"`
 }
 
-// GetLatestVersion returns the latest release version from GitHub without downloading assets.
+// GetLatestVersion returns the current version to avoid external requests in offline mode.
 func (h *Handler) GetLatestVersion(c *gin.Context) {
-	client := &http.Client{Timeout: 10 * time.Second}
-	proxyURL := ""
-	if h != nil && h.cfg != nil {
-		proxyURL = strings.TrimSpace(h.cfg.ProxyURL)
-	}
-	if proxyURL != "" {
-		sdkCfg := &sdkconfig.SDKConfig{ProxyURL: proxyURL}
-		util.SetProxy(sdkCfg, client)
-	}
-
-	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, latestReleaseURL, nil)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "request_create_failed", "message": err.Error()})
-		return
-	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", latestReleaseUserAgent)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "request_failed", "message": err.Error()})
-		return
-	}
-	defer func() {
-		if errClose := resp.Body.Close(); errClose != nil {
-			log.WithError(errClose).Debug("failed to close latest version response body")
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		c.JSON(http.StatusBadGateway, gin.H{"error": "unexpected_status", "message": fmt.Sprintf("status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))})
-		return
-	}
-
-	var info releaseInfo
-	if errDecode := json.NewDecoder(resp.Body).Decode(&info); errDecode != nil {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "decode_failed", "message": errDecode.Error()})
-		return
-	}
-
-	version := strings.TrimSpace(info.TagName)
-	if version == "" {
-		version = strings.TrimSpace(info.Name)
-	}
-	if version == "" {
-		c.JSON(http.StatusBadGateway, gin.H{"error": "invalid_response", "message": "missing release version"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"latest-version": version})
+	// In strict offline/local mode, we do not check upstream releases.
+	// Return current version or empty to disable update prompts.
+	c.JSON(http.StatusOK, gin.H{"latest-version": buildinfo.Version})
 }
 
 func WriteConfig(path string, data []byte) error {
@@ -202,6 +145,26 @@ func (h *Handler) PutLoggingToFile(c *gin.Context) {
 	h.updateBoolField(c, func(v bool) { h.cfg.LoggingToFile = v })
 }
 
+// LogsMaxTotalSizeMB
+func (h *Handler) GetLogsMaxTotalSizeMB(c *gin.Context) {
+	c.JSON(200, gin.H{"logs-max-total-size-mb": h.cfg.LogsMaxTotalSizeMB})
+}
+func (h *Handler) PutLogsMaxTotalSizeMB(c *gin.Context) {
+	var body struct {
+		Value *int `json:"value"`
+	}
+	if errBindJSON := c.ShouldBindJSON(&body); errBindJSON != nil || body.Value == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+	value := *body.Value
+	if value < 0 {
+		value = 0
+	}
+	h.cfg.LogsMaxTotalSizeMB = value
+	h.persist(c)
+}
+
 // Request log
 func (h *Handler) GetRequestLog(c *gin.Context) { c.JSON(200, gin.H{"request-log": h.cfg.RequestLog}) }
 func (h *Handler) PutRequestLog(c *gin.Context) {
@@ -230,6 +193,52 @@ func (h *Handler) GetMaxRetryInterval(c *gin.Context) {
 }
 func (h *Handler) PutMaxRetryInterval(c *gin.Context) {
 	h.updateIntField(c, func(v int) { h.cfg.MaxRetryInterval = v })
+}
+
+// ForceModelPrefix
+func (h *Handler) GetForceModelPrefix(c *gin.Context) {
+	c.JSON(200, gin.H{"force-model-prefix": h.cfg.ForceModelPrefix})
+}
+func (h *Handler) PutForceModelPrefix(c *gin.Context) {
+	h.updateBoolField(c, func(v bool) { h.cfg.ForceModelPrefix = v })
+}
+
+func normalizeRoutingStrategy(strategy string) (string, bool) {
+	normalized := strings.ToLower(strings.TrimSpace(strategy))
+	switch normalized {
+	case "", "round-robin", "roundrobin", "rr":
+		return "round-robin", true
+	case "fill-first", "fillfirst", "ff":
+		return "fill-first", true
+	default:
+		return "", false
+	}
+}
+
+// RoutingStrategy
+func (h *Handler) GetRoutingStrategy(c *gin.Context) {
+	strategy, ok := normalizeRoutingStrategy(h.cfg.Routing.Strategy)
+	if !ok {
+		c.JSON(200, gin.H{"strategy": strings.TrimSpace(h.cfg.Routing.Strategy)})
+		return
+	}
+	c.JSON(200, gin.H{"strategy": strategy})
+}
+func (h *Handler) PutRoutingStrategy(c *gin.Context) {
+	var body struct {
+		Value *string `json:"value"`
+	}
+	if errBindJSON := c.ShouldBindJSON(&body); errBindJSON != nil || body.Value == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+	normalized, ok := normalizeRoutingStrategy(*body.Value)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid strategy"})
+		return
+	}
+	h.cfg.Routing.Strategy = normalized
+	h.persist(c)
 }
 
 // Proxy URL

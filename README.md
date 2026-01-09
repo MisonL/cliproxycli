@@ -4,18 +4,16 @@
   <img src="https://img.shields.io/badge/Go-1.24-00ADD8?style=flat-square&logo=go" alt="Go Version">
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react" alt="React">
   <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker" alt="Docker">
+  <img src="https://img.shields.io/badge/Offline-100%25-green?style=flat-square&logo=offline" alt="Offline Ready">
   <img src="https://img.shields.io/github/license/MisonL/cliproxycli?style=flat-square" alt="License">
 </p>
 
 <p align="center">
   <strong>一个支持 OpenAI/Gemini/Claude 兼容 API 的智能代理服务器</strong><br>
-  专为 AI 编程工具设计 · 多源聚合 · 智能路由 · 可视化管理
+  专为 AI 编程工具设计 · 多源聚合 · 智能路由 · 可视化管理 · 完全离线化
 </p>
 
 ---
-
-> **🔀 Fork 声明**  
-> 本项目基于 [router-for-me/CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) 的 [`d1220de`](https://github.com/router-for-me/CLIProxyAPI/commit/d1220de02dd125051323716bdd2b5781cd7b0d60) 提交进行二次开发。感谢原作者的开源贡献！
 
 ---
 
@@ -25,10 +23,20 @@
 <tr>
 <td width="50%">
 
+### 安全性说明 (Security Note)
+
+> [!IMPORTANT] > **默认安全原则**: 如果配置文件中没有配置任何 `auth.providers` 或 `api-keys`，代理服务器将默认**拒绝所有外部 API 请求** (401 Unauthorized)。这可以防止服务在未授权情况下被公开扫描。
+
+### 🛡️ 完全离线化 (Offline Ready)
+
+- **零外部依赖**: 移除所有对 GitHub 等外部服务的版本检查和资源请求。
+- **内嵌前端**: 管理后台资源直接编译进二进制文件，开箱即用。
+- **本地环境**: 针对内网隔离环境优化，启动无超时等待。
+
 ### 🔌 多源 AI 提供商
 
 | 提供商         | 认证方式          |
-| -------------- | ----------------- |
+| :------------- | :---------------- |
 | Gemini CLI     | OAuth             |
 | AI Studio      | API Key / 多账号  |
 | Antigravity    | Cloud Code OAuth  |
@@ -83,6 +91,14 @@
 <td colspan="4">⚡️ <strong>高性能日志</strong>: 采用虚拟列表技术，流畅渲染数万条请求记录</td>
 </tr>
 </table>
+<br>
+
+> **✅ 验证状态 (Verified Status)**:
+>
+> - **Dashboard**: 核心图表与数据流实测通过
+> - **Scheduler**: 定时任务调度与鉴权回路 (Loopback Auth) 修复确认
+> - **API Keys**: 密钥生命周期管理功能验证完成
+> - **System**: 版本信息与环境元数据展示正常 (离线模式)
 
 ---
 
@@ -98,8 +114,8 @@ cd cliproxycli
 # 2. 复制配置
 cp config.example.yaml config.yaml
 
-# 3. 启动服务
-./docker-build.sh
+# 3. 启动服务 (自动构建并内嵌前端)
+docker-compose up -d --build
 ```
 
 ### 访问管理界面
@@ -154,13 +170,8 @@ openai-providers:
 欢迎提交 Pull Request 或 Issue！
 
 - **开发指南**: 请阅读 [docs/DEV_GUIDE.md](docs/DEV_GUIDE.md) 了解环境搭建与测试流程。
-- **同步指南**: [docs/SYNC_GUIDE.md](docs/SYNC_GUIDE.md) (保持与上游同步)
 
 ---
-
-## 🤝 致谢
-
-感谢原项目 [router-for-me/CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) 的开源贡献。
 
 ---
 

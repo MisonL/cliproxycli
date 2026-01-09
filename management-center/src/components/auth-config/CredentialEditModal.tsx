@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import type { UnifiedProvider } from '@/types/unified';
@@ -17,35 +17,20 @@ export const CredentialEditModal: React.FC<CredentialEditModalProps> = ({
   onSave,
   initialData,
 }) => {
-  const [formData, setFormData] = useState<Partial<UnifiedProvider>>({
-    enabled: true,
-    priority: 10,
-    weight: 10,
-    type: 'gemini',
-    credentials: {},
-    tags: []
-  });
+  const [formData, setFormData] = useState<Partial<UnifiedProvider>>(
+    initialData ? JSON.parse(JSON.stringify(initialData)) : {
+      id: '',
+      enabled: true,
+      priority: 10,
+      weight: 10,
+      type: 'gemini',
+      credentials: {},
+      tags: []
+    }
+  );
 
   const [tagInput, setTagInput] = useState('');
-  const [apiKey, setApiKey] = useState('');
-
-  useEffect(() => {
-    if (initialData) {
-      setFormData(JSON.parse(JSON.stringify(initialData)));
-      setApiKey(initialData.credentials?.['api_key'] || '');
-    } else {
-      setFormData({
-        id: '',
-        enabled: true,
-        priority: 10,
-        weight: 10,
-        type: 'gemini',
-        credentials: {},
-        tags: []
-      });
-      setApiKey('');
-    }
-  }, [initialData, isOpen]);
+  const [apiKey, setApiKey] = useState(initialData?.credentials?.['api_key'] || '');
 
   const handleSave = () => {
     if (!formData.type) return;
@@ -139,7 +124,7 @@ export const CredentialEditModal: React.FC<CredentialEditModalProps> = ({
                     className="input-premium"
                     value={formData.type}
                     disabled={!!initialData}
-                    onChange={(e) => setFormData({...formData, type: e.target.value as any})}
+                    onChange={(e) => setFormData({...formData, type: e.target.value as UnifiedProvider['type']})}
                     style={{ appearance: 'none', cursor: 'pointer' }}
                  >
                    {providerTypes.map(t => (

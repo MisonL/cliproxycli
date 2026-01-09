@@ -3,19 +3,16 @@
 package watcher
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"cliproxy/internal/config"
+	"cliproxy/internal/util"
+	coreauth "cliproxy/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -123,11 +120,8 @@ func (w *Watcher) addOrUpdateClient(path string) {
 		return
 	}
 
-	curHash, errHash := semanticAuthHash(data)
-	if errHash != nil {
-		log.Errorf("failed to compute semantic hash for %s: %v", filepath.Base(path), errHash)
-		return
-	}
+	sum := sha256.Sum256(data)
+	curHash := hex.EncodeToString(sum[:])
 	normalized := w.normalizeAuthPath(path)
 
 	w.clientsMutex.Lock()
@@ -139,7 +133,7 @@ func (w *Watcher) addOrUpdateClient(path string) {
 		return
 	}
 	if prev, ok := w.lastAuthHashes[normalized]; ok && prev == curHash {
-		log.Debugf("auth file unchanged (semantic hash match), skipping reload: %s", filepath.Base(path))
+		log.Debugf("auth file unchanged (hash match), skipping reload: %s", filepath.Base(path))
 		w.clientsMutex.Unlock()
 		return
 	}
@@ -154,7 +148,6 @@ func (w *Watcher) addOrUpdateClient(path string) {
 		log.Debugf("triggering server update callback after add/update")
 		w.reloadCallback(cfg)
 	}
-	w.persistAuthAsync(fmt.Sprintf("Sync auth %s", filepath.Base(path)), path)
 }
 
 func (w *Watcher) removeClient(path string) {
@@ -172,7 +165,6 @@ func (w *Watcher) removeClient(path string) {
 		log.Debugf("triggering server update callback after removal")
 		w.reloadCallback(cfg)
 	}
-	w.persistAuthAsync(fmt.Sprintf("Remove auth %s", filepath.Base(path)), path)
 }
 
 func (w *Watcher) loadFileClients(cfg *config.Config) int {
@@ -235,39 +227,4 @@ func BuildAPIKeyClients(cfg *config.Config) (int, int, int, int, int) {
 		}
 	}
 	return geminiAPIKeyCount, vertexCompatAPIKeyCount, claudeAPIKeyCount, codexAPIKeyCount, openAICompatCount
-}
-
-func (w *Watcher) persistConfigAsync() {
-	if w == nil || w.storePersister == nil {
-		return
-	}
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		if err := w.storePersister.PersistConfig(ctx); err != nil {
-			log.Errorf("failed to persist config change: %v", err)
-		}
-	}()
-}
-
-func (w *Watcher) persistAuthAsync(message string, paths ...string) {
-	if w == nil || w.storePersister == nil {
-		return
-	}
-	filtered := make([]string, 0, len(paths))
-	for _, p := range paths {
-		if trimmed := strings.TrimSpace(p); trimmed != "" {
-			filtered = append(filtered, trimmed)
-		}
-	}
-	if len(filtered) == 0 {
-		return
-	}
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		if err := w.storePersister.PersistAuthFiles(ctx, message, filtered...); err != nil {
-			log.Errorf("failed to persist auth changes: %v", err)
-		}
-	}()
 }

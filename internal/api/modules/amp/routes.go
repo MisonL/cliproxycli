@@ -1,6 +1,7 @@
 package amp
 
 import (
+	"context"
 	"errors"
 	"net"
 	"net/http"
@@ -8,13 +9,44 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/logging"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/api/handlers"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/api/handlers/claude"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/api/handlers/gemini"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/api/handlers/openai"
+	"cliproxy/internal/logging"
+	"cliproxy/sdk/api/handlers"
+	"cliproxy/sdk/api/handlers/claude"
+	"cliproxy/sdk/api/handlers/gemini"
+	"cliproxy/sdk/api/handlers/openai"
 	log "github.com/sirupsen/logrus"
 )
+
+// clientAPIKeyContextKey is the context key used to pass the client API key
+// from gin.Context to the request context for SecretSource lookup.
+type clientAPIKeyContextKey struct{}
+
+// clientAPIKeyMiddleware injects the authenticated client API key from gin.Context["apiKey"]
+// into the request context so that SecretSource can look it up for per-client upstream routing.
+func clientAPIKeyMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Extract the client API key from gin context (set by AuthMiddleware)
+		if apiKey, exists := c.Get("apiKey"); exists {
+			if keyStr, ok := apiKey.(string); ok && keyStr != "" {
+				// Inject into request context for SecretSource.Get(ctx) to read
+				ctx := context.WithValue(c.Request.Context(), clientAPIKeyContextKey{}, keyStr)
+				c.Request = c.Request.WithContext(ctx)
+			}
+		}
+		c.Next()
+	}
+}
+
+// getClientAPIKeyFromContext retrieves the client API key from request context.
+// Returns empty string if not present.
+func getClientAPIKeyFromContext(ctx context.Context) string {
+	if val := ctx.Value(clientAPIKeyContextKey{}); val != nil {
+		if keyStr, ok := val.(string); ok {
+			return keyStr
+		}
+	}
+	return ""
+}
 
 // localhostOnlyMiddleware returns a middleware that dynamically checks the module's
 // localhost restriction setting. This allows hot-reload of the restriction without restarting.
@@ -95,6 +127,20 @@ func (m *AmpModule) managementAvailabilityMiddleware() gin.HandlerFunc {
 	}
 }
 
+// wrapManagementAuth skips auth for selected management paths while keeping authentication elsewhere.
+func wrapManagementAuth(auth gin.HandlerFunc, prefixes ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		path := c.Request.URL.Path
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(path, prefix) && (len(path) == len(prefix) || path[len(prefix)] == '/') {
+				c.Next()
+				return
+			}
+		}
+		auth(c)
+	}
+}
+
 // registerManagementRoutes registers Amp management proxy routes
 // These routes proxy through to the Amp control plane for OAuth, user management, etc.
 // Uses dynamic middleware and proxy getter for hot-reload support.
@@ -109,9 +155,14 @@ func (m *AmpModule) registerManagementRoutes(engine *gin.Engine, baseHandler *ha
 	ampAPI.Use(m.localhostOnlyMiddleware())
 
 	// Apply authentication middleware - requires valid API key in Authorization header
+	var authWithBypass gin.HandlerFunc
 	if auth != nil {
 		ampAPI.Use(auth)
+		authWithBypass = wrapManagementAuth(auth, "/threads", "/auth", "/docs", "/settings")
 	}
+
+	// Inject client API key into request context for per-client upstream routing
+	ampAPI.Use(clientAPIKeyMiddleware())
 
 	// Dynamic proxy handler that uses m.getProxy() for hot-reload support
 	proxyHandler := func(c *gin.Context) {
@@ -156,10 +207,18 @@ func (m *AmpModule) registerManagementRoutes(engine *gin.Engine, baseHandler *ha
 	// Root-level routes that AMP CLI expects without /api prefix
 	// These need the same security middleware as the /api/* routes (dynamic for hot-reload)
 	rootMiddleware := []gin.HandlerFunc{m.managementAvailabilityMiddleware(), noCORSMiddleware(), m.localhostOnlyMiddleware()}
-	if auth != nil {
-		rootMiddleware = append(rootMiddleware, auth)
+	if authWithBypass != nil {
+		rootMiddleware = append(rootMiddleware, authWithBypass)
 	}
+	// Add clientAPIKeyMiddleware after auth for per-client upstream routing
+	rootMiddleware = append(rootMiddleware, clientAPIKeyMiddleware())
+	engine.GET("/threads", append(rootMiddleware, proxyHandler)...)
 	engine.GET("/threads/*path", append(rootMiddleware, proxyHandler)...)
+	engine.GET("/docs", append(rootMiddleware, proxyHandler)...)
+	engine.GET("/docs/*path", append(rootMiddleware, proxyHandler)...)
+	engine.GET("/settings", append(rootMiddleware, proxyHandler)...)
+	engine.GET("/settings/*path", append(rootMiddleware, proxyHandler)...)
+
 	engine.GET("/threads.rss", append(rootMiddleware, proxyHandler)...)
 	engine.GET("/news.rss", append(rootMiddleware, proxyHandler)...)
 
@@ -222,6 +281,8 @@ func (m *AmpModule) registerProviderAliases(engine *gin.Engine, baseHandler *han
 	if auth != nil {
 		ampProviders.Use(auth)
 	}
+	// Inject client API key into request context for per-client upstream routing
+	ampProviders.Use(clientAPIKeyMiddleware())
 
 	provider := ampProviders.Group("/:provider")
 

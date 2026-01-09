@@ -75,3 +75,11 @@ server
 *.old
 conversation-*.txt
 lint_report.txt
+race_report.txt
+test_output.txt
+
+# Generated embedded assets
+internal/managementasset/embedded/management.html
+
+# New Binary Name
+cliproxy

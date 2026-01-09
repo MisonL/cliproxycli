@@ -6,12 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/auth/iflow"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/browser"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/misc"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"cliproxy/internal/auth/iflow"
+	"cliproxy/internal/browser"
+	"cliproxy/internal/config"
+	"cliproxy/internal/misc"
+	"cliproxy/internal/util"
+	coreauth "cliproxy/sdk/cliproxy/auth"
 	log "github.com/sirupsen/logrus"
 )
 

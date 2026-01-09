@@ -3,7 +3,7 @@ package diff
 import (
 	"testing"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+	"cliproxy/internal/config"
 )
 
 func TestSummarizeExcludedModels_NormalizesAndDedupes(t *testing.T) {

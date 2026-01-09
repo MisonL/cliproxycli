@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+	"cliproxy/internal/config"
 )
 
 type ExcludedModelsSummary struct {
@@ -114,38 +114,5 @@ func SummarizeAmpModelMappings(mappings []config.AmpModelMapping) AmpModelMappin
 	return AmpModelMappingsSummary{
 		hash:  hex.EncodeToString(sum[:]),
 		count: len(entries),
-	}
-}
-
-type VertexModelsSummary struct {
-	hash  string
-	count int
-}
-
-// SummarizeVertexModels hashes vertex-compatible models for change detection.
-func SummarizeVertexModels(models []config.VertexCompatModel) VertexModelsSummary {
-	if len(models) == 0 {
-		return VertexModelsSummary{}
-	}
-	names := make([]string, 0, len(models))
-	for _, m := range models {
-		name := strings.TrimSpace(m.Name)
-		alias := strings.TrimSpace(m.Alias)
-		if name == "" && alias == "" {
-			continue
-		}
-		if alias != "" {
-			name = alias
-		}
-		names = append(names, name)
-	}
-	if len(names) == 0 {
-		return VertexModelsSummary{}
-	}
-	sort.Strings(names)
-	sum := sha256.Sum256([]byte(strings.Join(names, "|")))
-	return VertexModelsSummary{
-		hash:  hex.EncodeToString(sum[:]),
-		count: len(names),
 	}
 }

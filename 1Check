@@ -1,0 +1,70 @@
+# for
+package for is not in std (/usr/local/Cellar/go/1.25.5/libexec/src/for)
+# for
+package for is not in std (/usr/local/Cellar/go/1.25.5/libexec/src/for)
+# FAIL
+package FAIL is not in std (/usr/local/Cellar/go/1.25.5/libexec/src/FAIL)
+# FAIL
+package FAIL is not in std (/usr/local/Cellar/go/1.25.5/libexec/src/FAIL)
+# in
+package in is not in std (/usr/local/Cellar/go/1.25.5/libexec/src/in)
+# in
+package in is not in std (/usr/local/Cellar/go/1.25.5/libexec/src/in)
+# test_output.txt:
+malformed import path "test_output.txt:": invalid char ':'
+# test_output.txt:
+malformed import path "test_output.txt:": invalid char ':'
+# grep
+package grep is not in std (/usr/local/Cellar/go/1.25.5/libexec/src/grep)
+# grep
+package grep is not in std (/usr/local/Cellar/go/1.25.5/libexec/src/grep)
+# test_output.txt
+no required module provides package test_output.txt; to add it:
+	go get test_output.txt
+# test_output.txt
+no required module provides package test_output.txt; to add it:
+	go get test_output.txt
+# cliproxy/internal/api/modules/amp [cliproxy/internal/api/modules/amp.test]
+internal/api/modules/amp/amp_test.go:16:2: "cliproxy/sdk/config" imported as sdkconfig and not used
+internal/api/modules/amp/amp_test.go:60:14: undefined: sdksdkconfig
+internal/api/modules/amp/amp_test.go:94:14: undefined: sdksdkconfig
+internal/api/modules/amp/amp_test.go:133:14: undefined: sdksdkconfig
+internal/api/modules/amp/amp_test.go:170:56: undefined: sdksdkconfig
+internal/api/modules/amp/amp_test.go:194:35: undefined: sdksdkconfig
+internal/api/modules/amp/amp_test.go:206:35: undefined: sdksdkconfig
+internal/api/modules/amp/amp_test.go:259:14: undefined: sdksdkconfig
+internal/api/modules/amp/amp_test.go:306:37: undefined: sdksdkconfig
+# cliproxy/internal/api/modules/amp [cliproxy/internal/api/modules/amp.test]
+internal/api/modules/amp/amp_test.go:16:2: "cliproxy/sdk/config" imported as sdkconfig and not used
+internal/api/modules/amp/amp_test.go:60:14: undefined: sdksdkconfig
+internal/api/modules/amp/amp_test.go:94:14: undefined: sdksdkconfig
+internal/api/modules/amp/amp_test.go:133:14: undefined: sdksdkconfig
+internal/api/modules/amp/amp_test.go:170:56: undefined: sdksdkconfig
+internal/api/modules/amp/amp_test.go:194:35: undefined: sdksdkconfig
+internal/api/modules/amp/amp_test.go:206:35: undefined: sdksdkconfig
+internal/api/modules/amp/amp_test.go:259:14: undefined: sdksdkconfig
+internal/api/modules/amp/amp_test.go:306:37: undefined: sdksdkconfig
+# cliproxy/internal/watcher [cliproxy/internal/watcher.test]
+internal/watcher/watcher_test.go:48:14: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:68:14: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:139:14: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:227:15: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:294:40: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:389:40: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:414:40: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:440:40: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:533:38: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:547:38: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:547:38: too many errors
+# cliproxy/internal/watcher [cliproxy/internal/watcher.test]
+internal/watcher/watcher_test.go:48:14: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:68:14: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:139:14: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:227:15: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:294:40: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:389:40: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:414:40: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:440:40: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:533:38: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:547:38: undefined: sdksdkconfig
+internal/watcher/watcher_test.go:547:38: too many errors

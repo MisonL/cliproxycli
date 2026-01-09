@@ -6,7 +6,7 @@ import (
 	"sort"
 	"sync"
 
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	cliproxyauth "cliproxy/sdk/cliproxy/auth"
 )
 
 // MemoryTokenStore implements coreauth.Store using an in-memory map.

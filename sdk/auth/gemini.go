@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/auth/gemini"
+	"cliproxy/internal/auth/gemini"
 	// legacy client removed
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"cliproxy/internal/config"
+	coreauth "cliproxy/sdk/cliproxy/auth"
 )
 
 // GeminiAuthenticator implements the login flow for Google Gemini CLI accounts.
@@ -44,7 +44,7 @@ func (a *GeminiAuthenticator) Login(ctx context.Context, cfg *config.Config, opt
 	}
 
 	geminiAuth := gemini.NewGeminiAuth()
-	_, err := geminiAuth.GetAuthenticatedClient(ctx, &ts, cfg, opts.NoBrowser)
+	_, err := geminiAuth.GetAuthenticatedClient(ctx, &ts, cfg, &gemini.WebLoginOptions{NoBrowser: opts.NoBrowser})
 	if err != nil {
 		return nil, fmt.Errorf("gemini authentication failed: %w", err)
 	}

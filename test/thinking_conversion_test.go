@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/router-for-me/CLIProxyAPI/v6/internal/translator"
+	_ "cliproxy/internal/translator"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/runtime/executor"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
-	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
+	"cliproxy/internal/registry"
+	"cliproxy/internal/runtime/executor"
+	"cliproxy/internal/util"
+	sdktranslator "cliproxy/sdk/translator"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )

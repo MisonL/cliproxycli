@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	copilotauth "github.com/router-for-me/CLIProxyAPI/v6/internal/auth/copilot"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
-	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
-	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
+	copilotauth "cliproxy/internal/auth/copilot"
+	"cliproxy/internal/config"
+	cliproxyauth "cliproxy/sdk/cliproxy/auth"
+	cliproxyexecutor "cliproxy/sdk/cliproxy/executor"
+	sdktranslator "cliproxy/sdk/translator"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/sjson"
 )
@@ -81,7 +81,7 @@ func (e *GitHubCopilotExecutor) Execute(ctx context.Context, auth *cliproxyauth.
 	to := sdktranslator.FromString("openai")
 	body := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), false)
 	body = e.normalizeModel(req.Model, body)
-	body = applyPayloadConfig(e.cfg, req.Model, body)
+	body = applyPayloadConfigWithRoot(e.cfg, req.Model, "", "", body, nil)
 	body, _ = sjson.SetBytes(body, "stream", false)
 
 	url := githubCopilotBaseURL + githubCopilotChatPath
@@ -164,7 +164,7 @@ func (e *GitHubCopilotExecutor) ExecuteStream(ctx context.Context, auth *cliprox
 	to := sdktranslator.FromString("openai")
 	body := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), true)
 	body = e.normalizeModel(req.Model, body)
-	body = applyPayloadConfig(e.cfg, req.Model, body)
+	body = applyPayloadConfigWithRoot(e.cfg, req.Model, "", "", body, nil)
 	body, _ = sjson.SetBytes(body, "stream", true)
 	// Enable stream options for usage stats in stream
 	body, _ = sjson.SetBytes(body, "stream_options.include_usage", true)

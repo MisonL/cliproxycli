@@ -15,16 +15,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	kiroauth "github.com/router-for-me/CLIProxyAPI/v6/internal/auth/kiro"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	kiroclaude "github.com/router-for-me/CLIProxyAPI/v6/internal/translator/kiro/claude"
-	kirocommon "github.com/router-for-me/CLIProxyAPI/v6/internal/translator/kiro/common"
-	kiroopenai "github.com/router-for-me/CLIProxyAPI/v6/internal/translator/kiro/openai"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
-	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/usage"
-	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
+	kiroauth "cliproxy/internal/auth/kiro"
+	"cliproxy/internal/config"
+	kiroclaude "cliproxy/internal/translator/kiro/claude"
+	kirocommon "cliproxy/internal/translator/kiro/common"
+	kiroopenai "cliproxy/internal/translator/kiro/openai"
+	"cliproxy/internal/util"
+	cliproxyauth "cliproxy/sdk/cliproxy/auth"
+	cliproxyexecutor "cliproxy/sdk/cliproxy/executor"
+	"cliproxy/sdk/cliproxy/usage"
+	sdktranslator "cliproxy/sdk/translator"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -453,14 +453,14 @@ func (e *KiroExecutor) executeWithRetry(ctx context.Context, auth *cliproxyauth.
 
 			// Fallback for usage if missing from upstream
 			if usageInfo.TotalTokens == 0 {
-				if enc, encErr := getTokenizer(req.Model); encErr == nil {
+				if enc, encErr := tokenizerForModel(req.Model); encErr == nil {
 					if inp, countErr := countOpenAIChatTokens(enc, opts.OriginalRequest); countErr == nil {
 						usageInfo.InputTokens = inp
 					}
 				}
 				if len(content) > 0 {
 					// Use tiktoken for more accurate output token calculation
-					if enc, encErr := getTokenizer(req.Model); encErr == nil {
+					if enc, encErr := tokenizerForModel(req.Model); encErr == nil {
 						if tokenCount, countErr := enc.Count(content); countErr == nil {
 							usageInfo.OutputTokens = int64(tokenCount)
 						}
@@ -1670,7 +1670,7 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 
 	// Pre-calculate input tokens from request if possible
 	// Kiro uses Claude format, so try Claude format first, then OpenAI format, then fallback
-	if enc, err := getTokenizer(model); err == nil {
+	if enc, err := tokenizerForModel(model); err == nil {
 		var inputTokens int64
 		var countMethod string
 
@@ -1988,7 +1988,7 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 				if shouldSendUsageUpdate {
 					// Calculate current output tokens using tiktoken
 					var currentOutputTokens int64
-					if enc, encErr := getTokenizer(model); encErr == nil {
+					if enc, encErr := tokenizerForModel(model); encErr == nil {
 						if tokenCount, countErr := enc.Count(accumulatedContent.String()); countErr == nil {
 							currentOutputTokens = int64(tokenCount)
 						}
@@ -2609,7 +2609,7 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 	// Only use local estimation if server didn't provide usage (server-side usage takes priority)
 	if totalUsage.OutputTokens == 0 && accumulatedContent.Len() > 0 {
 		// Try to use tiktoken for accurate counting
-		if enc, err := getTokenizer(model); err == nil {
+		if enc, err := tokenizerForModel(model); err == nil {
 			if tokenCount, countErr := enc.Count(accumulatedContent.String()); countErr == nil {
 				totalUsage.OutputTokens = int64(tokenCount)
 				log.Debugf("kiro: streamToChannel calculated output tokens using tiktoken: %d", totalUsage.OutputTokens)
@@ -2709,7 +2709,7 @@ func (e *KiroExecutor) streamToChannel(ctx context.Context, body io.Reader, out 
 // This provides approximate token counts for client requests.
 func (e *KiroExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (cliproxyexecutor.Response, error) {
 	// Use tiktoken for local token counting
-	enc, err := getTokenizer(req.Model)
+	enc, err := tokenizerForModel(req.Model)
 	if err != nil {
 		log.Warnf("kiro: CountTokens failed to get tokenizer: %v, falling back to estimate", err)
 		// Fallback: estimate from payload size (roughly 4 chars per token)

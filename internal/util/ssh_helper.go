@@ -31,30 +31,31 @@ var ipServices = []string{
 func getPublicIP() (string, error) {
 	for _, service := range ipServices {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
 		req, err := http.NewRequestWithContext(ctx, "GET", service, nil)
 		if err != nil {
+			cancel()
 			log.Debugf("Failed to create request to %s: %v", service, err)
 			continue
 		}
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
+			cancel()
 			log.Debugf("Failed to get public IP from %s: %v", service, err)
 			continue
 		}
-		defer func() {
-			if closeErr := resp.Body.Close(); closeErr != nil {
-				log.Warnf("Failed to close response body from %s: %v", service, closeErr)
-			}
-		}()
 
 		if resp.StatusCode != http.StatusOK {
+			_ = resp.Body.Close()
+			cancel()
 			log.Debugf("bad status code from %s: %d", service, resp.StatusCode)
 			continue
 		}
 
 		ip, err := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		cancel() // Ensure cancel is called before next iteration or return
+
 		if err != nil {
 			log.Debugf("Failed to read response body from %s: %v", service, err)
 			continue

@@ -119,6 +119,12 @@
   },
   "api_keys": {
     "title": "API 密钥管理",
+    "subtitle": "配置用于代理鉴权的 API 密钥。只有持有有效密钥的客户端才能通过网关。支持多级密钥轮转与独立配额审计。",
+    "feature_1": "多级鉴权",
+    "feature_2": "动态轮转",
+    "feature_3": "审计日志",
+    "pool_title": "存量密钥池",
+    "pool_desc": "管理当前系统允许接入的密钥列表",
     "proxy_auth_title": "代理服务认证密钥",
     "add_button": "添加密钥",
     "empty_title": "暂无API密钥",

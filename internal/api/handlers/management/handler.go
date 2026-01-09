@@ -13,12 +13,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/buildinfo"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/usage"
-	sdkAuth "github.com/router-for-me/CLIProxyAPI/v6/sdk/auth"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"cliproxy/internal/buildinfo"
+	"cliproxy/internal/config"
+	"cliproxy/internal/usage"
+	sdkAuth "cliproxy/sdk/auth"
+	coreauth "cliproxy/sdk/cliproxy/auth"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -60,15 +59,13 @@ func NewHandler(cfg *config.Config, configFilePath string, manager *coreauth.Man
 	}
 }
 
+// NewHandler creates a new management handler instance.
+func NewHandlerWithoutConfigFilePath(cfg *config.Config, manager *coreauth.Manager) *Handler {
+	return NewHandler(cfg, "", manager)
+}
+
 // SetConfig updates the in-memory config reference when the server hot-reloads.
 func (h *Handler) SetConfig(cfg *config.Config) { h.cfg = cfg }
-
-// ListModels returns all available models from the global registry
-func (h *Handler) ListModels(c *gin.Context) {
-	reg := registry.GetGlobalRegistry()
-	models := reg.GetAvailableModels("openai")
-	c.JSON(http.StatusOK, gin.H{"object": "list", "data": models})
-}
 
 // SetAuthManager updates the auth manager reference used by management endpoints.
 func (h *Handler) SetAuthManager(manager *coreauth.Manager) { h.authManager = manager }
@@ -111,10 +108,10 @@ func (h *Handler) Middleware() gin.HandlerFunc {
 			allowRemote bool
 			secretHash  string
 		)
-		if cfg != nil {
-			allowRemote = cfg.RemoteManagement.AllowRemote
-			secretHash = cfg.RemoteManagement.SecretKey
-		}
+	if cfg != nil {
+		allowRemote = cfg.RemoteManagement.AllowRemote
+		secretHash = cfg.RemoteManagement.SecretKey
+	}
 		if h.allowRemoteOverride {
 			allowRemote = true
 		}
@@ -233,13 +230,6 @@ func (h *Handler) Middleware() gin.HandlerFunc {
 func (h *Handler) persist(c *gin.Context) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-
-	// If global persistence is disabled, do not write to disk.
-	if !h.cfg.PersistenceEnabled {
-		c.JSON(http.StatusOK, gin.H{"status": "ok", "message": "config updated in memory only (persistence disabled)"})
-		return true
-	}
-
 	// Preserve comments when writing
 	if err := config.SaveConfigPreserveComments(h.configFilePath, h.cfg); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to save config: %v", err)})

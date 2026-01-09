@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
+	"cliproxy/internal/config"
+	"cliproxy/internal/registry"
 )
 
 // Router handles model ID parsing and client selection logic.

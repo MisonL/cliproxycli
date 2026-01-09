@@ -263,7 +263,7 @@ const normalizeSchedulingConfig = (val: unknown): SchedulingConfig | undefined =
   if (!val || typeof val !== 'object') return undefined;
   const obj = val as Record<string, unknown>;
   return {
-    strategy: String(obj.strategy || 'priority') as any,
+    strategy: String(obj.strategy || 'priority') as SchedulingConfig['strategy'],
     retry: Number(obj.retry || 0),
     fallback: normalizeBoolean(obj.fallback)
   };

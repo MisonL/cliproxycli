@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
+	"cliproxy/internal/registry"
+	"cliproxy/internal/util"
 	"github.com/tidwall/gjson"
 )
 

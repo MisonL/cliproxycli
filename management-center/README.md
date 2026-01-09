@@ -4,7 +4,7 @@ A modern React-based WebUI for managing the CLI Proxy API, completely refactored
 
 [中文文档](README_CN.md)
 
-**Main Project**: https://github.com/router-for-me/CLIProxyAPI
+**Main Project**: #
 **Example URL**: https://remote.router-for.me/
 **Minimum Required Version**: ≥ 6.3.0 (recommended ≥ 6.5.0)
 
@@ -55,7 +55,7 @@ Since version 6.0.19, the WebUI ships with the main program; access it via `/man
 
 ```bash
 # Clone the repository
-git clone https://github.com/router-for-me/Cli-Proxy-API-Management-Center.git
+git clone #.git
 cd Cli-Proxy-API-Management-Center
 
 # Install dependencies

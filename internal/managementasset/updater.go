@@ -1,17 +1,22 @@
 package managementasset
 
 import (
-	"context"
+	_ "embed"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
+	"cliproxy/internal/config"
+	"cliproxy/internal/util"
+
 	log "github.com/sirupsen/logrus"
 )
+
+//go:embed embedded/management.html
+var embeddedAsset []byte
 
 const (
 	managementAssetName = "management.html"
@@ -36,28 +41,6 @@ func SetCurrentConfig(cfg *config.Config) {
 
 	currentConfigPtr.Store(cfg)
 	disableControlPanel.Store(cfg.RemoteManagement.DisableControlPanel)
-}
-
-// StartAutoUpdater launches a background goroutine that periodically ensures the management asset is up to date.
-// It respects the disable-control-panel flag on every iteration and supports hot-reloaded configurations.
-func StartAutoUpdater(ctx context.Context, configFilePath string) {
-	configFilePath = strings.TrimSpace(configFilePath)
-	if configFilePath == "" {
-		log.Debug("management asset auto-updater skipped: empty config path")
-		return
-	}
-
-	schedulerConfigPath.Store(configFilePath)
-
-	schedulerOnce.Do(func() {
-		go runAutoUpdater(ctx)
-	})
-}
-
-func runAutoUpdater(_ context.Context) {
-	// Auto-updater is permanently disabled to support custom frontend modifications.
-	// We do not want the official upstream release to overwrite our custom scheduler page.
-	log.Info("management asset auto-updater is disabled (custom mode)")
 }
 
 // StaticDir resolves the directory that stores the management control panel asset.
@@ -107,8 +90,32 @@ func FilePath(configFilePath string) string {
 	return filepath.Join(dir, ManagementFileName)
 }
 
-// EnsureLatestManagementHTML checks the latest management.html asset and updates the local copy when needed.
-// This function is stubbed out in custom build to prevent overwriting modified frontend.
-func EnsureLatestManagementHTML(ctx context.Context, staticDir string, proxyURL string, panelRepository string) {
-	log.Info("management asset synchronization is disabled in custom build")
+// EnsureAsset checks if the management asset exists and attempts to restore it from embedded if missing.
+func EnsureAsset(configFilePath string) (string, error) {
+	path := FilePath(configFilePath)
+	if path == "" {
+		return "", fmt.Errorf("could not resolve asset path")
+	}
+
+	// If local file exists, use it (allows customization)
+	if _, err := os.Stat(path); err == nil {
+		return path, nil
+	}
+
+	// Otherwise, restore from embedded asset
+	log.Infof("Management asset missing at %s, restoring from embedded source...", path)
+
+	// Create directory if missing
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create static directory: %w", err)
+	}
+
+	// Write embedded asset to the path
+	if err := os.WriteFile(path, embeddedAsset, 0644); err != nil {
+		return "", fmt.Errorf("failed to restore embedded management asset: %w", err)
+	}
+
+	log.Infof("Management asset successfully restored to %s", path)
+	return path, nil
 }

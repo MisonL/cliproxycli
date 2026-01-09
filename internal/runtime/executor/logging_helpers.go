@@ -11,20 +11,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
+	"cliproxy/internal/config"
+	"cliproxy/internal/util"
 )
 
 const (
 	apiAttemptsKey = "API_UPSTREAM_ATTEMPTS"
 	apiRequestKey  = "API_REQUEST"
 	apiResponseKey = "API_RESPONSE"
-)
-
-type contextKey string
-
-const (
-	ginKey contextKey = "gin"
 )
 
 // upstreamRequestLog captures the outbound upstream request details for logging.
@@ -66,18 +60,18 @@ func recordAPIRequest(ctx context.Context, cfg *config.Config, info upstreamRequ
 	index := len(attempts) + 1
 
 	builder := &strings.Builder{}
-	_, _ = fmt.Fprintf(builder, "=== API REQUEST %d ===\n", index)
-	_, _ = fmt.Fprintf(builder, "Timestamp: %s\n", time.Now().Format(time.RFC3339Nano))
+	builder.WriteString(fmt.Sprintf("=== API REQUEST %d ===\n", index))
+	builder.WriteString(fmt.Sprintf("Timestamp: %s\n", time.Now().Format(time.RFC3339Nano)))
 	if info.URL != "" {
-		_, _ = fmt.Fprintf(builder, "Upstream URL: %s\n", info.URL)
+		builder.WriteString(fmt.Sprintf("Upstream URL: %s\n", info.URL))
 	} else {
 		builder.WriteString("Upstream URL: <unknown>\n")
 	}
 	if info.Method != "" {
-		_, _ = fmt.Fprintf(builder, "HTTP Method: %s\n", info.Method)
+		builder.WriteString(fmt.Sprintf("HTTP Method: %s\n", info.Method))
 	}
 	if auth := formatAuthInfo(info); auth != "" {
-		_, _ = fmt.Fprintf(builder, "Auth: %s\n", auth)
+		builder.WriteString(fmt.Sprintf("Auth: %s\n", auth))
 	}
 	builder.WriteString("\nHeaders:\n")
 	writeHeaders(builder, info.Headers)
@@ -112,7 +106,7 @@ func recordAPIResponseMetadata(ctx context.Context, cfg *config.Config, status i
 	ensureResponseIntro(attempt)
 
 	if status > 0 && !attempt.statusWritten {
-		_, _ = fmt.Fprintf(attempt.response, "Status: %d\n", status)
+		attempt.response.WriteString(fmt.Sprintf("Status: %d\n", status))
 		attempt.statusWritten = true
 	}
 	if !attempt.headersWritten {
@@ -144,7 +138,7 @@ func recordAPIResponseError(ctx context.Context, cfg *config.Config, err error) 
 	if attempt.errorWritten {
 		attempt.response.WriteString("\n")
 	}
-	_, _ = fmt.Fprintf(attempt.response, "Error: %s\n", err.Error())
+	attempt.response.WriteString(fmt.Sprintf("Error: %s\n", err.Error()))
 	attempt.errorWritten = true
 
 	updateAggregatedResponse(ginCtx, attempts)
@@ -186,7 +180,7 @@ func appendAPIResponseChunk(ctx context.Context, cfg *config.Config, chunk []byt
 }
 
 func ginContextFrom(ctx context.Context) *gin.Context {
-	ginCtx, _ := ctx.Value(ginKey).(*gin.Context)
+	ginCtx, _ := ctx.Value("gin").(*gin.Context)
 	return ginCtx
 }
 
@@ -221,8 +215,8 @@ func ensureResponseIntro(attempt *upstreamAttempt) {
 	if attempt == nil || attempt.response == nil || attempt.responseIntroWritten {
 		return
 	}
-	_, _ = fmt.Fprintf(attempt.response, "=== API RESPONSE %d ===\n", attempt.index)
-	_, _ = fmt.Fprintf(attempt.response, "Timestamp: %s\n", time.Now().Format(time.RFC3339Nano))
+	attempt.response.WriteString(fmt.Sprintf("=== API RESPONSE %d ===\n", attempt.index))
+	attempt.response.WriteString(fmt.Sprintf("Timestamp: %s\n", time.Now().Format(time.RFC3339Nano)))
 	attempt.response.WriteString("\n")
 	attempt.responseIntroWritten = true
 }
@@ -278,12 +272,12 @@ func writeHeaders(builder *strings.Builder, headers http.Header) {
 	for _, key := range keys {
 		values := headers[key]
 		if len(values) == 0 {
-			_, _ = fmt.Fprintf(builder, "%s:\n", key)
+			builder.WriteString(fmt.Sprintf("%s:\n", key))
 			continue
 		}
 		for _, value := range values {
 			masked := util.MaskSensitiveHeaderValue(key, value)
-			_, _ = fmt.Fprintf(builder, "%s: %s\n", key, masked)
+			builder.WriteString(fmt.Sprintf("%s: %s\n", key, masked))
 		}
 	}
 }

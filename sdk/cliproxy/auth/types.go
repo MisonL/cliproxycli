@@ -1,22 +1,23 @@
 package auth
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
-	baseauth "github.com/router-for-me/CLIProxyAPI/v6/internal/auth"
+	baseauth "cliproxy/internal/auth"
 )
 
 // Auth encapsulates the runtime state and metadata associated with a single credential.
 type Auth struct {
 	// ID uniquely identifies the auth record across restarts.
 	ID string `json:"id"`
-	// Index is a monotonically increasing runtime identifier used for diagnostics.
-	Index uint64 `json:"-"`
+	// Index is a stable runtime identifier derived from auth metadata (not persisted).
+	Index string `json:"-"`
 	// Provider is the upstream provider key (e.g. "gemini", "claude").
 	Provider string `json:"provider"`
 	// Prefix optionally namespaces models for routing (e.g., "teamA/gemini-3-pro-preview").
@@ -37,18 +38,14 @@ type Auth struct {
 	Unavailable bool `json:"unavailable"`
 	// ProxyURL overrides the global proxy setting for this auth if provided.
 	ProxyURL string `json:"proxy_url,omitempty"`
+	// Priority is used by the unified selector to prioritize credentials (lower is better).
+	Priority int `json:"priority,omitempty"`
+	// Weight is used by the unified selector for weighted load balancing (higher is more frequent).
+	Weight int `json:"weight,omitempty"`
 	// Attributes stores provider specific metadata needed by executors (immutable configuration).
 	Attributes map[string]string `json:"attributes,omitempty"`
 	// Metadata stores runtime mutable provider state (e.g. tokens, cookies).
 	Metadata map[string]any `json:"metadata,omitempty"`
-
-	// Priority determines the order of selection (lower value = higher priority).
-	Priority int `json:"priority,omitempty"`
-	// Weight determines the traffic distribution (higher value = more traffic).
-	Weight int `json:"weight,omitempty"`
-	// Tags are arbitrary labels used for routing.
-	Tags []string `json:"tags,omitempty"`
-
 	// Quota captures recent quota information for load balancers.
 	Quota QuotaState `json:"quota"`
 	// LastError stores the last failure encountered while executing or refreshing.
@@ -102,12 +99,6 @@ type ModelState struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-var authIndexCounter atomic.Uint64
-
-func nextAuthIndex() uint64 {
-	return authIndexCounter.Add(1) - 1
-}
-
 // Clone shallow copies the Auth structure, duplicating maps to avoid accidental mutation.
 func (a *Auth) Clone() *Auth {
 	if a == nil {
@@ -133,24 +124,44 @@ func (a *Auth) Clone() *Auth {
 		}
 	}
 	copyAuth.Runtime = a.Runtime
-	copyAuth.Priority = a.Priority
-	copyAuth.Weight = a.Weight
-	if len(a.Tags) > 0 {
-		copyAuth.Tags = make([]string, len(a.Tags))
-		copy(copyAuth.Tags, a.Tags)
-	}
 	return &copyAuth
 }
 
-// EnsureIndex returns the global index, assigning one if it was not set yet.
-func (a *Auth) EnsureIndex() uint64 {
-	if a == nil {
-		return 0
+func stableAuthIndex(seed string) string {
+	seed = strings.TrimSpace(seed)
+	if seed == "" {
+		return ""
 	}
-	if a.indexAssigned {
+	sum := sha256.Sum256([]byte(seed))
+	return hex.EncodeToString(sum[:8])
+}
+
+// EnsureIndex returns a stable index derived from the auth file name or API key.
+func (a *Auth) EnsureIndex() string {
+	if a == nil {
+		return ""
+	}
+	if a.indexAssigned && a.Index != "" {
 		return a.Index
 	}
-	idx := nextAuthIndex()
+
+	seed := strings.TrimSpace(a.FileName)
+	if seed != "" {
+		seed = "file:" + seed
+	} else if a.Attributes != nil {
+		if apiKey := strings.TrimSpace(a.Attributes["api_key"]); apiKey != "" {
+			seed = "api_key:" + apiKey
+		}
+	}
+	if seed == "" {
+		if id := strings.TrimSpace(a.ID); id != "" {
+			seed = "id:" + id
+		} else {
+			return ""
+		}
+	}
+
+	idx := stableAuthIndex(seed)
 	a.Index = idx
 	a.indexAssigned = true
 	return idx

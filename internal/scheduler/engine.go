@@ -86,38 +86,68 @@ func (e *Engine) checkAndRunTasks() {
 }
 
 func (e *Engine) shouldRun(task *Task, now time.Time) bool {
+	task.mu.RLock()
+	nextRun := task.NextRunAt
+	task.mu.RUnlock()
+
 	// 1. New task (NextRunAt is nil) -> Schedule immediately or calculate next
-	if task.NextRunAt == nil {
-		e.updateNextRun(task, now)
+	if nextRun == nil {
+		e.updateNextRun(task, now, false)
 		return false // Will run on next tick after update
 	}
 
 	// 2. Time has come
-	return now.After(*task.NextRunAt) || now.Equal(*task.NextRunAt)
+	return now.After(*nextRun) || now.Equal(*nextRun)
 }
 
-func (e *Engine) updateNextRun(task *Task, baseTime time.Time) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
+func (e *Engine) updateNextRun(task *Task, baseTime time.Time, forcePersist bool) {
+	// Use individual task lock for fields update
+	// Calculate updates
+	task.Lock()
 	var next time.Time
+	var shouldPersist = forcePersist // Initialize with forcePersist
+
+	defer func() {
+		task.Unlock()
+		if shouldPersist {
+			// Persist OUTSIDE the lock to avoid deadlock with MarshalJSON (which acquires RLock)
+			_ = e.store.AddTask(task)
+		}
+	}()
 
 	switch task.Type {
 	case TaskTypeFixedTime:
+		// If task is finished, do not schedule next run
+		if task.Status == TaskStatusFinished {
+			task.NextRunAt = nil
+			// forcePersist (shouldPersist) is already true if passed from executeTask,
+			// or if we just changed NextRunAt to nil (though it likely was nil'd in executeTask)
+			// But to be safe and consistent with "updateNextRun responsibilities":
+			// If we are forcing persist, we rely on the defer.
+			return
+		}
+
 		if task.FixedTime != nil && task.FixedTime.After(baseTime) {
 			next = *task.FixedTime
+			// If NextRunAt is not set correctly, update it
+			if task.NextRunAt == nil || !task.NextRunAt.Equal(next) {
+				task.NextRunAt = &next
+				shouldPersist = true
+			}
 		} else {
 			// Fixed time passed or invalid, mark as finished
 			task.Status = TaskStatusFinished
-			_ = e.store.AddTask(task)
+			task.NextRunAt = nil
+			shouldPersist = true
 			return
 		}
+
 	case TaskTypeInterval:
 		duration, err := time.ParseDuration(task.Interval)
 		if err != nil {
 			log.Errorf("Invalid interval for task %s: %v", task.ID, err)
 			task.Status = TaskStatusPaused // Pause on error
-			_ = e.store.AddTask(task)
+			shouldPersist = true
 			return
 		}
 		// If last run is set, add interval to it. Otherwise add to now.
@@ -130,15 +160,19 @@ func (e *Engine) updateNextRun(task *Task, baseTime time.Time) {
 		} else {
 			next = baseTime.Add(duration)
 		}
-	case TaskTypeDaily:
-		if task.DailyTime == "" {
+		task.NextRunAt = &next
+		shouldPersist = true
+
+	case TaskTypeDaily, TaskTypeSystemReport: // System report uses daily scheduling for now
+		dailyTime := task.DailyTime
+		if dailyTime == "" {
 			log.Errorf("DailyTime is empty for task %s", task.ID)
 			task.Status = TaskStatusPaused
-			_ = e.store.AddTask(task)
+			shouldPersist = true
 			return
 		}
 
-		timePoints := strings.Split(task.DailyTime, ",")
+		timePoints := strings.Split(dailyTime, ",")
 		var candidates []time.Time
 
 		for _, p := range timePoints {
@@ -167,7 +201,7 @@ func (e *Engine) updateNextRun(task *Task, baseTime time.Time) {
 		if len(candidates) == 0 {
 			log.Errorf("No valid time points for task %s", task.ID)
 			task.Status = TaskStatusPaused
-			_ = e.store.AddTask(task)
+			shouldPersist = true
 			return
 		}
 
@@ -176,10 +210,16 @@ func (e *Engine) updateNextRun(task *Task, baseTime time.Time) {
 			return candidates[i].Before(candidates[j])
 		})
 		next = candidates[0]
-	}
+		task.NextRunAt = &next
+		shouldPersist = true
 
-	task.NextRunAt = &next
-	_ = e.store.AddTask(task)
+	default:
+		log.Warnf("Unknown task type %s for task %s, pausing", task.Type, task.ID)
+		task.Status = TaskStatusPaused
+		task.NextRunAt = nil
+		shouldPersist = true
+		return
+	}
 }
 
 func (e *Engine) executeTask(task *Task) {
@@ -213,7 +253,7 @@ func (e *Engine) executeTask(task *Task) {
 	_ = e.store.AddLog(entry)
 
 	// Update Task State
-	e.mu.Lock()
+	task.Lock()
 	now := time.Now()
 	task.LastRunAt = &now
 	if !success {
@@ -227,15 +267,10 @@ func (e *Engine) executeTask(task *Task) {
 		task.Status = TaskStatusFinished
 		task.NextRunAt = nil
 	}
-	e.mu.Unlock() // Unlock before calculating next to avoid deadlock if updateNextRun locks
+	task.Unlock()
 
-	if task.Type != TaskTypeFixedTime {
-		e.updateNextRun(task, now)
-	} else {
-		if e.store != nil {
-			_ = e.store.AddTask(task)
-		}
-	}
+	// Persist changes is handled by updateNextRun which saves the full task state (including LastRunAt updates)
+	e.updateNextRun(task, now, true) // This will acquire its own lock and persist the next run time
 }
 
 // RunTaskNow manually triggers a task execution asynchronously.

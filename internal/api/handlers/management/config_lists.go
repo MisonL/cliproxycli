@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
+	"cliproxy/internal/config"
 )
 
 // Generic helpers for list[string]
@@ -145,71 +145,74 @@ func (h *Handler) PutGeminiKeys(c *gin.Context) {
 	h.persist(c)
 }
 func (h *Handler) PatchGeminiKey(c *gin.Context) {
+	type geminiKeyPatch struct {
+		APIKey         *string            `json:"api-key"`
+		Prefix         *string            `json:"prefix"`
+		BaseURL        *string            `json:"base-url"`
+		ProxyURL       *string            `json:"proxy-url"`
+		Headers        *map[string]string `json:"headers"`
+		ExcludedModels *[]string          `json:"excluded-models"`
+	}
 	var body struct {
-		Index *int              `json:"index"`
-		Match *string           `json:"match"`
-		Value *config.GeminiKey `json:"value"`
+		Index *int            `json:"index"`
+		Match *string         `json:"match"`
+		Value *geminiKeyPatch `json:"value"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil || body.Value == nil {
 		c.JSON(400, gin.H{"error": "invalid body"})
 		return
 	}
-	value := *body.Value
-	value.APIKey = strings.TrimSpace(value.APIKey)
-	value.BaseURL = strings.TrimSpace(value.BaseURL)
-	value.ProxyURL = strings.TrimSpace(value.ProxyURL)
-	value.ExcludedModels = config.NormalizeExcludedModels(value.ExcludedModels)
-	if value.APIKey == "" {
-		// Treat empty API key as delete.
-		if body.Index != nil && *body.Index >= 0 && *body.Index < len(h.cfg.GeminiKey) {
-			h.cfg.GeminiKey = append(h.cfg.GeminiKey[:*body.Index], h.cfg.GeminiKey[*body.Index+1:]...)
-			h.cfg.SanitizeGeminiKeys()
-			h.persist(c)
-			return
-		}
-		if body.Match != nil {
-			match := strings.TrimSpace(*body.Match)
-			if match != "" {
-				out := make([]config.GeminiKey, 0, len(h.cfg.GeminiKey))
-				removed := false
-				for i := range h.cfg.GeminiKey {
-					if !removed && h.cfg.GeminiKey[i].APIKey == match {
-						removed = true
-						continue
-					}
-					out = append(out, h.cfg.GeminiKey[i])
-				}
-				if removed {
-					h.cfg.GeminiKey = out
-					h.cfg.SanitizeGeminiKeys()
-					h.persist(c)
-					return
+	targetIndex := -1
+	if body.Index != nil && *body.Index >= 0 && *body.Index < len(h.cfg.GeminiKey) {
+		targetIndex = *body.Index
+	}
+	if targetIndex == -1 && body.Match != nil {
+		match := strings.TrimSpace(*body.Match)
+		if match != "" {
+			for i := range h.cfg.GeminiKey {
+				if h.cfg.GeminiKey[i].APIKey == match {
+					targetIndex = i
+					break
 				}
 			}
 		}
+	}
+	if targetIndex == -1 {
 		c.JSON(404, gin.H{"error": "item not found"})
 		return
 	}
 
-	if body.Index != nil && *body.Index >= 0 && *body.Index < len(h.cfg.GeminiKey) {
-		h.cfg.GeminiKey[*body.Index] = value
-		h.cfg.SanitizeGeminiKeys()
-		h.persist(c)
-		return
-	}
-	if body.Match != nil {
-		match := strings.TrimSpace(*body.Match)
-		for i := range h.cfg.GeminiKey {
-			if h.cfg.GeminiKey[i].APIKey == match {
-				h.cfg.GeminiKey[i] = value
-				h.cfg.SanitizeGeminiKeys()
-				h.persist(c)
-				return
-			}
+	entry := h.cfg.GeminiKey[targetIndex]
+	if body.Value.APIKey != nil {
+		trimmed := strings.TrimSpace(*body.Value.APIKey)
+		if trimmed == "" {
+			h.cfg.GeminiKey = append(h.cfg.GeminiKey[:targetIndex], h.cfg.GeminiKey[targetIndex+1:]...)
+			h.cfg.SanitizeGeminiKeys()
+			h.persist(c)
+			return
 		}
+		entry.APIKey = trimmed
 	}
-	c.JSON(404, gin.H{"error": "item not found"})
+	if body.Value.Prefix != nil {
+		entry.Prefix = strings.TrimSpace(*body.Value.Prefix)
+	}
+	if body.Value.BaseURL != nil {
+		entry.BaseURL = strings.TrimSpace(*body.Value.BaseURL)
+	}
+	if body.Value.ProxyURL != nil {
+		entry.ProxyURL = strings.TrimSpace(*body.Value.ProxyURL)
+	}
+	if body.Value.Headers != nil {
+		entry.Headers = config.NormalizeHeaders(*body.Value.Headers)
+	}
+	if body.Value.ExcludedModels != nil {
+		entry.ExcludedModels = config.NormalizeExcludedModels(*body.Value.ExcludedModels)
+	}
+	h.cfg.GeminiKey[targetIndex] = entry
+	h.cfg.SanitizeGeminiKeys()
+	h.persist(c)
 }
+
 func (h *Handler) DeleteGeminiKey(c *gin.Context) {
 	if val := strings.TrimSpace(c.Query("api-key")); val != "" {
 		out := make([]config.GeminiKey, 0, len(h.cfg.GeminiKey))
@@ -268,35 +271,70 @@ func (h *Handler) PutClaudeKeys(c *gin.Context) {
 	h.persist(c)
 }
 func (h *Handler) PatchClaudeKey(c *gin.Context) {
+	type claudeKeyPatch struct {
+		APIKey         *string               `json:"api-key"`
+		Prefix         *string               `json:"prefix"`
+		BaseURL        *string               `json:"base-url"`
+		ProxyURL       *string               `json:"proxy-url"`
+		Models         *[]config.ClaudeModel `json:"models"`
+		Headers        *map[string]string    `json:"headers"`
+		ExcludedModels *[]string             `json:"excluded-models"`
+	}
 	var body struct {
-		Index *int              `json:"index"`
-		Match *string           `json:"match"`
-		Value *config.ClaudeKey `json:"value"`
+		Index *int            `json:"index"`
+		Match *string         `json:"match"`
+		Value *claudeKeyPatch `json:"value"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil || body.Value == nil {
 		c.JSON(400, gin.H{"error": "invalid body"})
 		return
 	}
-	value := *body.Value
-	normalizeClaudeKey(&value)
+	targetIndex := -1
 	if body.Index != nil && *body.Index >= 0 && *body.Index < len(h.cfg.ClaudeKey) {
-		h.cfg.ClaudeKey[*body.Index] = value
-		h.cfg.SanitizeClaudeKeys()
-		h.persist(c)
-		return
+		targetIndex = *body.Index
 	}
-	if body.Match != nil {
+	if targetIndex == -1 && body.Match != nil {
+		match := strings.TrimSpace(*body.Match)
 		for i := range h.cfg.ClaudeKey {
-			if h.cfg.ClaudeKey[i].APIKey == *body.Match {
-				h.cfg.ClaudeKey[i] = value
-				h.cfg.SanitizeClaudeKeys()
-				h.persist(c)
-				return
+			if h.cfg.ClaudeKey[i].APIKey == match {
+				targetIndex = i
+				break
 			}
 		}
 	}
-	c.JSON(404, gin.H{"error": "item not found"})
+	if targetIndex == -1 {
+		c.JSON(404, gin.H{"error": "item not found"})
+		return
+	}
+
+	entry := h.cfg.ClaudeKey[targetIndex]
+	if body.Value.APIKey != nil {
+		entry.APIKey = strings.TrimSpace(*body.Value.APIKey)
+	}
+	if body.Value.Prefix != nil {
+		entry.Prefix = strings.TrimSpace(*body.Value.Prefix)
+	}
+	if body.Value.BaseURL != nil {
+		entry.BaseURL = strings.TrimSpace(*body.Value.BaseURL)
+	}
+	if body.Value.ProxyURL != nil {
+		entry.ProxyURL = strings.TrimSpace(*body.Value.ProxyURL)
+	}
+	if body.Value.Models != nil {
+		entry.Models = append([]config.ClaudeModel(nil), (*body.Value.Models)...)
+	}
+	if body.Value.Headers != nil {
+		entry.Headers = config.NormalizeHeaders(*body.Value.Headers)
+	}
+	if body.Value.ExcludedModels != nil {
+		entry.ExcludedModels = config.NormalizeExcludedModels(*body.Value.ExcludedModels)
+	}
+	normalizeClaudeKey(&entry)
+	h.cfg.ClaudeKey[targetIndex] = entry
+	h.cfg.SanitizeClaudeKeys()
+	h.persist(c)
 }
+
 func (h *Handler) DeleteClaudeKey(c *gin.Context) {
 	if val := c.Query("api-key"); val != "" {
 		out := make([]config.ClaudeKey, 0, len(h.cfg.ClaudeKey))
@@ -356,62 +394,73 @@ func (h *Handler) PutOpenAICompat(c *gin.Context) {
 	h.persist(c)
 }
 func (h *Handler) PatchOpenAICompat(c *gin.Context) {
+	type openAICompatPatch struct {
+		Name          *string                             `json:"name"`
+		Prefix        *string                             `json:"prefix"`
+		BaseURL       *string                             `json:"base-url"`
+		APIKeyEntries *[]config.OpenAICompatibilityAPIKey `json:"api-key-entries"`
+		Models        *[]config.OpenAICompatibilityModel  `json:"models"`
+		Headers       *map[string]string                  `json:"headers"`
+	}
 	var body struct {
-		Name  *string                     `json:"name"`
-		Index *int                        `json:"index"`
-		Value *config.OpenAICompatibility `json:"value"`
+		Name  *string            `json:"name"`
+		Index *int               `json:"index"`
+		Value *openAICompatPatch `json:"value"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil || body.Value == nil {
 		c.JSON(400, gin.H{"error": "invalid body"})
 		return
 	}
-	normalizeOpenAICompatibilityEntry(body.Value)
-	// If base-url becomes empty, delete the provider instead of updating
-	if strings.TrimSpace(body.Value.BaseURL) == "" {
-		if body.Index != nil && *body.Index >= 0 && *body.Index < len(h.cfg.OpenAICompatibility) {
-			h.cfg.OpenAICompatibility = append(h.cfg.OpenAICompatibility[:*body.Index], h.cfg.OpenAICompatibility[*body.Index+1:]...)
+	targetIndex := -1
+	if body.Index != nil && *body.Index >= 0 && *body.Index < len(h.cfg.OpenAICompatibility) {
+		targetIndex = *body.Index
+	}
+	if targetIndex == -1 && body.Name != nil {
+		match := strings.TrimSpace(*body.Name)
+		for i := range h.cfg.OpenAICompatibility {
+			if h.cfg.OpenAICompatibility[i].Name == match {
+				targetIndex = i
+				break
+			}
+		}
+	}
+	if targetIndex == -1 {
+		c.JSON(404, gin.H{"error": "item not found"})
+		return
+	}
+
+	entry := h.cfg.OpenAICompatibility[targetIndex]
+	if body.Value.Name != nil {
+		entry.Name = strings.TrimSpace(*body.Value.Name)
+	}
+	if body.Value.Prefix != nil {
+		entry.Prefix = strings.TrimSpace(*body.Value.Prefix)
+	}
+	if body.Value.BaseURL != nil {
+		trimmed := strings.TrimSpace(*body.Value.BaseURL)
+		if trimmed == "" {
+			h.cfg.OpenAICompatibility = append(h.cfg.OpenAICompatibility[:targetIndex], h.cfg.OpenAICompatibility[targetIndex+1:]...)
 			h.cfg.SanitizeOpenAICompatibility()
 			h.persist(c)
 			return
 		}
-		if body.Name != nil {
-			out := make([]config.OpenAICompatibility, 0, len(h.cfg.OpenAICompatibility))
-			removed := false
-			for i := range h.cfg.OpenAICompatibility {
-				if !removed && h.cfg.OpenAICompatibility[i].Name == *body.Name {
-					removed = true
-					continue
-				}
-				out = append(out, h.cfg.OpenAICompatibility[i])
-			}
-			if removed {
-				h.cfg.OpenAICompatibility = out
-				h.cfg.SanitizeOpenAICompatibility()
-				h.persist(c)
-				return
-			}
-		}
-		c.JSON(404, gin.H{"error": "item not found"})
-		return
+		entry.BaseURL = trimmed
 	}
-	if body.Index != nil && *body.Index >= 0 && *body.Index < len(h.cfg.OpenAICompatibility) {
-		h.cfg.OpenAICompatibility[*body.Index] = *body.Value
-		h.cfg.SanitizeOpenAICompatibility()
-		h.persist(c)
-		return
+	if body.Value.APIKeyEntries != nil {
+		entry.APIKeyEntries = append([]config.OpenAICompatibilityAPIKey(nil), (*body.Value.APIKeyEntries)...)
 	}
-	if body.Name != nil {
-		for i := range h.cfg.OpenAICompatibility {
-			if h.cfg.OpenAICompatibility[i].Name == *body.Name {
-				h.cfg.OpenAICompatibility[i] = *body.Value
-				h.cfg.SanitizeOpenAICompatibility()
-				h.persist(c)
-				return
-			}
-		}
+	if body.Value.Models != nil {
+		entry.Models = append([]config.OpenAICompatibilityModel(nil), (*body.Value.Models)...)
 	}
-	c.JSON(404, gin.H{"error": "item not found"})
+	if body.Value.Headers != nil {
+		entry.Headers = config.NormalizeHeaders(*body.Value.Headers)
+	}
+	normalizeOpenAICompatibilityEntry(&entry)
+	h.cfg.OpenAICompatibility[targetIndex] = entry
+	h.cfg.SanitizeOpenAICompatibility()
+	h.persist(c)
 }
+
 func (h *Handler) DeleteOpenAICompat(c *gin.Context) {
 	if name := c.Query("name"); name != "" {
 		out := make([]config.OpenAICompatibility, 0, len(h.cfg.OpenAICompatibility))
@@ -436,6 +485,137 @@ func (h *Handler) DeleteOpenAICompat(c *gin.Context) {
 		}
 	}
 	c.JSON(400, gin.H{"error": "missing name or index"})
+}
+
+// vertex-api-key: []VertexCompatKey
+func (h *Handler) GetVertexCompatKeys(c *gin.Context) {
+	c.JSON(200, gin.H{"vertex-api-key": h.cfg.VertexCompatAPIKey})
+}
+func (h *Handler) PutVertexCompatKeys(c *gin.Context) {
+	data, err := c.GetRawData()
+	if err != nil {
+		c.JSON(400, gin.H{"error": "failed to read body"})
+		return
+	}
+	var arr []config.VertexCompatKey
+	if err = json.Unmarshal(data, &arr); err != nil {
+		var obj struct {
+			Items []config.VertexCompatKey `json:"items"`
+		}
+		if err2 := json.Unmarshal(data, &obj); err2 != nil || len(obj.Items) == 0 {
+			c.JSON(400, gin.H{"error": "invalid body"})
+			return
+		}
+		arr = obj.Items
+	}
+	for i := range arr {
+		normalizeVertexCompatKey(&arr[i])
+	}
+	h.cfg.VertexCompatAPIKey = arr
+	h.cfg.SanitizeVertexCompatKeys()
+	h.persist(c)
+}
+func (h *Handler) PatchVertexCompatKey(c *gin.Context) {
+	type vertexCompatPatch struct {
+		APIKey   *string                     `json:"api-key"`
+		Prefix   *string                     `json:"prefix"`
+		BaseURL  *string                     `json:"base-url"`
+		ProxyURL *string                     `json:"proxy-url"`
+		Headers  *map[string]string          `json:"headers"`
+		Models   *[]config.VertexCompatModel `json:"models"`
+	}
+	var body struct {
+		Index *int               `json:"index"`
+		Match *string            `json:"match"`
+		Value *vertexCompatPatch `json:"value"`
+	}
+	if errBindJSON := c.ShouldBindJSON(&body); errBindJSON != nil || body.Value == nil {
+		c.JSON(400, gin.H{"error": "invalid body"})
+		return
+	}
+	targetIndex := -1
+	if body.Index != nil && *body.Index >= 0 && *body.Index < len(h.cfg.VertexCompatAPIKey) {
+		targetIndex = *body.Index
+	}
+	if targetIndex == -1 && body.Match != nil {
+		match := strings.TrimSpace(*body.Match)
+		if match != "" {
+			for i := range h.cfg.VertexCompatAPIKey {
+				if h.cfg.VertexCompatAPIKey[i].APIKey == match {
+					targetIndex = i
+					break
+				}
+			}
+		}
+	}
+	if targetIndex == -1 {
+		c.JSON(404, gin.H{"error": "item not found"})
+		return
+	}
+
+	entry := h.cfg.VertexCompatAPIKey[targetIndex]
+	if body.Value.APIKey != nil {
+		trimmed := strings.TrimSpace(*body.Value.APIKey)
+		if trimmed == "" {
+			h.cfg.VertexCompatAPIKey = append(h.cfg.VertexCompatAPIKey[:targetIndex], h.cfg.VertexCompatAPIKey[targetIndex+1:]...)
+			h.cfg.SanitizeVertexCompatKeys()
+			h.persist(c)
+			return
+		}
+		entry.APIKey = trimmed
+	}
+	if body.Value.Prefix != nil {
+		entry.Prefix = strings.TrimSpace(*body.Value.Prefix)
+	}
+	if body.Value.BaseURL != nil {
+		trimmed := strings.TrimSpace(*body.Value.BaseURL)
+		if trimmed == "" {
+			h.cfg.VertexCompatAPIKey = append(h.cfg.VertexCompatAPIKey[:targetIndex], h.cfg.VertexCompatAPIKey[targetIndex+1:]...)
+			h.cfg.SanitizeVertexCompatKeys()
+			h.persist(c)
+			return
+		}
+		entry.BaseURL = trimmed
+	}
+	if body.Value.ProxyURL != nil {
+		entry.ProxyURL = strings.TrimSpace(*body.Value.ProxyURL)
+	}
+	if body.Value.Headers != nil {
+		entry.Headers = config.NormalizeHeaders(*body.Value.Headers)
+	}
+	if body.Value.Models != nil {
+		entry.Models = append([]config.VertexCompatModel(nil), (*body.Value.Models)...)
+	}
+	normalizeVertexCompatKey(&entry)
+	h.cfg.VertexCompatAPIKey[targetIndex] = entry
+	h.cfg.SanitizeVertexCompatKeys()
+	h.persist(c)
+}
+
+func (h *Handler) DeleteVertexCompatKey(c *gin.Context) {
+	if val := strings.TrimSpace(c.Query("api-key")); val != "" {
+		out := make([]config.VertexCompatKey, 0, len(h.cfg.VertexCompatAPIKey))
+		for _, v := range h.cfg.VertexCompatAPIKey {
+			if v.APIKey != val {
+				out = append(out, v)
+			}
+		}
+		h.cfg.VertexCompatAPIKey = out
+		h.cfg.SanitizeVertexCompatKeys()
+		h.persist(c)
+		return
+	}
+	if idxStr := c.Query("index"); idxStr != "" {
+		var idx int
+		_, errScan := fmt.Sscanf(idxStr, "%d", &idx)
+		if errScan == nil && idx >= 0 && idx < len(h.cfg.VertexCompatAPIKey) {
+			h.cfg.VertexCompatAPIKey = append(h.cfg.VertexCompatAPIKey[:idx], h.cfg.VertexCompatAPIKey[idx+1:]...)
+			h.cfg.SanitizeVertexCompatKeys()
+			h.persist(c)
+			return
+		}
+	}
+	c.JSON(400, gin.H{"error": "missing api-key or index"})
 }
 
 // oauth-excluded-models: map[string][]string
@@ -523,6 +703,103 @@ func (h *Handler) DeleteOAuthExcludedModels(c *gin.Context) {
 	h.persist(c)
 }
 
+// oauth-model-mappings: map[string]map[string]ModelNameMapping
+func (h *Handler) GetOAuthModelMappings(c *gin.Context) {
+	c.JSON(200, gin.H{"oauth-model-mappings": sanitizedOAuthModelMappings(h.cfg.OAuthModelMappings)})
+}
+
+func (h *Handler) PutOAuthModelMappings(c *gin.Context) {
+	data, err := c.GetRawData()
+	if err != nil {
+		c.JSON(400, gin.H{"error": "failed to read body"})
+		return
+	}
+	var entries map[string]map[string]config.ModelNameMapping
+	if err = json.Unmarshal(data, &entries); err != nil {
+		var wrapper struct {
+			Items map[string]map[string]config.ModelNameMapping `json:"items"`
+		}
+		if err2 := json.Unmarshal(data, &wrapper); err2 != nil {
+			c.JSON(400, gin.H{"error": "invalid body"})
+			return
+		}
+		entries = wrapper.Items
+	}
+	h.cfg.OAuthModelMappings = sanitizedOAuthModelMappings(entries)
+	h.persist(c)
+}
+
+func (h *Handler) PatchOAuthModelMappings(c *gin.Context) {
+	var body struct {
+		Provider *string                            `json:"provider"`
+		Channel  *string                            `json:"channel"`
+		Mappings map[string]config.ModelNameMapping `json:"mappings"`
+	}
+	if errBindJSON := c.ShouldBindJSON(&body); errBindJSON != nil {
+		c.JSON(400, gin.H{"error": "invalid body"})
+		return
+	}
+	channelRaw := ""
+	if body.Channel != nil {
+		channelRaw = *body.Channel
+	} else if body.Provider != nil {
+		channelRaw = *body.Provider
+	}
+	channel := strings.ToLower(strings.TrimSpace(channelRaw))
+	if channel == "" {
+		c.JSON(400, gin.H{"error": "invalid channel"})
+		return
+	}
+
+	normalizedMap := sanitizedOAuthModelMappings(map[string]map[string]config.ModelNameMapping{channel: body.Mappings})
+	normalized := normalizedMap[channel]
+	if len(normalized) == 0 {
+		if h.cfg.OAuthModelMappings == nil {
+			c.JSON(404, gin.H{"error": "channel not found"})
+			return
+		}
+		if _, ok := h.cfg.OAuthModelMappings[channel]; !ok {
+			c.JSON(404, gin.H{"error": "channel not found"})
+			return
+		}
+		delete(h.cfg.OAuthModelMappings, channel)
+		if len(h.cfg.OAuthModelMappings) == 0 {
+			h.cfg.OAuthModelMappings = nil
+		}
+		h.persist(c)
+		return
+	}
+	if h.cfg.OAuthModelMappings == nil {
+		h.cfg.OAuthModelMappings = make(map[string]map[string]config.ModelNameMapping)
+	}
+	h.cfg.OAuthModelMappings[channel] = normalized
+	h.persist(c)
+}
+
+func (h *Handler) DeleteOAuthModelMappings(c *gin.Context) {
+	channel := strings.ToLower(strings.TrimSpace(c.Query("channel")))
+	if channel == "" {
+		channel = strings.ToLower(strings.TrimSpace(c.Query("provider")))
+	}
+	if channel == "" {
+		c.JSON(400, gin.H{"error": "missing channel"})
+		return
+	}
+	if h.cfg.OAuthModelMappings == nil {
+		c.JSON(404, gin.H{"error": "channel not found"})
+		return
+	}
+	if _, ok := h.cfg.OAuthModelMappings[channel]; !ok {
+		c.JSON(404, gin.H{"error": "channel not found"})
+		return
+	}
+	delete(h.cfg.OAuthModelMappings, channel)
+	if len(h.cfg.OAuthModelMappings) == 0 {
+		h.cfg.OAuthModelMappings = nil
+	}
+	h.persist(c)
+}
+
 // codex-api-key: []CodexKey
 func (h *Handler) GetCodexKeys(c *gin.Context) {
 	c.JSON(200, gin.H{"codex-api-key": h.cfg.CodexKey})
@@ -548,11 +825,7 @@ func (h *Handler) PutCodexKeys(c *gin.Context) {
 	filtered := make([]config.CodexKey, 0, len(arr))
 	for i := range arr {
 		entry := arr[i]
-		entry.APIKey = strings.TrimSpace(entry.APIKey)
-		entry.BaseURL = strings.TrimSpace(entry.BaseURL)
-		entry.ProxyURL = strings.TrimSpace(entry.ProxyURL)
-		entry.Headers = config.NormalizeHeaders(entry.Headers)
-		entry.ExcludedModels = config.NormalizeExcludedModels(entry.ExcludedModels)
+		normalizeCodexKey(&entry)
 		if entry.BaseURL == "" {
 			continue
 		}
@@ -563,66 +836,77 @@ func (h *Handler) PutCodexKeys(c *gin.Context) {
 	h.persist(c)
 }
 func (h *Handler) PatchCodexKey(c *gin.Context) {
+	type codexKeyPatch struct {
+		APIKey         *string              `json:"api-key"`
+		Prefix         *string              `json:"prefix"`
+		BaseURL        *string              `json:"base-url"`
+		ProxyURL       *string              `json:"proxy-url"`
+		Models         *[]config.CodexModel `json:"models"`
+		Headers        *map[string]string   `json:"headers"`
+		ExcludedModels *[]string            `json:"excluded-models"`
+	}
 	var body struct {
-		Index *int             `json:"index"`
-		Match *string          `json:"match"`
-		Value *config.CodexKey `json:"value"`
+		Index *int           `json:"index"`
+		Match *string        `json:"match"`
+		Value *codexKeyPatch `json:"value"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil || body.Value == nil {
 		c.JSON(400, gin.H{"error": "invalid body"})
 		return
 	}
-	value := *body.Value
-	value.APIKey = strings.TrimSpace(value.APIKey)
-	value.BaseURL = strings.TrimSpace(value.BaseURL)
-	value.ProxyURL = strings.TrimSpace(value.ProxyURL)
-	value.Headers = config.NormalizeHeaders(value.Headers)
-	value.ExcludedModels = config.NormalizeExcludedModels(value.ExcludedModels)
-	// If base-url becomes empty, delete instead of update
-	if value.BaseURL == "" {
-		if body.Index != nil && *body.Index >= 0 && *body.Index < len(h.cfg.CodexKey) {
-			h.cfg.CodexKey = append(h.cfg.CodexKey[:*body.Index], h.cfg.CodexKey[*body.Index+1:]...)
-			h.cfg.SanitizeCodexKeys()
-			h.persist(c)
-			return
-		}
-		if body.Match != nil {
-			out := make([]config.CodexKey, 0, len(h.cfg.CodexKey))
-			removed := false
-			for i := range h.cfg.CodexKey {
-				if !removed && h.cfg.CodexKey[i].APIKey == *body.Match {
-					removed = true
-					continue
-				}
-				out = append(out, h.cfg.CodexKey[i])
-			}
-			if removed {
-				h.cfg.CodexKey = out
-				h.cfg.SanitizeCodexKeys()
-				h.persist(c)
-				return
-			}
-		}
-	} else {
-		if body.Index != nil && *body.Index >= 0 && *body.Index < len(h.cfg.CodexKey) {
-			h.cfg.CodexKey[*body.Index] = value
-			h.cfg.SanitizeCodexKeys()
-			h.persist(c)
-			return
-		}
-		if body.Match != nil {
-			for i := range h.cfg.CodexKey {
-				if h.cfg.CodexKey[i].APIKey == *body.Match {
-					h.cfg.CodexKey[i] = value
-					h.cfg.SanitizeCodexKeys()
-					h.persist(c)
-					return
-				}
+	targetIndex := -1
+	if body.Index != nil && *body.Index >= 0 && *body.Index < len(h.cfg.CodexKey) {
+		targetIndex = *body.Index
+	}
+	if targetIndex == -1 && body.Match != nil {
+		match := strings.TrimSpace(*body.Match)
+		for i := range h.cfg.CodexKey {
+			if h.cfg.CodexKey[i].APIKey == match {
+				targetIndex = i
+				break
 			}
 		}
 	}
-	c.JSON(404, gin.H{"error": "item not found"})
+	if targetIndex == -1 {
+		c.JSON(404, gin.H{"error": "item not found"})
+		return
+	}
+
+	entry := h.cfg.CodexKey[targetIndex]
+	if body.Value.APIKey != nil {
+		entry.APIKey = strings.TrimSpace(*body.Value.APIKey)
+	}
+	if body.Value.Prefix != nil {
+		entry.Prefix = strings.TrimSpace(*body.Value.Prefix)
+	}
+	if body.Value.BaseURL != nil {
+		trimmed := strings.TrimSpace(*body.Value.BaseURL)
+		if trimmed == "" {
+			h.cfg.CodexKey = append(h.cfg.CodexKey[:targetIndex], h.cfg.CodexKey[targetIndex+1:]...)
+			h.cfg.SanitizeCodexKeys()
+			h.persist(c)
+			return
+		}
+		entry.BaseURL = trimmed
+	}
+	if body.Value.ProxyURL != nil {
+		entry.ProxyURL = strings.TrimSpace(*body.Value.ProxyURL)
+	}
+	if body.Value.Models != nil {
+		entry.Models = append([]config.CodexModel(nil), (*body.Value.Models)...)
+	}
+	if body.Value.Headers != nil {
+		entry.Headers = config.NormalizeHeaders(*body.Value.Headers)
+	}
+	if body.Value.ExcludedModels != nil {
+		entry.ExcludedModels = config.NormalizeExcludedModels(*body.Value.ExcludedModels)
+	}
+	normalizeCodexKey(&entry)
+	h.cfg.CodexKey[targetIndex] = entry
+	h.cfg.SanitizeCodexKeys()
+	h.persist(c)
 }
+
 func (h *Handler) DeleteCodexKey(c *gin.Context) {
 	if val := c.Query("api-key"); val != "" {
 		out := make([]config.CodexKey, 0, len(h.cfg.CodexKey))
@@ -705,6 +989,84 @@ func normalizeClaudeKey(entry *config.ClaudeKey) {
 		normalized = append(normalized, model)
 	}
 	entry.Models = normalized
+}
+
+func normalizeCodexKey(entry *config.CodexKey) {
+	if entry == nil {
+		return
+	}
+	entry.APIKey = strings.TrimSpace(entry.APIKey)
+	entry.Prefix = strings.TrimSpace(entry.Prefix)
+	entry.BaseURL = strings.TrimSpace(entry.BaseURL)
+	entry.ProxyURL = strings.TrimSpace(entry.ProxyURL)
+	entry.Headers = config.NormalizeHeaders(entry.Headers)
+	entry.ExcludedModels = config.NormalizeExcludedModels(entry.ExcludedModels)
+	if len(entry.Models) == 0 {
+		return
+	}
+	normalized := make([]config.CodexModel, 0, len(entry.Models))
+	for i := range entry.Models {
+		model := entry.Models[i]
+		model.Name = strings.TrimSpace(model.Name)
+		model.Alias = strings.TrimSpace(model.Alias)
+		if model.Name == "" && model.Alias == "" {
+			continue
+		}
+		normalized = append(normalized, model)
+	}
+	entry.Models = normalized
+}
+
+func normalizeVertexCompatKey(entry *config.VertexCompatKey) {
+	if entry == nil {
+		return
+	}
+	entry.APIKey = strings.TrimSpace(entry.APIKey)
+	entry.Prefix = strings.TrimSpace(entry.Prefix)
+	entry.BaseURL = strings.TrimSpace(entry.BaseURL)
+	entry.ProxyURL = strings.TrimSpace(entry.ProxyURL)
+	entry.Headers = config.NormalizeHeaders(entry.Headers)
+	if len(entry.Models) == 0 {
+		return
+	}
+	normalized := make([]config.VertexCompatModel, 0, len(entry.Models))
+	for i := range entry.Models {
+		model := entry.Models[i]
+		model.Name = strings.TrimSpace(model.Name)
+		model.Alias = strings.TrimSpace(model.Alias)
+		if model.Name == "" || model.Alias == "" {
+			continue
+		}
+		normalized = append(normalized, model)
+	}
+	entry.Models = normalized
+}
+
+func sanitizedOAuthModelMappings(entries map[string]map[string]config.ModelNameMapping) map[string]map[string]config.ModelNameMapping {
+	if len(entries) == 0 {
+		return nil
+	}
+	copied := make(map[string]map[string]config.ModelNameMapping, len(entries))
+	for channel, mappingsMap := range entries {
+		if len(mappingsMap) == 0 {
+			continue
+		}
+		clean := make(map[string]config.ModelNameMapping, len(mappingsMap))
+		for k, v := range mappingsMap {
+			clean[k] = v
+		}
+		copied[channel] = clean
+	}
+	if len(copied) == 0 {
+		return nil
+	}
+	cfg := config.Config{}
+	cfg.OAuthModelMappings = copied
+	cfg.SanitizeOAuthModelMappings()
+	if len(cfg.OAuthModelMappings) == 0 {
+		return nil
+	}
+	return cfg.OAuthModelMappings
 }
 
 // GetAmpCode returns the complete ampcode configuration.
@@ -857,4 +1219,152 @@ func (h *Handler) GetAmpForceModelMappings(c *gin.Context) {
 // PutAmpForceModelMappings updates the force model mappings setting.
 func (h *Handler) PutAmpForceModelMappings(c *gin.Context) {
 	h.updateBoolField(c, func(v bool) { h.cfg.AmpCode.ForceModelMappings = v })
+}
+
+// GetAmpUpstreamAPIKeys returns the ampcode upstream API keys mapping.
+func (h *Handler) GetAmpUpstreamAPIKeys(c *gin.Context) {
+	if h == nil || h.cfg == nil {
+		c.JSON(200, gin.H{"upstream-api-keys": []config.AmpUpstreamAPIKeyEntry{}})
+		return
+	}
+	c.JSON(200, gin.H{"upstream-api-keys": h.cfg.AmpCode.UpstreamAPIKeys})
+}
+
+// PutAmpUpstreamAPIKeys replaces all ampcode upstream API keys mappings.
+func (h *Handler) PutAmpUpstreamAPIKeys(c *gin.Context) {
+	var body struct {
+		Value []config.AmpUpstreamAPIKeyEntry `json:"value"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(400, gin.H{"error": "invalid body"})
+		return
+	}
+	// Normalize entries: trim whitespace, filter empty
+	normalized := normalizeAmpUpstreamAPIKeyEntries(body.Value)
+	h.cfg.AmpCode.UpstreamAPIKeys = normalized
+	h.persist(c)
+}
+
+// PatchAmpUpstreamAPIKeys adds or updates upstream API keys entries.
+// Matching is done by upstream-api-key value.
+func (h *Handler) PatchAmpUpstreamAPIKeys(c *gin.Context) {
+	var body struct {
+		Value []config.AmpUpstreamAPIKeyEntry `json:"value"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(400, gin.H{"error": "invalid body"})
+		return
+	}
+
+	existing := make(map[string]int)
+	for i, entry := range h.cfg.AmpCode.UpstreamAPIKeys {
+		existing[strings.TrimSpace(entry.UpstreamAPIKey)] = i
+	}
+
+	for _, newEntry := range body.Value {
+		upstreamKey := strings.TrimSpace(newEntry.UpstreamAPIKey)
+		if upstreamKey == "" {
+			continue
+		}
+		normalizedEntry := config.AmpUpstreamAPIKeyEntry{
+			UpstreamAPIKey: upstreamKey,
+			APIKeys:        normalizeAPIKeysList(newEntry.APIKeys),
+		}
+		if idx, ok := existing[upstreamKey]; ok {
+			h.cfg.AmpCode.UpstreamAPIKeys[idx] = normalizedEntry
+		} else {
+			h.cfg.AmpCode.UpstreamAPIKeys = append(h.cfg.AmpCode.UpstreamAPIKeys, normalizedEntry)
+			existing[upstreamKey] = len(h.cfg.AmpCode.UpstreamAPIKeys) - 1
+		}
+	}
+	h.persist(c)
+}
+
+// DeleteAmpUpstreamAPIKeys removes specified upstream API keys entries.
+// Body must be JSON: {"value": ["<upstream-api-key>", ...]}.
+// If "value" is an empty array, clears all entries.
+// If JSON is invalid or "value" is missing/null, returns 400 and does not persist any change.
+func (h *Handler) DeleteAmpUpstreamAPIKeys(c *gin.Context) {
+	var body struct {
+		Value []string `json:"value"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(400, gin.H{"error": "invalid body"})
+		return
+	}
+
+	if body.Value == nil {
+		c.JSON(400, gin.H{"error": "missing value"})
+		return
+	}
+
+	// Empty array means clear all
+	if len(body.Value) == 0 {
+		h.cfg.AmpCode.UpstreamAPIKeys = nil
+		h.persist(c)
+		return
+	}
+
+	toRemove := make(map[string]bool)
+	for _, key := range body.Value {
+		trimmed := strings.TrimSpace(key)
+		if trimmed == "" {
+			continue
+		}
+		toRemove[trimmed] = true
+	}
+	if len(toRemove) == 0 {
+		c.JSON(400, gin.H{"error": "empty value"})
+		return
+	}
+
+	newEntries := make([]config.AmpUpstreamAPIKeyEntry, 0, len(h.cfg.AmpCode.UpstreamAPIKeys))
+	for _, entry := range h.cfg.AmpCode.UpstreamAPIKeys {
+		if !toRemove[strings.TrimSpace(entry.UpstreamAPIKey)] {
+			newEntries = append(newEntries, entry)
+		}
+	}
+	h.cfg.AmpCode.UpstreamAPIKeys = newEntries
+	h.persist(c)
+}
+
+// normalizeAmpUpstreamAPIKeyEntries normalizes a list of upstream API key entries.
+func normalizeAmpUpstreamAPIKeyEntries(entries []config.AmpUpstreamAPIKeyEntry) []config.AmpUpstreamAPIKeyEntry {
+	if len(entries) == 0 {
+		return nil
+	}
+	out := make([]config.AmpUpstreamAPIKeyEntry, 0, len(entries))
+	for _, entry := range entries {
+		upstreamKey := strings.TrimSpace(entry.UpstreamAPIKey)
+		if upstreamKey == "" {
+			continue
+		}
+		apiKeys := normalizeAPIKeysList(entry.APIKeys)
+		out = append(out, config.AmpUpstreamAPIKeyEntry{
+			UpstreamAPIKey: upstreamKey,
+			APIKeys:        apiKeys,
+		})
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// normalizeAPIKeysList trims and filters empty strings from a list of API keys.
+func normalizeAPIKeysList(keys []string) []string {
+	if len(keys) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(keys))
+	for _, k := range keys {
+		trimmed := strings.TrimSpace(k)
+		if trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

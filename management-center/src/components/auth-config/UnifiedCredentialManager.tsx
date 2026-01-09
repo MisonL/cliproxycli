@@ -32,7 +32,7 @@ export const UnifiedCredentialManager: React.FC = () => {
   useEffect(() => { loadConfig(); }, []);
 
   const handleStrategyChange = async (strategy: string) => {
-    const newConfig = { ...scheduling, strategy: strategy as any };
+    const newConfig = { ...scheduling, strategy: strategy as SchedulingConfig['strategy'] };
     setScheduling(newConfig);
     try {
       await configApi.updateScheduling(newConfig);
@@ -42,7 +42,7 @@ export const UnifiedCredentialManager: React.FC = () => {
   };
 
   const handleSaveProvider = async (provider: UnifiedProvider) => {
-    let newProviders = [...providers];
+    const newProviders = [...providers];
     const index = newProviders.findIndex(p => p.id === provider.id);
     if (index >= 0) {
       newProviders[index] = provider;
@@ -219,6 +219,7 @@ export const UnifiedCredentialManager: React.FC = () => {
       </div>
 
       <CredentialEditModal 
+        key={isModalOpen ? (currentProvider?.id || 'new') : 'closed'}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveProvider}

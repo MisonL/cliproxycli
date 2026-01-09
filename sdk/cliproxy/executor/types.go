@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"net/url"
 
-	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
+	sdktranslator "cliproxy/sdk/translator"
 )
 
 // Request encapsulates the translated payload that will be sent to a provider executor.

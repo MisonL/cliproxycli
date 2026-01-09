@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	coreusage "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/usage"
+	coreusage "cliproxy/sdk/cliproxy/usage"
 )
 
 func TestUsagePersistence(t *testing.T) {

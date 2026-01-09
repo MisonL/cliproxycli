@@ -4,8 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
+	"cliproxy/internal/config"
+	coreauth "cliproxy/sdk/cliproxy/auth"
+	sdkconfig "cliproxy/sdk/config"
 )
 
 func TestNewConfigSynthesizer(t *testing.T) {
@@ -133,7 +134,9 @@ func TestConfigSynthesizer_GeminiKeys(t *testing.T) {
 			synth := NewConfigSynthesizer()
 			ctx := &SynthesisContext{
 				Config: &config.Config{
-					GeminiKey: tt.geminiKeys,
+					SDKConfig: sdkconfig.SDKConfig{
+						GeminiKey: tt.geminiKeys,
+					},
 				},
 				Now:         time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
 				IDGenerator: NewStableIDGenerator(),
@@ -158,14 +161,16 @@ func TestConfigSynthesizer_ClaudeKeys(t *testing.T) {
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{
 		Config: &config.Config{
-			ClaudeKey: []config.ClaudeKey{
-				{
-					APIKey:  "sk-ant-api-xxx",
-					Prefix:  "main",
-					BaseURL: "https://api.anthropic.com",
-					Models: []config.ClaudeModel{
-						{Name: "claude-3-opus"},
-						{Name: "claude-3-sonnet"},
+			SDKConfig: sdkconfig.SDKConfig{
+				ClaudeKey: []config.ClaudeKey{
+					{
+						APIKey:  "sk-ant-api-xxx",
+						Prefix:  "main",
+						BaseURL: "https://api.anthropic.com",
+						Models: []config.ClaudeModel{
+							{Name: "claude-3-opus"},
+							{Name: "claude-3-sonnet"},
+						},
 					},
 				},
 			},
@@ -203,10 +208,12 @@ func TestConfigSynthesizer_ClaudeKeys_SkipsEmptyAndHeaders(t *testing.T) {
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{
 		Config: &config.Config{
-			ClaudeKey: []config.ClaudeKey{
-				{APIKey: ""},    // empty, should be skipped
-				{APIKey: "   "}, // whitespace, should be skipped
-				{APIKey: "valid-key", Headers: map[string]string{"X-Custom": "value"}},
+			SDKConfig: sdkconfig.SDKConfig{
+				ClaudeKey: []config.ClaudeKey{
+					{APIKey: ""},    // empty, should be skipped
+					{APIKey: "   "}, // whitespace, should be skipped
+					{APIKey: "valid-key", Headers: map[string]string{"X-Custom": "value"}},
+				},
 			},
 		},
 		Now:         time.Now(),
@@ -229,12 +236,14 @@ func TestConfigSynthesizer_CodexKeys(t *testing.T) {
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{
 		Config: &config.Config{
-			CodexKey: []config.CodexKey{
-				{
-					APIKey:   "codex-key-123",
-					Prefix:   "dev",
-					BaseURL:  "https://api.openai.com",
-					ProxyURL: "http://proxy.local",
+			SDKConfig: sdkconfig.SDKConfig{
+				CodexKey: []config.CodexKey{
+					{
+						APIKey:   "codex-key-123",
+						Prefix:   "dev",
+						BaseURL:  "https://api.openai.com",
+						ProxyURL: "http://proxy.local",
+					},
 				},
 			},
 		},
@@ -265,10 +274,12 @@ func TestConfigSynthesizer_CodexKeys_SkipsEmptyAndHeaders(t *testing.T) {
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{
 		Config: &config.Config{
-			CodexKey: []config.CodexKey{
-				{APIKey: ""},   // empty, should be skipped
-				{APIKey: "  "}, // whitespace, should be skipped
-				{APIKey: "valid-key", Headers: map[string]string{"Authorization": "Bearer xyz"}},
+			SDKConfig: sdkconfig.SDKConfig{
+				CodexKey: []config.CodexKey{
+					{APIKey: ""},   // empty, should be skipped
+					{APIKey: "  "}, // whitespace, should be skipped
+					{APIKey: "valid-key", Headers: map[string]string{"Authorization": "Bearer xyz"}},
+				},
 			},
 		},
 		Now:         time.Now(),
@@ -348,7 +359,9 @@ func TestConfigSynthesizer_OpenAICompat(t *testing.T) {
 			synth := NewConfigSynthesizer()
 			ctx := &SynthesisContext{
 				Config: &config.Config{
-					OpenAICompatibility: tt.compat,
+					SDKConfig: sdkconfig.SDKConfig{
+						OpenAICompatibility: tt.compat,
+					},
 				},
 				Now:         time.Now(),
 				IDGenerator: NewStableIDGenerator(),
@@ -369,11 +382,13 @@ func TestConfigSynthesizer_VertexCompat(t *testing.T) {
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{
 		Config: &config.Config{
-			VertexCompatAPIKey: []config.VertexCompatKey{
-				{
-					APIKey:  "vertex-key-123",
-					BaseURL: "https://vertex.googleapis.com",
-					Prefix:  "vertex-prod",
+			SDKConfig: sdkconfig.SDKConfig{
+				VertexCompatAPIKey: []config.VertexCompatKey{
+					{
+						APIKey:  "vertex-key-123",
+						BaseURL: "https://vertex.googleapis.com",
+						Prefix:  "vertex-prod",
+					},
 				},
 			},
 		},
@@ -404,10 +419,12 @@ func TestConfigSynthesizer_VertexCompat_SkipsEmptyAndHeaders(t *testing.T) {
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{
 		Config: &config.Config{
-			VertexCompatAPIKey: []config.VertexCompatKey{
-				{APIKey: "", BaseURL: "https://vertex.api"},   // empty key creates auth without api_key attr
-				{APIKey: "  ", BaseURL: "https://vertex.api"}, // whitespace key creates auth without api_key attr
-				{APIKey: "valid-key", BaseURL: "https://vertex.api", Headers: map[string]string{"X-Vertex": "test"}},
+			SDKConfig: sdkconfig.SDKConfig{
+				VertexCompatAPIKey: []config.VertexCompatKey{
+					{APIKey: "", BaseURL: "https://vertex.api"},   // empty key creates auth without api_key attr
+					{APIKey: "  ", BaseURL: "https://vertex.api"}, // whitespace key creates auth without api_key attr
+					{APIKey: "valid-key", BaseURL: "https://vertex.api", Headers: map[string]string{"X-Vertex": "test"}},
+				},
 			},
 		},
 		Now:         time.Now(),
@@ -439,16 +456,18 @@ func TestConfigSynthesizer_OpenAICompat_WithModelsHash(t *testing.T) {
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{
 		Config: &config.Config{
-			OpenAICompatibility: []config.OpenAICompatibility{
-				{
-					Name:    "TestProvider",
-					BaseURL: "https://test.api.com",
-					Models: []config.OpenAICompatibilityModel{
-						{Name: "model-a"},
-						{Name: "model-b"},
-					},
-					APIKeyEntries: []config.OpenAICompatibilityAPIKey{
-						{APIKey: "key-with-models"},
+			SDKConfig: sdkconfig.SDKConfig{
+				OpenAICompatibility: []config.OpenAICompatibility{
+					{
+						Name:    "TestProvider",
+						BaseURL: "https://test.api.com",
+						Models: []config.OpenAICompatibilityModel{
+							{Name: "model-a"},
+							{Name: "model-b"},
+						},
+						APIKeyEntries: []config.OpenAICompatibilityAPIKey{
+							{APIKey: "key-with-models"},
+						},
 					},
 				},
 			},
@@ -476,15 +495,17 @@ func TestConfigSynthesizer_OpenAICompat_FallbackWithModels(t *testing.T) {
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{
 		Config: &config.Config{
-			OpenAICompatibility: []config.OpenAICompatibility{
-				{
-					Name:    "NoKeyWithModels",
-					BaseURL: "https://nokey.api.com",
-					Models: []config.OpenAICompatibilityModel{
-						{Name: "model-x"},
+			SDKConfig: sdkconfig.SDKConfig{
+				OpenAICompatibility: []config.OpenAICompatibility{
+					{
+						Name:    "NoKeyWithModels",
+						BaseURL: "https://nokey.api.com",
+						Models: []config.OpenAICompatibilityModel{
+							{Name: "model-x"},
+						},
+						Headers: map[string]string{"X-API": "header-value"},
+						// No APIKeyEntries - should use fallback path
 					},
-					Headers: map[string]string{"X-API": "header-value"},
-					// No APIKeyEntries - should use fallback path
 				},
 			},
 		},
@@ -511,13 +532,15 @@ func TestConfigSynthesizer_VertexCompat_WithModels(t *testing.T) {
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{
 		Config: &config.Config{
-			VertexCompatAPIKey: []config.VertexCompatKey{
-				{
-					APIKey:  "vertex-key",
-					BaseURL: "https://vertex.api",
-					Models: []config.VertexCompatModel{
-						{Name: "gemini-pro", Alias: "pro"},
-						{Name: "gemini-ultra", Alias: "ultra"},
+			SDKConfig: sdkconfig.SDKConfig{
+				VertexCompatAPIKey: []config.VertexCompatKey{
+					{
+						APIKey:  "vertex-key",
+						BaseURL: "https://vertex.api",
+						Models: []config.VertexCompatModel{
+							{Name: "gemini-pro", Alias: "pro"},
+							{Name: "gemini-ultra", Alias: "ultra"},
+						},
 					},
 				},
 			},
@@ -540,8 +563,10 @@ func TestConfigSynthesizer_VertexCompat_WithModels(t *testing.T) {
 
 func TestConfigSynthesizer_IDStability(t *testing.T) {
 	cfg := &config.Config{
-		GeminiKey: []config.GeminiKey{
-			{APIKey: "stable-key", Prefix: "test"},
+		SDKConfig: sdkconfig.SDKConfig{
+			GeminiKey: []config.GeminiKey{
+				{APIKey: "stable-key", Prefix: "test"},
+			},
 		},
 	}
 
@@ -571,20 +596,22 @@ func TestConfigSynthesizer_AllProviders(t *testing.T) {
 	synth := NewConfigSynthesizer()
 	ctx := &SynthesisContext{
 		Config: &config.Config{
-			GeminiKey: []config.GeminiKey{
-				{APIKey: "gemini-key"},
-			},
-			ClaudeKey: []config.ClaudeKey{
-				{APIKey: "claude-key"},
-			},
-			CodexKey: []config.CodexKey{
-				{APIKey: "codex-key"},
-			},
-			OpenAICompatibility: []config.OpenAICompatibility{
-				{Name: "compat", BaseURL: "https://compat.api"},
-			},
-			VertexCompatAPIKey: []config.VertexCompatKey{
-				{APIKey: "vertex-key", BaseURL: "https://vertex.api"},
+			SDKConfig: sdkconfig.SDKConfig{
+				GeminiKey: []config.GeminiKey{
+					{APIKey: "gemini-key"},
+				},
+				ClaudeKey: []config.ClaudeKey{
+					{APIKey: "claude-key"},
+				},
+				CodexKey: []config.CodexKey{
+					{APIKey: "codex-key"},
+				},
+				OpenAICompatibility: []config.OpenAICompatibility{
+					{Name: "compat", BaseURL: "https://compat.api"},
+				},
+				VertexCompatAPIKey: []config.VertexCompatKey{
+					{APIKey: "vertex-key", BaseURL: "https://vertex.api"},
+				},
 			},
 		},
 		Now:         time.Now(),

@@ -8,7 +8,7 @@ package chat_completions
 import (
 	"context"
 
-	chat_completions "github.com/router-for-me/CLIProxyAPI/v6/internal/translator/gemini/openai/chat-completions"
+	chat_completions "cliproxy/internal/translator/gemini/openai/chat-completions"
 	"github.com/tidwall/gjson"
 )
 

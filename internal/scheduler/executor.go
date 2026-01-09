@@ -29,16 +29,23 @@ func NewLoopbackExecutor(baseURL, localPwd string, store *Store) *LoopbackExecut
 }
 
 func (e *LoopbackExecutor) Execute(ctx context.Context, task *Task) (string, error) {
-	if task.Type == TaskTypeSystemReport {
+	task.RLock()
+	taskType := task.Type
+	taskModel := task.Model
+	taskPrompt := task.Prompt
+	taskWebhookURL := task.WebhookURL
+	task.RUnlock()
+
+	if taskType == TaskTypeSystemReport {
 		return e.generateSystemReport(task)
 	}
 
 	// Construct generic chat completion request
 	// Assuming OpenAI compatible format for simplicity as it covers most
 	requestBody := map[string]interface{}{
-		"model": task.Model,
+		"model": taskModel,
 		"messages": []map[string]string{
-			{"role": "user", "content": task.Prompt},
+			{"role": "user", "content": taskPrompt},
 		},
 	}
 
@@ -91,7 +98,7 @@ func (e *LoopbackExecutor) Execute(ctx context.Context, task *Task) (string, err
 			if message, ok := choice["message"].(map[string]interface{}); ok {
 				if content, ok := message["content"].(string); ok {
 					// Trigger Webhook if configured
-					if task.WebhookURL != "" {
+					if taskWebhookURL != "" {
 						go e.triggerWebhook(task, content)
 					}
 					return content, nil
@@ -114,7 +121,10 @@ func (e *LoopbackExecutor) generateSystemReport(task *Task) (string, error) {
 	totalTasks := len(tasks)
 	activeTasks := 0
 	for _, t := range tasks {
-		if t.Status == TaskStatusActive {
+		t.RLock()
+		status := t.Status
+		t.RUnlock()
+		if status == TaskStatusActive {
 			activeTasks++
 		}
 	}

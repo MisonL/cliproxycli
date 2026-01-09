@@ -3,78 +3,70 @@ package diff
 import (
 	"testing"
 
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	sdkconfig "github.com/router-for-me/CLIProxyAPI/v6/sdk/config"
+	"cliproxy/internal/config"
+	sdkconfig "cliproxy/sdk/config"
 )
 
 func TestBuildConfigChangeDetails(t *testing.T) {
 	oldCfg := &config.Config{
-		Port:    8080,
-		AuthDir: "/tmp/auth-old",
-		GeminiKey: []config.GeminiKey{
-			{APIKey: "old", BaseURL: "http://old", ExcludedModels: []string{"old-model"}},
-		},
-		AmpCode: config.AmpCode{
-			UpstreamURL:                   "http://old-upstream",
-			ModelMappings:                 []config.AmpModelMapping{{From: "from-old", To: "to-old"}},
-			RestrictManagementToLocalhost: false,
-		},
-		RemoteManagement: config.RemoteManagement{
-			AllowRemote:           false,
-			SecretKey:             "old",
-			DisableControlPanel:   false,
-			PanelGitHubRepository: "repo-old",
-		},
-		OAuthExcludedModels: map[string][]string{
-			"providerA": {"m1"},
-		},
-		OpenAICompatibility: []config.OpenAICompatibility{
-			{
-				Name: "compat-a",
-				APIKeyEntries: []config.OpenAICompatibilityAPIKey{
-					{APIKey: "k1"},
+		SDKConfig: sdkconfig.SDKConfig{
+			Port:    8080,
+			AuthDir: "/tmp/auth-old",
+			GeminiKey: []config.GeminiKey{
+				{APIKey: "old", BaseURL: "http://old", ExcludedModels: []string{"old-model"}},
+			},
+			AmpCode: config.AmpCode{
+				UpstreamURL:                   "http://old-upstream",
+				ModelMappings:                 []config.AmpModelMapping{{From: "from-old", To: "to-old"}},
+				RestrictManagementToLocalhost: false,
+			},
+			OAuthExcludedModels: map[string][]string{
+				"providerA": {"m1"},
+			},
+			OpenAICompatibility: []config.OpenAICompatibility{
+				{
+					Name: "compat-a",
+					APIKeyEntries: []config.OpenAICompatibilityAPIKey{
+						{APIKey: "k1"},
+					},
+					Models: []config.OpenAICompatibilityModel{{Name: "m1"}},
 				},
-				Models: []config.OpenAICompatibilityModel{{Name: "m1"}},
 			},
 		},
 	}
 
 	newCfg := &config.Config{
-		Port:    9090,
-		AuthDir: "/tmp/auth-new",
-		GeminiKey: []config.GeminiKey{
-			{APIKey: "old", BaseURL: "http://old", ExcludedModels: []string{"old-model", "extra"}},
-		},
-		AmpCode: config.AmpCode{
-			UpstreamURL:                   "http://new-upstream",
-			RestrictManagementToLocalhost: true,
-			ModelMappings: []config.AmpModelMapping{
-				{From: "from-old", To: "to-old"},
-				{From: "from-new", To: "to-new"},
+		SDKConfig: sdkconfig.SDKConfig{
+			Port:    9090,
+			AuthDir: "/tmp/auth-new",
+			GeminiKey: []config.GeminiKey{
+				{APIKey: "old", BaseURL: "http://old", ExcludedModels: []string{"old-model", "extra"}},
 			},
-		},
-		RemoteManagement: config.RemoteManagement{
-			AllowRemote:           true,
-			SecretKey:             "new",
-			DisableControlPanel:   true,
-			PanelGitHubRepository: "repo-new",
-		},
-		OAuthExcludedModels: map[string][]string{
-			"providerA": {"m1", "m2"},
-			"providerB": {"x"},
-		},
-		OpenAICompatibility: []config.OpenAICompatibility{
-			{
-				Name: "compat-a",
-				APIKeyEntries: []config.OpenAICompatibilityAPIKey{
-					{APIKey: "k1"},
+			AmpCode: config.AmpCode{
+				UpstreamURL:                   "http://new-upstream",
+				RestrictManagementToLocalhost: true,
+				ModelMappings: []config.AmpModelMapping{
+					{From: "from-old", To: "to-old"},
+					{From: "from-new", To: "to-new"},
 				},
-				Models: []config.OpenAICompatibilityModel{{Name: "m1"}, {Name: "m2"}},
 			},
-			{
-				Name: "compat-b",
-				APIKeyEntries: []config.OpenAICompatibilityAPIKey{
-					{APIKey: "k2"},
+			OAuthExcludedModels: map[string][]string{
+				"providerA": {"m1", "m2"},
+				"providerB": {"x"},
+			},
+			OpenAICompatibility: []config.OpenAICompatibility{
+				{
+					Name: "compat-a",
+					APIKeyEntries: []config.OpenAICompatibilityAPIKey{
+						{APIKey: "k1"},
+					},
+					Models: []config.OpenAICompatibilityModel{{Name: "m1"}, {Name: "m2"}},
+				},
+				{
+					Name: "compat-b",
+					APIKeyEntries: []config.OpenAICompatibilityAPIKey{
+						{APIKey: "k2"},
+					},
 				},
 			},
 		},
@@ -87,8 +79,7 @@ func TestBuildConfigChangeDetails(t *testing.T) {
 	expectContains(t, details, "gemini[0].excluded-models: updated (1 -> 2 entries)")
 	expectContains(t, details, "ampcode.upstream-url: http://old-upstream -> http://new-upstream")
 	expectContains(t, details, "ampcode.model-mappings: updated (1 -> 2 entries)")
-	expectContains(t, details, "remote-management.allow-remote: false -> true")
-	expectContains(t, details, "remote-management.secret-key: updated")
+
 	expectContains(t, details, "oauth-excluded-models[providera]: updated (1 -> 2 entries)")
 	expectContains(t, details, "oauth-excluded-models[providerb]: added (1 entries)")
 	expectContains(t, details, "openai-compatibility:")
@@ -98,7 +89,9 @@ func TestBuildConfigChangeDetails(t *testing.T) {
 
 func TestBuildConfigChangeDetails_NoChanges(t *testing.T) {
 	cfg := &config.Config{
-		Port: 8080,
+		SDKConfig: sdkconfig.SDKConfig{
+			Port: 8080,
+		},
 	}
 	if details := BuildConfigChangeDetails(cfg, cfg); len(details) != 0 {
 		t.Fatalf("expected no change entries, got %v", details)
@@ -107,27 +100,31 @@ func TestBuildConfigChangeDetails_NoChanges(t *testing.T) {
 
 func TestBuildConfigChangeDetails_GeminiVertexHeadersAndForceMappings(t *testing.T) {
 	oldCfg := &config.Config{
-		GeminiKey: []config.GeminiKey{
-			{APIKey: "g1", Headers: map[string]string{"H": "1"}, ExcludedModels: []string{"a"}},
-		},
-		VertexCompatAPIKey: []config.VertexCompatKey{
-			{APIKey: "v1", BaseURL: "http://v-old", Models: []config.VertexCompatModel{{Name: "m1"}}},
-		},
-		AmpCode: config.AmpCode{
-			ModelMappings:      []config.AmpModelMapping{{From: "a", To: "b"}},
-			ForceModelMappings: false,
+		SDKConfig: sdkconfig.SDKConfig{
+			GeminiKey: []config.GeminiKey{
+				{APIKey: "g1", Headers: map[string]string{"H": "1"}, ExcludedModels: []string{"a"}},
+			},
+			VertexCompatAPIKey: []config.VertexCompatKey{
+				{APIKey: "v1", BaseURL: "http://v-old", Models: []config.VertexCompatModel{{Name: "m1"}}},
+			},
+			AmpCode: config.AmpCode{
+				ModelMappings:      []config.AmpModelMapping{{From: "a", To: "b"}},
+				ForceModelMappings: false,
+			},
 		},
 	}
 	newCfg := &config.Config{
-		GeminiKey: []config.GeminiKey{
-			{APIKey: "g1", Headers: map[string]string{"H": "2"}, ExcludedModels: []string{"a", "b"}},
-		},
-		VertexCompatAPIKey: []config.VertexCompatKey{
-			{APIKey: "v1", BaseURL: "http://v-new", Models: []config.VertexCompatModel{{Name: "m1"}, {Name: "m2"}}},
-		},
-		AmpCode: config.AmpCode{
-			ModelMappings:      []config.AmpModelMapping{{From: "a", To: "c"}},
-			ForceModelMappings: true,
+		SDKConfig: sdkconfig.SDKConfig{
+			GeminiKey: []config.GeminiKey{
+				{APIKey: "g1", Headers: map[string]string{"H": "2"}, ExcludedModels: []string{"a", "b"}},
+			},
+			VertexCompatAPIKey: []config.VertexCompatKey{
+				{APIKey: "v1", BaseURL: "http://v-new", Models: []config.VertexCompatModel{{Name: "m1"}, {Name: "m2"}}},
+			},
+			AmpCode: config.AmpCode{
+				ModelMappings:      []config.AmpModelMapping{{From: "a", To: "c"}},
+				ForceModelMappings: true,
+			},
 		},
 	}
 
@@ -140,31 +137,35 @@ func TestBuildConfigChangeDetails_GeminiVertexHeadersAndForceMappings(t *testing
 
 func TestBuildConfigChangeDetails_ModelPrefixes(t *testing.T) {
 	oldCfg := &config.Config{
-		GeminiKey: []config.GeminiKey{
-			{APIKey: "g1", Prefix: "old-g", BaseURL: "http://g", ProxyURL: "http://gp"},
-		},
-		ClaudeKey: []config.ClaudeKey{
-			{APIKey: "c1", Prefix: "old-c", BaseURL: "http://c", ProxyURL: "http://cp"},
-		},
-		CodexKey: []config.CodexKey{
-			{APIKey: "x1", Prefix: "old-x", BaseURL: "http://x", ProxyURL: "http://xp"},
-		},
-		VertexCompatAPIKey: []config.VertexCompatKey{
-			{APIKey: "v1", Prefix: "old-v", BaseURL: "http://v", ProxyURL: "http://vp"},
+		SDKConfig: sdkconfig.SDKConfig{
+			GeminiKey: []config.GeminiKey{
+				{APIKey: "g1", Prefix: "old-g", BaseURL: "http://g", ProxyURL: "http://gp"},
+			},
+			ClaudeKey: []config.ClaudeKey{
+				{APIKey: "c1", Prefix: "old-c", BaseURL: "http://c", ProxyURL: "http://cp"},
+			},
+			CodexKey: []config.CodexKey{
+				{APIKey: "x1", Prefix: "old-x", BaseURL: "http://x", ProxyURL: "http://xp"},
+			},
+			VertexCompatAPIKey: []config.VertexCompatKey{
+				{APIKey: "v1", Prefix: "old-v", BaseURL: "http://v", ProxyURL: "http://vp"},
+			},
 		},
 	}
 	newCfg := &config.Config{
-		GeminiKey: []config.GeminiKey{
-			{APIKey: "g1", Prefix: "new-g", BaseURL: "http://g", ProxyURL: "http://gp"},
-		},
-		ClaudeKey: []config.ClaudeKey{
-			{APIKey: "c1", Prefix: "new-c", BaseURL: "http://c", ProxyURL: "http://cp"},
-		},
-		CodexKey: []config.CodexKey{
-			{APIKey: "x1", Prefix: "new-x", BaseURL: "http://x", ProxyURL: "http://xp"},
-		},
-		VertexCompatAPIKey: []config.VertexCompatKey{
-			{APIKey: "v1", Prefix: "new-v", BaseURL: "http://v", ProxyURL: "http://vp"},
+		SDKConfig: sdkconfig.SDKConfig{
+			GeminiKey: []config.GeminiKey{
+				{APIKey: "g1", Prefix: "new-g", BaseURL: "http://g", ProxyURL: "http://gp"},
+			},
+			ClaudeKey: []config.ClaudeKey{
+				{APIKey: "c1", Prefix: "new-c", BaseURL: "http://c", ProxyURL: "http://cp"},
+			},
+			CodexKey: []config.CodexKey{
+				{APIKey: "x1", Prefix: "new-x", BaseURL: "http://x", ProxyURL: "http://xp"},
+			},
+			VertexCompatAPIKey: []config.VertexCompatKey{
+				{APIKey: "v1", Prefix: "new-v", BaseURL: "http://v", ProxyURL: "http://vp"},
+			},
 		},
 	}
 
@@ -188,36 +189,39 @@ func TestBuildConfigChangeDetails_SecretsAndCounts(t *testing.T) {
 	oldCfg := &config.Config{
 		SDKConfig: sdkconfig.SDKConfig{
 			APIKeys: []string{"a"},
-		},
-		AmpCode: config.AmpCode{
-			UpstreamAPIKey: "",
-		},
-		RemoteManagement: config.RemoteManagement{
-			SecretKey: "",
+			AmpCode: config.AmpCode{
+				UpstreamAPIKey: "",
+			},
 		},
 	}
 	newCfg := &config.Config{
 		SDKConfig: sdkconfig.SDKConfig{
 			APIKeys: []string{"a", "b", "c"},
-		},
-		AmpCode: config.AmpCode{
-			UpstreamAPIKey: "new-key",
-		},
-		RemoteManagement: config.RemoteManagement{
-			SecretKey: "new-secret",
+			AmpCode: config.AmpCode{
+				UpstreamAPIKey: "new-key",
+			},
 		},
 	}
 
 	details := BuildConfigChangeDetails(oldCfg, newCfg)
 	expectContains(t, details, "api-keys count: 1 -> 3")
 	expectContains(t, details, "ampcode.upstream-api-key: added")
-	expectContains(t, details, "remote-management.secret-key: created")
+
 }
 
 func TestBuildConfigChangeDetails_FlagsAndKeys(t *testing.T) {
 	oldCfg := &config.Config{
-		Port:                   1000,
-		AuthDir:                "/old",
+		SDKConfig: sdkconfig.SDKConfig{
+			Port:             1000,
+			AuthDir:          "/old",
+			APIKeys:          []string{"key-1"},
+			ProxyURL:         "http://old-proxy",
+			RequestLog:       false,
+			ForceModelPrefix: false,
+			ClaudeKey:        []config.ClaudeKey{{APIKey: "c1"}},
+			CodexKey:         []config.CodexKey{{APIKey: "x1"}},
+			AmpCode:          config.AmpCode{UpstreamAPIKey: "keep", RestrictManagementToLocalhost: false},
+		},
 		Debug:                  false,
 		LoggingToFile:          false,
 		UsageStatisticsEnabled: false,
@@ -226,20 +230,29 @@ func TestBuildConfigChangeDetails_FlagsAndKeys(t *testing.T) {
 		MaxRetryInterval:       1,
 		WebsocketAuth:          false,
 		QuotaExceeded:          config.QuotaExceeded{SwitchProject: false, SwitchPreviewModel: false},
-		ClaudeKey:              []config.ClaudeKey{{APIKey: "c1"}},
-		CodexKey:               []config.CodexKey{{APIKey: "x1"}},
-		AmpCode:                config.AmpCode{UpstreamAPIKey: "keep", RestrictManagementToLocalhost: false},
-		RemoteManagement:       config.RemoteManagement{DisableControlPanel: false, PanelGitHubRepository: "old/repo", SecretKey: "keep"},
-		SDKConfig: sdkconfig.SDKConfig{
-			RequestLog:       false,
-			ProxyURL:         "http://old-proxy",
-			APIKeys:          []string{"key-1"},
-			ForceModelPrefix: false,
-		},
 	}
 	newCfg := &config.Config{
-		Port:                   2000,
-		AuthDir:                "/new",
+		SDKConfig: sdkconfig.SDKConfig{
+			Port:             2000,
+			AuthDir:          "/new",
+			APIKeys:          []string{" key-1 ", "key-2"},
+			ProxyURL:         "http://new-proxy",
+			RequestLog:       true,
+			ForceModelPrefix: true,
+			ClaudeKey: []config.ClaudeKey{
+				{APIKey: "c1", BaseURL: "http://new", ProxyURL: "http://p", Headers: map[string]string{"H": "1"}, ExcludedModels: []string{"a"}},
+				{APIKey: "c2"},
+			},
+			CodexKey: []config.CodexKey{
+				{APIKey: "x1", BaseURL: "http://x", ProxyURL: "http://px", Headers: map[string]string{"H": "2"}, ExcludedModels: []string{"b"}},
+				{APIKey: "x2"},
+			},
+			AmpCode: config.AmpCode{
+				UpstreamAPIKey:                "",
+				RestrictManagementToLocalhost: true,
+				ModelMappings:                 []config.AmpModelMapping{{From: "a", To: "b"}},
+			},
+		},
 		Debug:                  true,
 		LoggingToFile:          true,
 		UsageStatisticsEnabled: true,
@@ -248,30 +261,6 @@ func TestBuildConfigChangeDetails_FlagsAndKeys(t *testing.T) {
 		MaxRetryInterval:       3,
 		WebsocketAuth:          true,
 		QuotaExceeded:          config.QuotaExceeded{SwitchProject: true, SwitchPreviewModel: true},
-		ClaudeKey: []config.ClaudeKey{
-			{APIKey: "c1", BaseURL: "http://new", ProxyURL: "http://p", Headers: map[string]string{"H": "1"}, ExcludedModels: []string{"a"}},
-			{APIKey: "c2"},
-		},
-		CodexKey: []config.CodexKey{
-			{APIKey: "x1", BaseURL: "http://x", ProxyURL: "http://px", Headers: map[string]string{"H": "2"}, ExcludedModels: []string{"b"}},
-			{APIKey: "x2"},
-		},
-		AmpCode: config.AmpCode{
-			UpstreamAPIKey:                "",
-			RestrictManagementToLocalhost: true,
-			ModelMappings:                 []config.AmpModelMapping{{From: "a", To: "b"}},
-		},
-		RemoteManagement: config.RemoteManagement{
-			DisableControlPanel:   true,
-			PanelGitHubRepository: "new/repo",
-			SecretKey:             "",
-		},
-		SDKConfig: sdkconfig.SDKConfig{
-			RequestLog:       true,
-			ProxyURL:         "http://new-proxy",
-			APIKeys:          []string{" key-1 ", "key-2"},
-			ForceModelPrefix: true,
-		},
 	}
 
 	details := BuildConfigChangeDetails(oldCfg, newCfg)
@@ -292,15 +281,47 @@ func TestBuildConfigChangeDetails_FlagsAndKeys(t *testing.T) {
 	expectContains(t, details, "codex-api-key count: 1 -> 2")
 	expectContains(t, details, "ampcode.restrict-management-to-localhost: false -> true")
 	expectContains(t, details, "ampcode.upstream-api-key: removed")
-	expectContains(t, details, "remote-management.disable-control-panel: false -> true")
-	expectContains(t, details, "remote-management.panel-github-repository: old/repo -> new/repo")
-	expectContains(t, details, "remote-management.secret-key: deleted")
+
 }
 
 func TestBuildConfigChangeDetails_AllBranches(t *testing.T) {
 	oldCfg := &config.Config{
-		Port:                   1,
-		AuthDir:                "/a",
+		SDKConfig: sdkconfig.SDKConfig{
+			Port:       1,
+			AuthDir:    "/a",
+			APIKeys:    []string{" keyA "},
+			ProxyURL:   "http://old-proxy",
+			RequestLog: false,
+			GeminiKey: []config.GeminiKey{
+				{APIKey: "g-old", BaseURL: "http://g-old", ProxyURL: "http://gp-old", Headers: map[string]string{"A": "1"}},
+			},
+			ClaudeKey: []config.ClaudeKey{
+				{APIKey: "c-old", BaseURL: "http://c-old", ProxyURL: "http://cp-old", Headers: map[string]string{"H": "1"}, ExcludedModels: []string{"x"}},
+			},
+			CodexKey: []config.CodexKey{
+				{APIKey: "x-old", BaseURL: "http://x-old", ProxyURL: "http://xp-old", Headers: map[string]string{"H": "1"}, ExcludedModels: []string{"x"}},
+			},
+			VertexCompatAPIKey: []config.VertexCompatKey{
+				{APIKey: "v-old", BaseURL: "http://v-old", ProxyURL: "http://vp-old", Headers: map[string]string{"H": "1"}, Models: []config.VertexCompatModel{{Name: "m1"}}},
+			},
+			AmpCode: config.AmpCode{
+				UpstreamURL:                   "http://amp-old",
+				UpstreamAPIKey:                "old-key",
+				RestrictManagementToLocalhost: false,
+				ModelMappings:                 []config.AmpModelMapping{{From: "a", To: "b"}},
+				ForceModelMappings:            false,
+			},
+			OAuthExcludedModels: map[string][]string{"p1": {"a"}},
+			OpenAICompatibility: []config.OpenAICompatibility{
+				{
+					Name: "prov-old",
+					APIKeyEntries: []config.OpenAICompatibilityAPIKey{
+						{APIKey: "k1"},
+					},
+					Models: []config.OpenAICompatibilityModel{{Name: "m1"}},
+				},
+			},
+		},
 		Debug:                  false,
 		LoggingToFile:          false,
 		UsageStatisticsEnabled: false,
@@ -309,50 +330,49 @@ func TestBuildConfigChangeDetails_AllBranches(t *testing.T) {
 		MaxRetryInterval:       1,
 		WebsocketAuth:          false,
 		QuotaExceeded:          config.QuotaExceeded{SwitchProject: false, SwitchPreviewModel: false},
-		GeminiKey: []config.GeminiKey{
-			{APIKey: "g-old", BaseURL: "http://g-old", ProxyURL: "http://gp-old", Headers: map[string]string{"A": "1"}},
-		},
-		ClaudeKey: []config.ClaudeKey{
-			{APIKey: "c-old", BaseURL: "http://c-old", ProxyURL: "http://cp-old", Headers: map[string]string{"H": "1"}, ExcludedModels: []string{"x"}},
-		},
-		CodexKey: []config.CodexKey{
-			{APIKey: "x-old", BaseURL: "http://x-old", ProxyURL: "http://xp-old", Headers: map[string]string{"H": "1"}, ExcludedModels: []string{"x"}},
-		},
-		VertexCompatAPIKey: []config.VertexCompatKey{
-			{APIKey: "v-old", BaseURL: "http://v-old", ProxyURL: "http://vp-old", Headers: map[string]string{"H": "1"}, Models: []config.VertexCompatModel{{Name: "m1"}}},
-		},
-		AmpCode: config.AmpCode{
-			UpstreamURL:                   "http://amp-old",
-			UpstreamAPIKey:                "old-key",
-			RestrictManagementToLocalhost: false,
-			ModelMappings:                 []config.AmpModelMapping{{From: "a", To: "b"}},
-			ForceModelMappings:            false,
-		},
-		RemoteManagement: config.RemoteManagement{
-			AllowRemote:           false,
-			DisableControlPanel:   false,
-			PanelGitHubRepository: "old/repo",
-			SecretKey:             "old",
-		},
-		SDKConfig: sdkconfig.SDKConfig{
-			RequestLog: false,
-			ProxyURL:   "http://old-proxy",
-			APIKeys:    []string{" keyA "},
-		},
-		OAuthExcludedModels: map[string][]string{"p1": {"a"}},
-		OpenAICompatibility: []config.OpenAICompatibility{
-			{
-				Name: "prov-old",
-				APIKeyEntries: []config.OpenAICompatibilityAPIKey{
-					{APIKey: "k1"},
-				},
-				Models: []config.OpenAICompatibilityModel{{Name: "m1"}},
-			},
-		},
 	}
 	newCfg := &config.Config{
-		Port:                   2,
-		AuthDir:                "/b",
+		SDKConfig: sdkconfig.SDKConfig{
+			Port:       2,
+			AuthDir:    "/b",
+			APIKeys:    []string{"keyB"},
+			ProxyURL:   "http://new-proxy",
+			RequestLog: true,
+			GeminiKey: []config.GeminiKey{
+				{APIKey: "g-new", BaseURL: "http://g-new", ProxyURL: "http://gp-new", Headers: map[string]string{"A": "2"}, ExcludedModels: []string{"x", "y"}},
+			},
+			ClaudeKey: []config.ClaudeKey{
+				{APIKey: "c-new", BaseURL: "http://c-new", ProxyURL: "http://cp-new", Headers: map[string]string{"H": "2"}, ExcludedModels: []string{"x", "y"}},
+			},
+			CodexKey: []config.CodexKey{
+				{APIKey: "x-new", BaseURL: "http://x-new", ProxyURL: "http://xp-new", Headers: map[string]string{"H": "2"}, ExcludedModels: []string{"x", "y"}},
+			},
+			VertexCompatAPIKey: []config.VertexCompatKey{
+				{APIKey: "v-new", BaseURL: "http://v-new", ProxyURL: "http://vp-new", Headers: map[string]string{"H": "2"}, Models: []config.VertexCompatModel{{Name: "m1"}, {Name: "m2"}}},
+			},
+			AmpCode: config.AmpCode{
+				UpstreamURL:                   "http://amp-new",
+				UpstreamAPIKey:                "",
+				RestrictManagementToLocalhost: true,
+				ModelMappings:                 []config.AmpModelMapping{{From: "a", To: "c"}},
+				ForceModelMappings:            true,
+			},
+			OAuthExcludedModels: map[string][]string{"p1": {"b", "c"}, "p2": {"d"}},
+			OpenAICompatibility: []config.OpenAICompatibility{
+				{
+					Name: "prov-old",
+					APIKeyEntries: []config.OpenAICompatibilityAPIKey{
+						{APIKey: "k1"},
+						{APIKey: "k2"},
+					},
+					Models: []config.OpenAICompatibilityModel{{Name: "m1"}, {Name: "m2"}},
+				},
+				{
+					Name:          "prov-new",
+					APIKeyEntries: []config.OpenAICompatibilityAPIKey{{APIKey: "k3"}},
+				},
+			},
+		},
 		Debug:                  true,
 		LoggingToFile:          true,
 		UsageStatisticsEnabled: true,
@@ -361,51 +381,6 @@ func TestBuildConfigChangeDetails_AllBranches(t *testing.T) {
 		MaxRetryInterval:       3,
 		WebsocketAuth:          true,
 		QuotaExceeded:          config.QuotaExceeded{SwitchProject: true, SwitchPreviewModel: true},
-		GeminiKey: []config.GeminiKey{
-			{APIKey: "g-new", BaseURL: "http://g-new", ProxyURL: "http://gp-new", Headers: map[string]string{"A": "2"}, ExcludedModels: []string{"x", "y"}},
-		},
-		ClaudeKey: []config.ClaudeKey{
-			{APIKey: "c-new", BaseURL: "http://c-new", ProxyURL: "http://cp-new", Headers: map[string]string{"H": "2"}, ExcludedModels: []string{"x", "y"}},
-		},
-		CodexKey: []config.CodexKey{
-			{APIKey: "x-new", BaseURL: "http://x-new", ProxyURL: "http://xp-new", Headers: map[string]string{"H": "2"}, ExcludedModels: []string{"x", "y"}},
-		},
-		VertexCompatAPIKey: []config.VertexCompatKey{
-			{APIKey: "v-new", BaseURL: "http://v-new", ProxyURL: "http://vp-new", Headers: map[string]string{"H": "2"}, Models: []config.VertexCompatModel{{Name: "m1"}, {Name: "m2"}}},
-		},
-		AmpCode: config.AmpCode{
-			UpstreamURL:                   "http://amp-new",
-			UpstreamAPIKey:                "",
-			RestrictManagementToLocalhost: true,
-			ModelMappings:                 []config.AmpModelMapping{{From: "a", To: "c"}},
-			ForceModelMappings:            true,
-		},
-		RemoteManagement: config.RemoteManagement{
-			AllowRemote:           true,
-			DisableControlPanel:   true,
-			PanelGitHubRepository: "new/repo",
-			SecretKey:             "",
-		},
-		SDKConfig: sdkconfig.SDKConfig{
-			RequestLog: true,
-			ProxyURL:   "http://new-proxy",
-			APIKeys:    []string{"keyB"},
-		},
-		OAuthExcludedModels: map[string][]string{"p1": {"b", "c"}, "p2": {"d"}},
-		OpenAICompatibility: []config.OpenAICompatibility{
-			{
-				Name: "prov-old",
-				APIKeyEntries: []config.OpenAICompatibilityAPIKey{
-					{APIKey: "k1"},
-					{APIKey: "k2"},
-				},
-				Models: []config.OpenAICompatibilityModel{{Name: "m1"}, {Name: "m2"}},
-			},
-			{
-				Name:          "prov-new",
-				APIKeyEntries: []config.OpenAICompatibilityAPIKey{{APIKey: "k3"}},
-			},
-		},
 	}
 
 	changes := BuildConfigChangeDetails(oldCfg, newCfg)
@@ -449,10 +424,7 @@ func TestBuildConfigChangeDetails_AllBranches(t *testing.T) {
 	expectContains(t, changes, "ampcode.force-model-mappings: false -> true")
 	expectContains(t, changes, "oauth-excluded-models[p1]: updated (1 -> 2 entries)")
 	expectContains(t, changes, "oauth-excluded-models[p2]: added (1 entries)")
-	expectContains(t, changes, "remote-management.allow-remote: false -> true")
-	expectContains(t, changes, "remote-management.disable-control-panel: false -> true")
-	expectContains(t, changes, "remote-management.panel-github-repository: old/repo -> new/repo")
-	expectContains(t, changes, "remote-management.secret-key: deleted")
+
 	expectContains(t, changes, "openai-compatibility:")
 }
 
@@ -482,35 +454,35 @@ func TestFormatProxyURL(t *testing.T) {
 
 func TestBuildConfigChangeDetails_SecretAndUpstreamUpdates(t *testing.T) {
 	oldCfg := &config.Config{
-		AmpCode: config.AmpCode{
-			UpstreamAPIKey: "old",
-		},
-		RemoteManagement: config.RemoteManagement{
-			SecretKey: "old",
+		SDKConfig: sdkconfig.SDKConfig{
+			AmpCode: config.AmpCode{
+				UpstreamAPIKey: "old",
+			},
 		},
 	}
 	newCfg := &config.Config{
-		AmpCode: config.AmpCode{
-			UpstreamAPIKey: "new",
-		},
-		RemoteManagement: config.RemoteManagement{
-			SecretKey: "new",
+		SDKConfig: sdkconfig.SDKConfig{
+			AmpCode: config.AmpCode{
+				UpstreamAPIKey: "new",
+			},
 		},
 	}
 
 	changes := BuildConfigChangeDetails(oldCfg, newCfg)
 	expectContains(t, changes, "ampcode.upstream-api-key: updated")
-	expectContains(t, changes, "remote-management.secret-key: updated")
+
 }
 
 func TestBuildConfigChangeDetails_CountBranches(t *testing.T) {
 	oldCfg := &config.Config{}
 	newCfg := &config.Config{
-		GeminiKey: []config.GeminiKey{{APIKey: "g"}},
-		ClaudeKey: []config.ClaudeKey{{APIKey: "c"}},
-		CodexKey:  []config.CodexKey{{APIKey: "x"}},
-		VertexCompatAPIKey: []config.VertexCompatKey{
-			{APIKey: "v", BaseURL: "http://v"},
+		SDKConfig: sdkconfig.SDKConfig{
+			GeminiKey: []config.GeminiKey{{APIKey: "g"}},
+			ClaudeKey: []config.ClaudeKey{{APIKey: "c"}},
+			CodexKey:  []config.CodexKey{{APIKey: "x"}},
+			VertexCompatAPIKey: []config.VertexCompatKey{
+				{APIKey: "v", BaseURL: "http://v"},
+			},
 		},
 	}
 

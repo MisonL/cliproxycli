@@ -7,6 +7,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,42 +17,40 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/registry"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
-	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
-	sdktranslator "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
+	"cliproxy/internal/config"
+	"cliproxy/internal/registry"
+	"cliproxy/internal/util"
+	cliproxyauth "cliproxy/sdk/cliproxy/auth"
+	cliproxyexecutor "cliproxy/sdk/cliproxy/executor"
+	sdktranslator "cliproxy/sdk/translator"
 	log "github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
-const altKey = contextKey("alt")
-
 const (
-	antigravityBaseURLDaily = "https://daily-cloudcode-pa.sandbox.googleapis.com"
-	// antigravityBaseURLAutopush     = "https://autopush-cloudcode-pa.sandbox.googleapis.com"
-	antigravityBaseURLProd     = "https://cloudcode-pa.googleapis.com"
-	antigravityCountTokensPath = "/v1internal:countTokens"
-	antigravityStreamPath      = "/v1internal:streamGenerateContent"
-	antigravityGeneratePath    = "/v1internal:generateContent"
-	antigravityModelsPath      = "/v1internal:fetchAvailableModels"
-	antigravityClientID        = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
-	antigravityClientSecret    = "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"
-	defaultAntigravityAgent    = "antigravity/1.11.5 windows/amd64"
-	antigravityAuthType        = "antigravity"
-	refreshSkew                = 3000 * time.Second
-
-	// Anti-risk control headers for official endpoint mimicry
-	antigravityXGoogAPIClient      = "gl-node/22.17.0"
-	antigravityClientMetadataValue = "ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI"
+	antigravityBaseURLDaily        = "https://daily-cloudcode-pa.googleapis.com"
+	antigravitySandboxBaseURLDaily = "https://daily-cloudcode-pa.sandbox.googleapis.com"
+	antigravityBaseURLProd         = "https://cloudcode-pa.googleapis.com"
+	antigravityCountTokensPath     = "/v1internal:countTokens"
+	antigravityStreamPath          = "/v1internal:streamGenerateContent"
+	antigravityGeneratePath        = "/v1internal:generateContent"
+	antigravityModelsPath          = "/v1internal:fetchAvailableModels"
+	antigravityClientID            = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
+	antigravityClientSecret        = "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"
+	defaultAntigravityAgent        = "antigravity/1.104.0 darwin/arm64"
+	antigravityAuthType            = "antigravity"
+	refreshSkew                    = 3000 * time.Second
 )
 
-var randSource = rand.New(rand.NewSource(time.Now().UnixNano()))
+var (
+	randSource      = rand.New(rand.NewSource(time.Now().UnixNano()))
+	randSourceMutex sync.Mutex
+)
 
 // AntigravityExecutor proxies requests to the antigravity upstream.
 type AntigravityExecutor struct {
@@ -76,7 +76,8 @@ func (e *AntigravityExecutor) PrepareRequest(_ *http.Request, _ *cliproxyauth.Au
 
 // Execute performs a non-streaming request to the Antigravity API.
 func (e *AntigravityExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (resp cliproxyexecutor.Response, err error) {
-	if strings.Contains(req.Model, "claude") {
+	isClaude := strings.Contains(strings.ToLower(req.Model), "claude")
+	if isClaude || strings.Contains(req.Model, "gemini-3-pro") {
 		return e.executeClaudeNonStream(ctx, auth, req, opts)
 	}
 
@@ -93,12 +94,18 @@ func (e *AntigravityExecutor) Execute(ctx context.Context, auth *cliproxyauth.Au
 
 	from := opts.SourceFormat
 	to := sdktranslator.FromString("antigravity")
+	originalPayload := bytes.Clone(req.Payload)
+	if len(opts.OriginalRequest) > 0 {
+		originalPayload = bytes.Clone(opts.OriginalRequest)
+	}
+	originalTranslated := sdktranslator.TranslateRequest(from, to, req.Model, originalPayload, false)
 	translated := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), false)
 
-	translated = applyThinkingMetadataCLI(translated, req.Metadata, req.Model)
+	translated = ApplyThinkingMetadataCLI(translated, req.Metadata, req.Model)
 	translated = util.ApplyGemini3ThinkingLevelFromMetadataCLI(req.Model, req.Metadata, translated)
-	translated = util.ApplyDefaultThinkingIfNeededCLI(req.Model, translated)
-	translated = normalizeAntigravityThinking(req.Model, translated)
+	translated = util.ApplyDefaultThinkingIfNeededCLI(req.Model, req.Metadata, translated)
+	translated = normalizeAntigravityThinking(req.Model, translated, isClaude)
+	translated = applyPayloadConfigWithRoot(e.cfg, req.Model, "antigravity", "request", translated, originalTranslated)
 
 	baseURLs := antigravityBaseURLFallbackOrder(auth)
 	httpClient := newProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
@@ -187,12 +194,18 @@ func (e *AntigravityExecutor) executeClaudeNonStream(ctx context.Context, auth *
 
 	from := opts.SourceFormat
 	to := sdktranslator.FromString("antigravity")
+	originalPayload := bytes.Clone(req.Payload)
+	if len(opts.OriginalRequest) > 0 {
+		originalPayload = bytes.Clone(opts.OriginalRequest)
+	}
+	originalTranslated := sdktranslator.TranslateRequest(from, to, req.Model, originalPayload, true)
 	translated := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), true)
 
-	translated = applyThinkingMetadataCLI(translated, req.Metadata, req.Model)
+	translated = ApplyThinkingMetadataCLI(translated, req.Metadata, req.Model)
 	translated = util.ApplyGemini3ThinkingLevelFromMetadataCLI(req.Model, req.Metadata, translated)
-	translated = util.ApplyDefaultThinkingIfNeededCLI(req.Model, translated)
-	translated = normalizeAntigravityThinking(req.Model, translated)
+	translated = util.ApplyDefaultThinkingIfNeededCLI(req.Model, req.Metadata, translated)
+	translated = normalizeAntigravityThinking(req.Model, translated, true)
+	translated = applyPayloadConfigWithRoot(e.cfg, req.Model, "antigravity", "request", translated, originalTranslated)
 
 	baseURLs := antigravityBaseURLFallbackOrder(auth)
 	httpClient := newProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
@@ -505,7 +518,7 @@ func (e *AntigravityExecutor) convertStreamToNonStream(stream []byte) []byte {
 
 // ExecuteStream performs a streaming request to the Antigravity API.
 func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (stream <-chan cliproxyexecutor.StreamChunk, err error) {
-	ctx = context.WithValue(ctx, altKey, "")
+	ctx = context.WithValue(ctx, "alt", "")
 
 	token, updatedAuth, errToken := e.ensureAccessToken(ctx, auth)
 	if errToken != nil {
@@ -518,14 +531,22 @@ func (e *AntigravityExecutor) ExecuteStream(ctx context.Context, auth *cliproxya
 	reporter := newUsageReporter(ctx, e.Identifier(), req.Model, auth)
 	defer reporter.trackFailure(ctx, &err)
 
+	isClaude := strings.Contains(strings.ToLower(req.Model), "claude")
+
 	from := opts.SourceFormat
 	to := sdktranslator.FromString("antigravity")
+	originalPayload := bytes.Clone(req.Payload)
+	if len(opts.OriginalRequest) > 0 {
+		originalPayload = bytes.Clone(opts.OriginalRequest)
+	}
+	originalTranslated := sdktranslator.TranslateRequest(from, to, req.Model, originalPayload, true)
 	translated := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), true)
 
-	translated = applyThinkingMetadataCLI(translated, req.Metadata, req.Model)
+	translated = ApplyThinkingMetadataCLI(translated, req.Metadata, req.Model)
 	translated = util.ApplyGemini3ThinkingLevelFromMetadataCLI(req.Model, req.Metadata, translated)
-	translated = util.ApplyDefaultThinkingIfNeededCLI(req.Model, translated)
-	translated = normalizeAntigravityThinking(req.Model, translated)
+	translated = util.ApplyDefaultThinkingIfNeededCLI(req.Model, req.Metadata, translated)
+	translated = normalizeAntigravityThinking(req.Model, translated, isClaude)
+	translated = applyPayloadConfigWithRoot(e.cfg, req.Model, "antigravity", "request", translated, originalTranslated)
 
 	baseURLs := antigravityBaseURLFallbackOrder(auth)
 	httpClient := newProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
@@ -671,8 +692,9 @@ func (e *AntigravityExecutor) CountTokens(ctx context.Context, auth *cliproxyaut
 
 	from := opts.SourceFormat
 	to := sdktranslator.FromString("antigravity")
-	const altKey contextKey = "alt"
-	respCtx := context.WithValue(ctx, altKey, opts.Alt)
+	respCtx := context.WithValue(ctx, "alt", opts.Alt)
+
+	isClaude := strings.Contains(strings.ToLower(req.Model), "claude")
 
 	baseURLs := antigravityBaseURLFallbackOrder(auth)
 	httpClient := newProxyAwareHTTPClient(ctx, e.cfg, auth, 0)
@@ -690,9 +712,9 @@ func (e *AntigravityExecutor) CountTokens(ctx context.Context, auth *cliproxyaut
 
 	for idx, baseURL := range baseURLs {
 		payload := sdktranslator.TranslateRequest(from, to, req.Model, bytes.Clone(req.Payload), false)
-		payload = applyThinkingMetadataCLI(payload, req.Metadata, req.Model)
-		payload = util.ApplyDefaultThinkingIfNeededCLI(req.Model, payload)
-		payload = normalizeAntigravityThinking(req.Model, payload)
+		payload = ApplyThinkingMetadataCLI(payload, req.Metadata, req.Model)
+		payload = util.ApplyDefaultThinkingIfNeededCLI(req.Model, req.Metadata, payload)
+		payload = normalizeAntigravityThinking(req.Model, payload, isClaude)
 		payload = deleteJSONField(payload, "project")
 		payload = deleteJSONField(payload, "model")
 		payload = deleteJSONField(payload, "request.safetySettings")
@@ -892,7 +914,13 @@ func (e *AntigravityExecutor) ensureAccessToken(ctx context.Context, auth *clipr
 	if accessToken != "" && expiry.After(time.Now().Add(refreshSkew)) {
 		return accessToken, nil, nil
 	}
-	updated, errRefresh := e.refreshToken(ctx, auth.Clone())
+	refreshCtx := context.Background()
+	if ctx != nil {
+		if rt, ok := ctx.Value("cliproxy.roundtripper").(http.RoundTripper); ok && rt != nil {
+			refreshCtx = context.WithValue(refreshCtx, "cliproxy.roundtripper", rt)
+		}
+	}
+	updated, errRefresh := e.refreshToken(refreshCtx, auth.Clone())
 	if errRefresh != nil {
 		return "", nil, errRefresh
 	}
@@ -1014,9 +1042,22 @@ func (e *AntigravityExecutor) buildRequest(ctx context.Context, auth *cliproxyau
 
 		// Use the centralized schema cleaner to handle unsupported keywords,
 		// const->enum conversion, and flattening of types/anyOf.
-		strJSON = util.CleanJSONSchemaForGemini(strJSON)
+		strJSON = util.CleanJSONSchemaForAntigravity(strJSON)
 
 		payload = []byte(strJSON)
+	}
+
+	if strings.Contains(modelName, "claude") || strings.Contains(modelName, "gemini-3-pro") {
+		systemInstructionPartsResult := gjson.GetBytes(payload, "request.systemInstruction.parts")
+
+		payload, _ = sjson.SetBytes(payload, "request.systemInstruction.role", "user")
+		payload, _ = sjson.SetBytes(payload, "request.systemInstruction.parts.0.text", "You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.**Absolute paths only****Proactiveness**")
+
+		if systemInstructionPartsResult.Exists() && systemInstructionPartsResult.IsArray() {
+			for _, partResult := range systemInstructionPartsResult.Array() {
+				payload, _ = sjson.SetRawBytes(payload, "request.systemInstruction.parts.-1", []byte(partResult.Raw))
+			}
+		}
 	}
 
 	httpReq, errReq := http.NewRequestWithContext(ctx, http.MethodPost, requestURL.String(), bytes.NewReader(payload))
@@ -1026,8 +1067,6 @@ func (e *AntigravityExecutor) buildRequest(ctx context.Context, auth *cliproxyau
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+token)
 	httpReq.Header.Set("User-Agent", resolveUserAgent(auth))
-	httpReq.Header.Set("X-Goog-Api-Client", antigravityXGoogAPIClient)
-	httpReq.Header.Set("Client-Metadata", antigravityClientMetadataValue)
 	if stream {
 		httpReq.Header.Set("Accept", "text/event-stream")
 	} else {
@@ -1155,8 +1194,8 @@ func antigravityBaseURLFallbackOrder(auth *cliproxyauth.Auth) []string {
 		return []string{base}
 	}
 	return []string{
+		antigravitySandboxBaseURLDaily,
 		antigravityBaseURLDaily,
-		// antigravityBaseURLAutopush,
 		antigravityBaseURLProd,
 	}
 }
@@ -1184,6 +1223,7 @@ func resolveCustomAntigravityBaseURL(auth *cliproxyauth.Auth) string {
 func geminiToAntigravity(modelName string, payload []byte, projectID string) []byte {
 	template, _ := sjson.Set(string(payload), "model", modelName)
 	template, _ = sjson.Set(template, "userAgent", "antigravity")
+	template, _ = sjson.Set(template, "requestType", "agent")
 
 	// Use real project ID from auth if available, otherwise generate random (legacy fallback)
 	if projectID != "" {
@@ -1192,7 +1232,7 @@ func geminiToAntigravity(modelName string, payload []byte, projectID string) []b
 		template, _ = sjson.Set(template, "project", generateProjectID())
 	}
 	template, _ = sjson.Set(template, "requestId", generateRequestID())
-	template, _ = sjson.Set(template, "request.sessionId", generateSessionID())
+	template, _ = sjson.Set(template, "request.sessionId", generateStableSessionID(payload))
 
 	template, _ = sjson.Delete(template, "request.safetySettings")
 	template, _ = sjson.Set(template, "request.toolConfig.functionCallingConfig.mode", "VALIDATED")
@@ -1228,15 +1268,36 @@ func generateRequestID() string {
 }
 
 func generateSessionID() string {
+	randSourceMutex.Lock()
 	n := randSource.Int63n(9_000_000_000_000_000_000)
+	randSourceMutex.Unlock()
 	return "-" + strconv.FormatInt(n, 10)
+}
+
+func generateStableSessionID(payload []byte) string {
+	contents := gjson.GetBytes(payload, "request.contents")
+	if contents.IsArray() {
+		for _, content := range contents.Array() {
+			if content.Get("role").String() == "user" {
+				text := content.Get("parts.0.text").String()
+				if text != "" {
+					h := sha256.Sum256([]byte(text))
+					n := int64(binary.BigEndian.Uint64(h[:8])) & 0x7FFFFFFFFFFFFFFF
+					return "-" + strconv.FormatInt(n, 10)
+				}
+			}
+		}
+	}
+	return generateSessionID()
 }
 
 func generateProjectID() string {
 	adjectives := []string{"useful", "bright", "swift", "calm", "bold"}
 	nouns := []string{"fuze", "wave", "spark", "flow", "core"}
+	randSourceMutex.Lock()
 	adj := adjectives[randSource.Intn(len(adjectives))]
 	noun := nouns[randSource.Intn(len(nouns))]
+	randSourceMutex.Unlock()
 	randomPart := strings.ToLower(uuid.NewString())[:5]
 	return adj + "-" + noun + "-" + randomPart
 }
@@ -1257,7 +1318,7 @@ func modelName2Alias(modelName string) string {
 		return "gemini-claude-sonnet-4-5-thinking"
 	case "claude-opus-4-5-thinking":
 		return "gemini-claude-opus-4-5-thinking"
-	case "chat_20706", "chat_23310":
+	case "chat_20706", "chat_23310", "gemini-2.5-flash-thinking", "gemini-3-pro-low", "gemini-2.5-pro":
 		return ""
 	default:
 		return modelName
@@ -1287,7 +1348,7 @@ func alias2ModelName(modelName string) string {
 
 // normalizeAntigravityThinking clamps or removes thinking config based on model support.
 // For Claude models, it additionally ensures thinking budget < max_tokens.
-func normalizeAntigravityThinking(model string, payload []byte) []byte {
+func normalizeAntigravityThinking(model string, payload []byte, isClaude bool) []byte {
 	payload = util.StripThinkingConfigIfUnsupported(model, payload)
 	if !util.ModelSupportsThinking(model) {
 		return payload
@@ -1299,7 +1360,6 @@ func normalizeAntigravityThinking(model string, payload []byte) []byte {
 	raw := int(budget.Int())
 	normalized := util.NormalizeThinkingBudget(model, raw)
 
-	isClaude := strings.Contains(strings.ToLower(model), "claude")
 	if isClaude {
 		effectiveMax, setDefaultMax := antigravityEffectiveMaxTokens(model, payload)
 		if effectiveMax > 0 && normalized >= effectiveMax {

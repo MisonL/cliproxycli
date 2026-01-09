@@ -23,14 +23,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/api"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v6/internal/logging"
-	sdkAuth "github.com/router-for-me/CLIProxyAPI/v6/sdk/auth"
-	"github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy"
-	coreauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
-	clipexec "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/executor"
-	sdktr "github.com/router-for-me/CLIProxyAPI/v6/sdk/translator"
+	"cliproxy/internal/api"
+	"cliproxy/internal/config"
+	"cliproxy/internal/logging"
+	sdkAuth "cliproxy/sdk/auth"
+	"cliproxy/sdk/cliproxy"
+	coreauth "cliproxy/sdk/cliproxy/auth"
+	clipexec "cliproxy/sdk/cliproxy/executor"
+	sdktr "cliproxy/sdk/translator"
 	log "github.com/sirupsen/logrus"
 )
 
