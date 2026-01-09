@@ -3,13 +3,13 @@ ARG COMMIT=none
 ARG BUILD_DATE=unknown
 ARG GO_VERSION=1.24
 
-FROM oven/bun:1.1.26-alpine AS frontend-builder
+FROM oven/bun:1.1.26 AS frontend-builder
 WORKDIR /app
 COPY management-center/package.json management-center/bun.lock ./
 # Install dependencies with frozen lockfile for reproducibility
 RUN bun install --frozen-lockfile
 COPY management-center/ ./
-# Use 'bun run build' to include type checking (tsc && vite build)
+# Use 'bun run build' for type checking & vite build
 RUN bun run build
 RUN ls -la dist/ || echo "dist still missing"
 
