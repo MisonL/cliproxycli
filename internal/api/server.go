@@ -1102,6 +1102,9 @@ func (s *Server) AuthMiddleware() gin.HandlerFunc {
 
 		if provided != "" && s.localPassword != "" {
 			if subtle.ConstantTimeCompare([]byte(provided), []byte(s.localPassword)) == 1 {
+				// Inject system identity for internal requests
+				c.Set("apiKey", "system-internal")
+				c.Set("accessProvider", "system")
 				c.Next()
 				return
 			}

@@ -310,55 +310,55 @@ export function ModelPoolPage() {
         </div>
       </header>
 
-      <div style={{ padding: '0 40px 80px', marginTop: '-40px' }}>
+      <div className="page-container">
         <div className="card card-glass">
           <div className="card-body" style={{ padding: '32px' }}>
             <div className="flex-column gap-xl">
         {/* 统计概览 */}
         <div className="grid cols-4" style={{ gap: '24px' }}>
-          <div className="card-glass flex-row items-center gap-md" style={{ padding: '24px', borderRadius: '20px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba($primary-color, 0.15) 0%, rgba($primary-color, 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba($primary-color, 0.1)' }}>
-              <IconPlug size={24} style={{ color: 'var(--primary-color)' }} />
+          <div className="stat-card">
+            <div className="stat-icon primary">
+              <IconPlug size={24} />
             </div>
-            <div className="flex-column">
-              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{t('model_pool.stats_total_channels')}</span>
-              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.2 }}>{stats?.totalChannels || 0}</span>
+            <div className="stat-content">
+              <span className="stat-label">{t('model_pool.stats_total_channels')}</span>
+              <span className="stat-value">{stats?.totalChannels || 0}</span>
             </div>
           </div>
           
-          <div className="card-glass flex-row items-center gap-md" style={{ padding: '24px', borderRadius: '20px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(16, 185, 129, 0.1)' }}>
-              <IconActivity size={24} style={{ color: 'var(--success-color)' }} />
+          <div className="stat-card">
+            <div className="stat-icon success">
+              <IconActivity size={24} />
             </div>
-            <div className="flex-column">
-              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{t('model_pool.stats_healthy')}</span>
-              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--success-color)', lineHeight: 1.2 }}>{stats?.healthyChannels || 0}</span>
-            </div>
-          </div>
-
-          <div className="card-glass flex-row items-center gap-md" style={{ padding: '24px', borderRadius: '20px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(239, 68, 68, 0.1)' }}>
-              <IconShieldCheck size={24} style={{ color: 'var(--error-color)' }} />
-            </div>
-            <div className="flex-column">
-              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{t('model_pool.stats_unhealthy')}</span>
-              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--error-color)', lineHeight: 1.2 }}>{stats?.unhealthyChannels || 0}</span>
+            <div className="stat-content">
+              <span className="stat-label">{t('model_pool.stats_healthy')}</span>
+              <span className="stat-value success">{stats?.healthyChannels || 0}</span>
             </div>
           </div>
 
-          <div className="card-glass flex-row items-center gap-md" style={{ padding: '24px', borderRadius: '20px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(59, 130, 246, 0.1)' }}>
-              <IconChartBar size={24} style={{ color: 'var(--primary-color)', filter: 'hue-rotate(30deg)' }} />
+          <div className="stat-card">
+            <div className="stat-icon error">
+              <IconShieldCheck size={24} />
             </div>
-            <div className="flex-column">
-              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{t('model_pool.stats_success_rate')}</span>
-              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--primary-color)', lineHeight: 1.2 }}>{stats?.successRate24h || 100}%</span>
+            <div className="stat-content">
+              <span className="stat-label">{t('model_pool.stats_unhealthy')}</span>
+              <span className="stat-value error">{stats?.unhealthyChannels || 0}</span>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-icon primary">
+              <IconChartBar size={24} />
+            </div>
+            <div className="stat-content">
+              <span className="stat-label">{t('model_pool.stats_success_rate')}</span>
+              <span className="stat-value primary">{stats?.successRate24h || 100}%</span>
             </div>
           </div>
         </div>
 
         {/* 工具栏 */}
-        <div className="card-glass flex-row justify-between items-center" style={{ padding: '20px 28px', borderRadius: '20px' }}>
+        <div className="toolbar">
           <div className="flex-row items-center gap-md flex-1">
             <div style={{ position: 'relative', flex: 1, maxWidth: '350px' }}>
               <Input

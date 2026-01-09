@@ -201,7 +201,7 @@ export function SettingsPage() {
       </div>
       
       {/* Settings Grid Content */}
-      <div style={{ padding: '0 40px 80px' }}>
+      <div className="page-container">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '32px' }}>
           
           {/* Box 1: 运行功能控制 */}

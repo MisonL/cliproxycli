@@ -87,7 +87,7 @@
 .card {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: $radius-2xl;
+  border-radius: $card-radius;
   box-shadow: var(--shadow);
   overflow: hidden;
   transition: all $transition-normal;
@@ -99,6 +99,7 @@
     border: var(--glass-border);
     box-shadow: var(--shadow), var(--glass-inner-glow);
     position: relative;
+    border-radius: $card-radius;
     
     &::before {
       content: '';
@@ -118,7 +119,7 @@
 }
 
 .card-header {
-  padding: $spacing-lg $spacing-xl;
+  padding: $card-padding-sm $card-padding;
   border-bottom: 1px solid var(--border-light);
   display: flex;
   align-items: center;
@@ -133,7 +134,147 @@
 }
 
 .card-body {
-  padding: $spacing-xl;
+  padding: $card-padding;
+}
+
+// 3.1 页面容器 (Page Container)
+.page-container {
+  padding: 0 40px 80px;
+  margin-top: -40px;
+
+  @media (max-width: $breakpoint-mobile) {
+    padding: 0 16px 40px;
+    margin-top: -20px;
+  }
+}
+
+// 3.2 统计卡片 (Stat Card) - 统一所有页面的统计块样式
+.stat-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $stat-card-padding;
+  border-radius: $card-radius;
+  background: var(--bg-glass);
+  backdrop-filter: $glass-blur;
+  -webkit-backdrop-filter: $glass-blur;
+  border: var(--glass-border);
+  box-shadow: var(--shadow-sm), var(--glass-inner-glow);
+  transition: all $transition-fast;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: $card-radius-inner;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1px solid transparent;
+
+    &.primary {
+      background: linear-gradient(135deg, rgba($primary-color, 0.15) 0%, rgba($primary-color, 0.05) 100%);
+      color: var(--primary-color);
+      border-color: rgba($primary-color, 0.1);
+    }
+    &.success {
+      background: linear-gradient(135deg, rgba($success-color, 0.15) 0%, rgba($success-color, 0.05) 100%);
+      color: var(--success-color);
+      border-color: rgba($success-color, 0.1);
+    }
+    &.warning {
+      background: linear-gradient(135deg, rgba($warning-color, 0.15) 0%, rgba($warning-color, 0.05) 100%);
+      color: var(--warning-color);
+      border-color: rgba($warning-color, 0.1);
+    }
+    &.info {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%);
+      color: #3b82f6;
+      border-color: rgba(59, 130, 246, 0.1);
+    }
+
+    svg {
+      display: block;
+      filter: drop-shadow(0 2px 4px currentColor);
+    }
+  }
+
+  .stat-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .stat-label {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    font-weight: 600;
+  }
+
+  .stat-value {
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--text-primary);
+    line-height: 1.2;
+
+    &.primary { color: var(--primary-color); }
+    &.success { color: var(--success-color); }
+    &.warning { color: var(--warning-color); }
+    &.error { color: var(--error-color); }
+  }
+}
+
+// 3.3 工具栏 (Toolbar)
+.toolbar {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: $card-padding-sm $card-padding;
+  border-radius: $card-radius;
+  background: var(--bg-glass);
+  backdrop-filter: $glass-blur;
+  -webkit-backdrop-filter: $glass-blur;
+  border: var(--glass-border);
+  gap: $spacing-md;
+
+  @media (max-width: $breakpoint-mobile) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+// 3.4 图标盒子 (Icon Box)
+.icon-box {
+  width: 32px;
+  height: 32px;
+  border-radius: $radius-md;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.2) 0%, rgba(var(--primary-rgb), 0.05) 100%);
+  color: var(--primary-color);
+  flex-shrink: 0;
+
+  &.lg {
+    width: 48px;
+    height: 48px;
+    border-radius: $card-radius-inner;
+  }
+}
+
+// 3.5 内容区块 (Section Block)
+.section-block {
+  background: rgba(var(--bg-primary-rgb), 0.4);
+  padding: $spacing-md;
+  border-radius: $card-radius-inner;
+  border: 1px solid var(--border-light);
 }
 
 // 4. 统计面板 (Premium Stats)
@@ -542,3 +683,182 @@
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+// 11. 通知系统 (Premium Toast Notifications)
+.notification-container {
+  position: fixed;
+  top: calc(var(--header-height, 64px) + 16px);
+  right: 16px;
+  z-index: $z-notification;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  pointer-events: none;
+  max-width: 420px;
+  width: 100%;
+
+  @media (max-width: $breakpoint-mobile) {
+    left: 16px;
+    right: 16px;
+    max-width: none;
+  }
+}
+
+.notification {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+  padding: 14px 18px;
+  border-radius: $radius-xl;
+  background: var(--bg-glass);
+  backdrop-filter: $glass-blur;
+  -webkit-backdrop-filter: $glass-blur;
+  border: 1px solid var(--border-color);
+  box-shadow: $shadow-lg, var(--glass-inner-glow);
+  pointer-events: auto;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 14px;
+  transform-origin: top right;
+  
+  .message {
+    flex: 1;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  .close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: $radius-full;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    transition: all $transition-fast;
+    flex-shrink: 0;
+
+    &:hover {
+      background: rgba(var(--primary-rgb), 0.1);
+      color: var(--text-primary);
+    }
+  }
+
+  // 类型变体
+  &.success {
+    border-color: rgba($success-color, 0.3);
+    background: linear-gradient(135deg, rgba($success-color, 0.12) 0%, var(--bg-glass) 100%);
+
+    &::before {
+      content: '✓';
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: $radius-full;
+      background: rgba($success-color, 0.15);
+      color: $success-color;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+  }
+
+  &.error {
+    border-color: rgba($error-color, 0.3);
+    background: linear-gradient(135deg, rgba($error-color, 0.12) 0%, var(--bg-glass) 100%);
+
+    &::before {
+      content: '✕';
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: $radius-full;
+      background: rgba($error-color, 0.15);
+      color: $error-color;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+  }
+
+  &.warning {
+    border-color: rgba($warning-color, 0.3);
+    background: linear-gradient(135deg, rgba($warning-color, 0.12) 0%, var(--bg-glass) 100%);
+
+    &::before {
+      content: '!';
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: $radius-full;
+      background: rgba($warning-color, 0.15);
+      color: $warning-color;
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+  }
+
+  &.info {
+    border-color: rgba($primary-color, 0.3);
+    background: linear-gradient(135deg, rgba($primary-color, 0.08) 0%, var(--bg-glass) 100%);
+
+    &::before {
+      content: 'i';
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: $radius-full;
+      background: rgba($primary-color, 0.15);
+      color: $primary-color;
+      font-size: 12px;
+      font-weight: 700;
+      font-style: italic;
+      flex-shrink: 0;
+    }
+  }
+
+  // 动画
+  &.entering {
+    animation: toast-enter 0.35s cubic-bezier(0.21, 1.02, 0.73, 1) forwards;
+  }
+
+  &.exiting {
+    animation: toast-exit 0.3s cubic-bezier(0.06, 0.71, 0.55, 1) forwards;
+  }
+}
+
+@keyframes toast-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(100%) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes toast-exit {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100%) scale(0.9);
+  }
+}
+

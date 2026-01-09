@@ -555,9 +555,9 @@ export function UsagePage() {
         </div>
       </header>
 
-      <div style={{ padding: '0 40px 80px', marginTop: '-40px' }}>
+      <div className="page-container">
         <div className="card card-glass">
-          <div className="card-body" style={{ padding: '32px' }}>
+          <div className="card-body">
             <div className="flex-column gap-xl">
         {error && (
           <div className="card-glass border-error" style={{ padding: '16px 24px' }}>

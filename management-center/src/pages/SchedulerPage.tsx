@@ -341,57 +341,57 @@ export function SchedulerPage() {
         </div>
       </section>
 
-      <div style={{ padding: '0 40px 80px', marginTop: '-40px' }}>
+      <div className="page-container">
         <div className="card card-glass">
-          <div className="card-body" style={{ padding: '32px' }}>
+          <div className="card-body">
             <div className="flex-column gap-xl">
 
-        {/* 顶部统计面板 - 全新水晶风格 */}
+        {/* 顶部统计面板 - 使用统一样式 */}
         <div className="grid cols-4" style={{ gap: '24px' }}>
-          <div className="card-glass flex-row items-center gap-md" style={{ padding: '24px', borderRadius: '20px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba($primary-color, 0.15) 0%, rgba($primary-color, 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba($primary-color, 0.1)' }}>
-              <IconScrollText size={24} style={{ color: 'var(--primary-color)' }} />
+          <div className="stat-card">
+            <div className="stat-icon primary">
+              <IconScrollText size={24} />
             </div>
-            <div className="flex-column">
-              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{t('common.total_tasks', { defaultValue: '任务总数' })}</span>
-              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.2 }}>{stats.total}</span>
+            <div className="stat-content">
+              <span className="stat-label">{t('common.total_tasks', { defaultValue: '任务总数' })}</span>
+              <span className="stat-value">{stats.total}</span>
             </div>
           </div>
           
-          <div className="card-glass flex-row items-center gap-md" style={{ padding: '24px', borderRadius: '20px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(16, 185, 129, 0.1)' }}>
-              <IconActivity size={24} style={{ color: 'var(--success-color)' }} />
+          <div className="stat-card">
+            <div className="stat-icon success">
+              <IconActivity size={24} />
             </div>
-            <div className="flex-column">
-              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 600 }}>运行中</span>
-              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--success-color)', lineHeight: 1.2 }}>{stats.active}</span>
-            </div>
-          </div>
-
-          <div className="card-glass flex-row items-center gap-md" style={{ padding: '24px', borderRadius: '20px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(245, 158, 11, 0.1)' }}>
-              <IconPause size={24} style={{ color: 'var(--warning-color)' }} />
-            </div>
-            <div className="flex-column">
-              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 600 }}>已暂停</span>
-              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--warning-color)', lineHeight: 1.2 }}>{stats.paused}</span>
+            <div className="stat-content">
+              <span className="stat-label">运行中</span>
+              <span className="stat-value success">{stats.active}</span>
             </div>
           </div>
 
-          <div className="card-glass flex-row items-center gap-md" style={{ padding: '24px', borderRadius: '20px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(59, 130, 246, 0.1)' }}>
-              <IconActivity size={24} style={{ color: 'var(--primary-color)', filter: 'hue-rotate(45deg)' }} />
+          <div className="stat-card">
+            <div className="stat-icon warning">
+              <IconPause size={24} />
             </div>
-            <div className="flex-column">
-              <span style={{ fontSize: '13px', color: 'var(--text-tertiary)', fontWeight: 600 }}>24H 成功率</span>
-              <span style={{ fontSize: '28px', fontWeight: 900, color: 'var(--primary-color)', lineHeight: 1.2 }}>{stats.successRate}%</span>
+            <div className="stat-content">
+              <span className="stat-label">已暂停</span>
+              <span className="stat-value warning">{stats.paused}</span>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-icon info">
+              <IconActivity size={24} />
+            </div>
+            <div className="stat-content">
+              <span className="stat-label">24H 成功率</span>
+              <span className="stat-value primary">{stats.successRate}%</span>
             </div>
           </div>
         </div>
 
         {/* 工具栏与主列表 */}
         <div className="flex-column gap-lg">
-          <div className="card-glass flex-row justify-between items-center" style={{ padding: '20px 28px', borderRadius: '20px' }}>
+          <div className="toolbar">
             <div className="flex-row items-center gap-md flex-1">
               <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
                 <Input

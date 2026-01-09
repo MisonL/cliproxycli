@@ -158,7 +158,7 @@ export function ApiKeysPage() {
       </section>
 
       {/* Content Area */}
-      <div style={{ padding: '0 40px 80px', marginTop: '-40px' }}>
+      <div className="page-container">
         <div className="card card-glass">
         <div className="card-body" style={{ padding: '32px' }}>
             <div className="flex-column gap-xl">

@@ -522,7 +522,7 @@ export function LogsPage() {
         </div>
       </header>
 
-      <div style={{ padding: '0 40px 80px', marginTop: '-40px' }} className="flex-column gap-xl">
+      <div className="page-container flex-column gap-xl">
         <div className="card-glass flex-column overflow-hidden" style={{ borderRadius: '24px', border: '1px solid var(--border-light)', minHeight: '600px' }}>
           {/* 日志筛选栏 */}
           <div className="flex-row justify-between items-center" style={{ padding: '20px 28px', background: 'linear-gradient(to right, rgba(var(--bg-primary-rgb), 0.6), rgba(var(--bg-primary-rgb), 0.2))', borderBottom: '1px solid var(--border-light)' }}>

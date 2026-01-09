@@ -158,7 +158,7 @@ export function AuthFilesPage() {
       </section>
 
       {/* Main Container */}
-      <div style={{ padding: '0 40px 80px', marginTop: '-40px' }}>
+      <div className="page-container">
         <div className="card card-glass">
           {/* Toolbar */}
           <div className="card-header" style={{ padding: '24px 32px' }}>
