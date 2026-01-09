@@ -344,13 +344,8 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 // setupRoutes configures the API routes for the server.
 // It defines the endpoints and associates them with their respective handlers.
 func (s *Server) setupRoutes() {
-	// Ensure the management control panel asset is available.
-	// If no providers are configured, we reject all external requests.
-	// Requests from loopback with correct X-Local-Password are still allowed for internal tasks.
-	// Ensure the management control panel asset is available.
-	// We pass the config file path so the asset manager can resolve the 'static' directory relative to it.
-	// managementasset.EnsureAsset(s.configFilePath)
-	// managementasset.EnsureAsset(s.configFilePath)
+	// Ensure the management control panel asset is available (if control panel is enabled).
+	// Config file path is used to resolve the 'static' directory.
 	if !s.cfg.RemoteManagement.DisableControlPanel {
 		if _, err := managementasset.EnsureAsset(s.configFilePath); err != nil {
 			log.Errorf("Failed to ensure management asset: %v. Management panel might be unavailable.", err)
