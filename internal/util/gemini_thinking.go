@@ -263,7 +263,7 @@ func ThinkingBudgetToGemini3Level(model string, budget int) (string, bool) {
 //
 // We should not override these API defaults; let users explicitly configure if needed.
 var modelsWithDefaultThinking = map[string]bool{
-	// "gemini-3-pro-preview":       true,
+	"gemini-3-pro-preview": true,
 	// "gemini-3-pro-image-preview": true,
 	// "gemini-3-flash-preview":     true,
 }
