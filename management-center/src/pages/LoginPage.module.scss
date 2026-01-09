@@ -98,15 +98,21 @@
   :global(.input) {
     height: 52px;
     font-size: 15px;
-    background: rgba(0,0,0,0.2) !important; // Darker background for contrast
-    border-color: rgba(255,255,255,0.08) !important;
+    // Improved visibility
+    background: rgba(0, 0, 0, 0.4) !important; // Deeper dark for depth
+    border-color: rgba(255, 255, 255, 0.2) !important; // Distinct border
+    color: #fff !important;
     padding-left: 48px !important; // More space for icon
     transition: all 0.2s ease;
 
     &:focus {
-      background: rgba(0,0,0,0.3) !important;
+      background: rgba(0, 0, 0, 0.6) !important;
       border-color: var(--primary-color) !important;
-      box-shadow: 0 0 0 4px rgba($primary-color, 0.15);
+      box-shadow: 0 0 0 4px rgba($primary-color, 0.25);
+    }
+    
+    &::placeholder {
+      color: rgba(255, 255, 255, 0.4);
     }
   }
 }

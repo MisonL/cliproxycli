@@ -236,19 +236,39 @@ export function MainLayout() {
           ? 'error'
           : 'muted';
 
-  const navItems = [
-    { path: '/settings', label: t('nav.basic_settings'), icon: sidebarIcons.settings },
-    { path: '/credentials', label: t('nav.credentials', { defaultValue: '统一凭证池' }), icon: sidebarIcons.credentials },
-    { path: '/api-keys', label: t('nav.api_keys'), icon: sidebarIcons.apiKeys },
-    { path: '/ai-providers', label: t('nav.ai_providers'), icon: sidebarIcons.aiProviders },
-    { path: '/auth-files', label: t('nav.auth_files'), icon: sidebarIcons.authFiles },
-    { path: '/oauth', label: t('nav.oauth', { defaultValue: 'OAuth 登录' }), icon: sidebarIcons.oauth },
-    { path: '/usage', label: t('nav.usage_stats'), icon: sidebarIcons.usage },
-    { path: '/config', label: t('nav.config_management'), icon: sidebarIcons.config },
-    { path: '/scheduler', label: t('nav.scheduler', { defaultValue: '定时任务' }), icon: sidebarIcons.scheduler },
-    { path: '/model-pool', label: t('nav.model_pool'), icon: sidebarIcons.modelPool },
-    ...(config?.loggingToFile ? [{ path: '/logs', label: t('nav.logs'), icon: sidebarIcons.logs }] : []),
-    { path: '/system', label: t('nav.system_info'), icon: sidebarIcons.system }
+  const navGroups = [
+    {
+      title: t('nav_group.dashboard', { defaultValue: '概览' }),
+      items: [
+        { path: '/system', label: t('nav.system_info', { defaultValue: '中心信息' }), icon: sidebarIcons.system },
+        { path: '/usage', label: t('nav.usage_stats', { defaultValue: '使用统计' }), icon: sidebarIcons.usage }
+      ]
+    },
+    {
+      title: t('nav_group.access', { defaultValue: '访问控制' }),
+      items: [
+        { path: '/api-keys', label: t('nav.api_keys'), icon: sidebarIcons.apiKeys }
+      ]
+    },
+    {
+      title: t('nav_group.models', { defaultValue: '模型与凭证' }),
+      items: [
+        { path: '/model-pool', label: t('nav.model_pool'), icon: sidebarIcons.modelPool },
+        { path: '/credentials', label: t('nav.credentials', { defaultValue: '统一凭证池' }), icon: sidebarIcons.credentials },
+        { path: '/auth-files', label: t('nav.auth_files'), icon: sidebarIcons.authFiles },
+        { path: '/oauth', label: t('nav.oauth', { defaultValue: 'OAuth 登录' }), icon: sidebarIcons.oauth }
+        // { path: '/ai-providers', label: t('nav.ai_providers'), icon: sidebarIcons.aiProviders }, // Deprecated or redundant? Keeping out for now as user asked to clean up.
+      ]
+    },
+    {
+      title: t('nav_group.system', { defaultValue: '系统管理' }),
+      items: [
+        { path: '/settings', label: t('nav.basic_settings'), icon: sidebarIcons.settings },
+        { path: '/config', label: t('nav.config_management'), icon: sidebarIcons.config },
+        { path: '/scheduler', label: t('nav.scheduler', { defaultValue: '定时任务' }), icon: sidebarIcons.scheduler },
+        ...(config?.loggingToFile ? [{ path: '/logs', label: t('nav.logs'), icon: sidebarIcons.logs }] : [])
+      ]
+    }
   ];
 
   const handleRefreshAll = async () => {
@@ -352,17 +372,34 @@ export function MainLayout() {
       <div className="main-body">
         <aside className={`sidebar ${sidebarOpen ? 'open' : ''} ${sidebarCollapsed ? 'collapsed' : ''}`}>
           <div className="nav-section">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-                onClick={() => setSidebarOpen(false)}
-                title={sidebarCollapsed ? item.label : undefined}
-              >
-                <span className="nav-icon">{item.icon}</span>
-                {!sidebarCollapsed && <span className="nav-label">{item.label}</span>}
-              </NavLink>
+            {navGroups.map((group, idx) => (
+              <div key={idx} className="nav-group" style={{ marginBottom: '16px' }}>
+                {!sidebarCollapsed && group.title && (
+                  <div className="nav-group-title" style={{ 
+                    padding: '0 12px', 
+                    marginBottom: '8px', 
+                    fontSize: '12px', 
+                    fontWeight: 600, 
+                    color: 'var(--text-tertiary)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                  }}>
+                    {group.title}
+                  </div>
+                )}
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                    onClick={() => setSidebarOpen(false)}
+                    title={sidebarCollapsed ? item.label : undefined}
+                  >
+                    <span className="nav-icon">{item.icon}</span>
+                    {!sidebarCollapsed && <span className="nav-label">{item.label}</span>}
+                  </NavLink>
+                ))}
+              </div>
             ))}
           </div>
         </aside>
