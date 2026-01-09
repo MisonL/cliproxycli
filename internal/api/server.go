@@ -349,7 +349,10 @@ func (s *Server) setupRoutes() {
 	// Requests from loopback with correct X-Local-Password are still allowed for internal tasks.
 	// Ensure the management control panel asset is available.
 	// We pass the config file path so the asset manager can resolve the 'static' directory relative to it.
-	managementasset.EnsureAsset(s.configFilePath)
+	// managementasset.EnsureAsset(s.configFilePath)
+	if _, err := managementasset.EnsureAsset(s.configFilePath); err != nil {
+		log.Fatalf("Failed to ensure management asset: %v", err)
+	}
 
 	s.engine.GET("/management.html", s.serveManagementControlPanel)
 	openaiHandlers := openai.NewOpenAIAPIHandler(s.handlers)
