@@ -77,6 +77,8 @@ conversation-*.txt
 lint_report.txt
 race_report.txt
 test_output.txt
+1Check
+.!*
 
 # Generated embedded assets
 internal/managementasset/embedded/management.html
