@@ -350,8 +350,11 @@ func (s *Server) setupRoutes() {
 	// Ensure the management control panel asset is available.
 	// We pass the config file path so the asset manager can resolve the 'static' directory relative to it.
 	// managementasset.EnsureAsset(s.configFilePath)
-	if _, err := managementasset.EnsureAsset(s.configFilePath); err != nil {
-		log.Fatalf("Failed to ensure management asset: %v", err)
+	// managementasset.EnsureAsset(s.configFilePath)
+	if !s.cfg.RemoteManagement.DisableControlPanel {
+		if _, err := managementasset.EnsureAsset(s.configFilePath); err != nil {
+			log.Errorf("Failed to ensure management asset: %v. Management panel might be unavailable.", err)
+		}
 	}
 
 	s.engine.GET("/management.html", s.serveManagementControlPanel)
